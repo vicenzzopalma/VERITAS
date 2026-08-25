@@ -218,7 +218,9 @@ export const handleMessage = async (
   messagePayload: MessagePayload,
   contactPayload: ContactPayload,
   contextPayload: WhatsappContextPayload,
-  mediaPayload?: MediaPayload
+  mediaPayload?: MediaPayload,
+  isHistoricalSync: boolean = false,
+  timestamp?: Date
 ): Promise<void> => {
   try {
     const processedMessage = processLocationMessage(messagePayload);
@@ -244,6 +246,7 @@ export const handleMessage = async (
 
     const whatsapp = await ShowWhatsAppService(contextPayload.whatsappId);
     if (
+      !isHistoricalSync &&
       contextPayload.unreadMessages === 0 &&
       whatsapp.farewellMessage &&
       formatBody(whatsapp.farewellMessage, contact) === processedMessage.body
@@ -267,7 +270,9 @@ export const handleMessage = async (
       read: processedMessage.fromMe,
       mediaType: processedMessage.type,
       quotedMsgId: processedMessage.quotedMsgId,
-      ack: processedMessage.ack !== undefined ? processedMessage.ack : 0
+      ack: processedMessage.ack !== undefined ? processedMessage.ack : 0,
+      createdAt: timestamp || new Date(),
+      updatedAt: timestamp || new Date()
     };
 
     if (mediaPayload && processedMessage.hasMedia) {
@@ -287,13 +292,16 @@ export const handleMessage = async (
       lastMessageText = processedMessage.body || mediaPayload?.filename || "";
     }
 
-    await ticket.update({ lastMessage: lastMessageText });
+    if (!isHistoricalSync) {
+      await ticket.update({ lastMessage: lastMessageText });
+    }
 
     await CreateMessageService({ messageData });
 
     await processVcardMessage(processedMessage);
 
     if (
+      !isHistoricalSync &&
       !ticket.queue &&
       !contextPayload.groupContact &&
       !processedMessage.fromMe &&

@@ -10,6 +10,7 @@ import { Badge } from "@material-ui/core";
 import DashboardOutlinedIcon from "@material-ui/icons/DashboardOutlined";
 import WhatsAppIcon from "@material-ui/icons/WhatsApp";
 import SyncAltIcon from "@material-ui/icons/SyncAlt";
+import SecurityOutlinedIcon from "@material-ui/icons/SecurityOutlined";
 import SettingsOutlinedIcon from "@material-ui/icons/SettingsOutlined";
 import PeopleAltOutlinedIcon from "@material-ui/icons/PeopleAltOutlined";
 import ContactPhoneOutlinedIcon from "@material-ui/icons/ContactPhoneOutlined";
@@ -76,6 +77,11 @@ const MainListItems = (props) => {
         to="/"
         primary="Dashboard"
         icon={<DashboardOutlinedIcon />}
+      />
+      <ListItemLink
+        to="/audit"
+        primary="Cofre de Auditoria"
+        icon={<SecurityOutlinedIcon style={{ color: "#0284c7" }} />}
       />
       <ListItemLink
         to="/connections"

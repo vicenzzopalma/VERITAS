@@ -1,4 +1,4 @@
-import Whatsapp from "../../models/Whatsapp";
+﻿import Whatsapp from "../../models/Whatsapp";
 import {
   ProviderMessage,
   ProviderMediaInput,
@@ -6,7 +6,6 @@ import {
   SendMessageOptions,
   SendMediaOptions
 } from "./types";
-import { WhatsappWebJsProvider } from "./Implementations/wwebjs";
 import { WhaileysProvider } from "./Implementations/whaileys";
 
 export interface WhatsappProvider {
@@ -42,13 +41,6 @@ export interface WhatsappProvider {
   ): Promise<ProviderMessage[]>;
 }
 
-const provider = process.env.WHATSAPP_PROVIDER || "wwebjs";
-
-const providersMap: Record<string, WhatsappProvider> = {
-  wwebjs: WhatsappWebJsProvider,
-  whaileys: WhaileysProvider
-};
-
-const whatsappProvider = providersMap[provider];
+const whatsappProvider: WhatsappProvider = WhaileysProvider;
 
 export { whatsappProvider };

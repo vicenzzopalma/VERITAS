@@ -34,6 +34,10 @@ import { HttpsProxyAgent } from "https-proxy-agent";
 import NodeCache from "node-cache";
 
 import Whatsapp from "../../../models/Whatsapp";
+import Contact from "../../../models/Contact";
+import Message from "../../../models/Message";
+import Ticket from "../../../models/Ticket";
+import CreateOrUpdateContactService from "../../../services/ContactServices/CreateOrUpdateContactService";
 import { getIO } from "../../../libs/socket";
 import { logger } from "../../../utils/logger";
 import AppError from "../../../errors/AppError";
@@ -606,9 +610,27 @@ const convertToContactPayload = async (
 
   const normalizedJid = safeNormalized(resolvedJid);
 
-  const contactInfo =
+  let contactInfo =
     wbot.store?.contacts?.[resolvedJid] ||
     wbot.store?.contacts?.[normalizedJid];
+
+  // Busca reversa em store.contacts por LID ou ID caso ainda não tenha sido encontrado
+  if (!contactInfo && wbot.store?.contacts) {
+    const allContacts = Object.values(wbot.store.contacts);
+    contactInfo = allContacts.find(
+      (c: any) =>
+        c?.lid === resolvedJid ||
+        c?.lid === normalizedJid ||
+        (lid && c?.lid === lid) ||
+        c?.id === resolvedJid ||
+        c?.id === normalizedJid
+    );
+  }
+
+  // Se o contato da store tem ID no formato telefone (@s.whatsapp.net), usar como PN
+  if (contactInfo?.id && /@s\.whatsapp\.net$/i.test(contactInfo.id)) {
+    resolvedJid = contactInfo.id;
+  }
 
   const chatInfo =
     wbot.store?.chats?.get?.(resolvedJid) ||
@@ -631,24 +653,19 @@ const convertToContactPayload = async (
 
   if (isJidGroup(resolvedJid)) {
     const groupNumber = normalizedJid.split("@")[0];
-    const groupName =
+    let groupName =
       contactInfo?.name ||
       contactInfo?.notify ||
+      (contactInfo as any)?.verifiedName ||
       chatInfo?.name ||
-      (chatInfo as { subject?: string } | undefined)?.subject ||
-      groupNumber;
+      (chatInfo as { subject?: string } | undefined)?.subject;
 
-    if (!contactInfo && (!groupName || groupName === groupNumber)) {
+    // Se o nome for apenas números ou o próprio groupNumber, buscar subject dos metadados
+    if (!groupName || groupName === groupNumber || /^\d+$/.test(groupName)) {
       try {
         const meta = await wbot.groupMetadata(normalizedJid);
-        const metaName = typeof meta?.subject === "string" ? meta.subject : "";
-        if (metaName) {
-          return {
-            name: metaName,
-            number: groupNumber,
-            isGroup: true,
-            profilePicUrl
-          };
+        if (meta?.subject) {
+          groupName = meta.subject;
         }
       } catch {
         /* ignore */
@@ -656,7 +673,7 @@ const convertToContactPayload = async (
     }
 
     return {
-      name: groupName,
+      name: groupName || `Grupo ${groupNumber}`,
       number: groupNumber,
       isGroup: true,
       profilePicUrl
@@ -674,21 +691,51 @@ const convertToContactPayload = async (
       ? undefined
       : incomingPushName;
 
-  const number =
+  let number =
     (isJidUser(resolvedJid) && decoded?.user) ||
     jidDecode(preferPn || "")?.user ||
     normalizedJid.split("@")[0];
 
-  const lidValue =
-    isLidUser(resolvedJid) && decoded?.user ? `${decoded.user}@lid` : lid;
+  const isLid =
+    isLidUser(resolvedJid) ||
+    resolvedJid.endsWith("@lid") ||
+    (lid && number === lid.split("@")[0]);
 
-  const name =
+  const lidValue = isLid
+    ? resolvedJid.endsWith("@lid")
+      ? resolvedJid
+      : lid || `${number}@lid`
+    : lid;
+
+  // Se o number for um LID de 14+ dígitos, tentar checar no banco de dados se já conhecemos o número real
+  if (isLid && lidValue) {
+    try {
+      const dbContact = await Contact.findOne({ where: { lid: lidValue } });
+      if (dbContact && dbContact.number && dbContact.number.length <= 13) {
+        number = dbContact.number;
+      }
+    } catch {
+      /* ignore */
+    }
+  }
+
+  let name =
     contactInfo?.name ||
     contactInfo?.notify ||
+    (contactInfo as any)?.verifiedName ||
     pushName ||
-    number ||
-    lidValue ||
     "";
+
+  // Se o nome ainda for apenas números ou o próprio LID, preferir pushName ou número real
+  if (!name || name === number || /^\d{10,}$/.test(name)) {
+    if (pushName) {
+      name = pushName;
+    } else if (!isLid && number) {
+      name = number;
+    } else {
+      name = pushName || number || lidValue || "";
+    }
+  }
 
   return {
     name,
@@ -931,7 +978,9 @@ const init = async (whatsapp: Whatsapp): Promise<void> => {
         })
       )
     },
-    shouldSyncHistoryMessage: () => false,
+    shouldSyncHistoryMessage: (msg: proto.Message.IHistorySyncNotification) => {
+      return true;
+    },
     shouldIgnoreJid: jid => {
       if (typeof jid !== "string") return false;
       return (
@@ -940,7 +989,7 @@ const init = async (whatsapp: Whatsapp): Promise<void> => {
         jid === "status@broadcast"
       );
     },
-    syncFullHistory: false,
+    syncFullHistory: true,
     version: waVersionToUse,
     msgRetryCounterMap,
     markOnlineOnConnect: false,
@@ -986,6 +1035,187 @@ const init = async (whatsapp: Whatsapp): Promise<void> => {
 
   wbot.ev.on("creds.update", () => {
     debouncedSaveCreds(whatsapp, state.creds);
+  });
+
+  // Fila sequencial de sincronização de histórico retroativo (1 conversa por vez - últimas 24h)
+  wbot.ev.on("messaging-history.set", async ({ chats, contacts, messages, isLatest, syncType }) => {
+    try {
+      logger.info({
+        info: "messaging-history.set event received",
+        sessionId,
+        chatsCount: chats?.length || 0,
+        contactsCount: contacts?.length || 0,
+        messagesCount: messages?.length || 0,
+        syncType
+      });
+
+      // 1. Processar contatos do histórico
+      if (contacts && contacts.length > 0) {
+        for (const c of contacts) {
+          try {
+            const jid = c.id || "";
+            const lid = (c as any).lid || (jid.endsWith("@lid") ? jid : undefined);
+            const pn = jid.endsWith("@s.whatsapp.net") ? jid.split("@")[0] : undefined;
+            const name = c.name || c.notify || (c as any).verifiedName;
+
+            if (pn || lid) {
+              await CreateOrUpdateContactService({
+                name: name || pn || lid?.split("@")[0] || "",
+                number: pn || lid?.split("@")[0] || "",
+                lid,
+                isGroup: false
+              });
+            }
+          } catch {
+            /* ignore */
+          }
+        }
+      }
+
+      // 2. Processar grupos do histórico
+      if (chats && chats.length > 0) {
+        for (const chat of chats) {
+          try {
+            if (isJidGroup(chat.id)) {
+              const groupNumber = chat.id.split("@")[0];
+              const groupName = (chat as any).name || (chat as any).subject || groupNumber;
+              if (groupName && groupName !== groupNumber) {
+                await CreateOrUpdateContactService({
+                  name: groupName,
+                  number: groupNumber,
+                  isGroup: true
+                });
+              }
+            }
+          } catch {
+            /* ignore */
+          }
+        }
+      }
+
+      if (!messages || messages.length === 0) return;
+
+      // 3. Filtrar estritamente mensagens das últimas 24 horas
+      const now = Date.now();
+      const twentyFourHoursAgo = now - 24 * 60 * 60 * 1000;
+
+      const validHistoryMessages = messages.filter(msg => {
+        if (!msg.message || !shouldHandleMessage(msg)) return false;
+        const ts = Number(msg.messageTimestamp || 0) * 1000;
+        return ts >= twentyFourHoursAgo;
+      });
+
+      logger.info({
+        info: "Filtered 24h history messages",
+        total: messages.length,
+        valid24h: validHistoryMessages.length,
+        sessionId
+      });
+
+      if (validHistoryMessages.length === 0) return;
+
+      // 4. Agrupar mensagens por conversa (Chat JID)
+      const chatsMap = new Map<string, WAMessage[]>();
+      for (const msg of validHistoryMessages) {
+        const chatJid = msg.key?.remoteJid || "";
+        if (!chatJid) continue;
+        if (!chatsMap.has(chatJid)) {
+          chatsMap.set(chatJid, []);
+        }
+        chatsMap.get(chatJid)!.push(msg);
+      }
+
+      // 5. Processamento SEQUENCIAL: 1 CONVERSA DE CADA VEZ
+      const totalChats = chatsMap.size;
+      let chatIndex = 0;
+
+      for (const [chatJid, chatMsgs] of chatsMap.entries()) {
+        chatIndex++;
+        logger.info({
+          info: `[History Sync] Processando conversa (${chatIndex}/${totalChats})`,
+          chatJid,
+          messagesCount: chatMsgs.length,
+          sessionId
+        });
+
+        // Ordenar mensagens da conversa em ordem cronológica (mais antiga para mais recente)
+        chatMsgs.sort((a, b) => Number(a.messageTimestamp || 0) - Number(b.messageTimestamp || 0));
+
+        let lastMsgText = "";
+
+        for (const msg of chatMsgs) {
+          try {
+            if (!msg.key.id) continue;
+
+            // Checar se a mensagem já existe no banco de dados para evitar duplicidade
+            const existing = await Message.findByPk(msg.key.id);
+            if (existing) continue;
+
+            const msgTs = new Date(Number(msg.messageTimestamp || 0) * 1000);
+
+            const {
+              messagePayload,
+              contactPayload,
+              contextPayload,
+              mediaPayload
+            } = await getMessageData(msg, wbot);
+
+            await handleMessage(
+              messagePayload,
+              contactPayload,
+              contextPayload,
+              mediaPayload,
+              true, // isHistoricalSync (não dispara bots/chatbots)
+              msgTs // Timestamp original exato do WhatsApp
+            );
+
+            lastMsgText = messagePayload.body || mediaPayload?.filename || "";
+
+            // Micro-pausa de 30ms para manter a CPU e event loop 100% livres
+            await sleep(30);
+          } catch (err) {
+            logger.debug({
+              info: "Error processing individual history message",
+              err,
+              msgId: msg.key.id
+            });
+          }
+        }
+
+        // Atualizar o lastMessage do ticket correspondente à conversa
+        try {
+          if (chatMsgs.length > 0 && lastMsgText) {
+            const lastMsg = chatMsgs[chatMsgs.length - 1];
+            const contactPayload = await convertToContactPayload(chatJid, lastMsg, wbot);
+            const contact = await Contact.findOne({ where: { number: contactPayload.number } });
+            if (contact) {
+              const ticket = await Ticket.findOne({
+                where: { contactId: contact.id, whatsappId: sessionId }
+              });
+              if (ticket) {
+                await ticket.update({ lastMessage: lastMsgText });
+              }
+            }
+          }
+        } catch {
+          /* ignore */
+        }
+
+        // Pausa suave de 100ms entre conversas para não sobrecarregar
+        await sleep(100);
+      }
+
+      logger.info({
+        info: `[History Sync] Sincronização retroativa concluída com sucesso (${totalChats} conversas processadas)`,
+        sessionId
+      });
+    } catch (err) {
+      logger.error({
+        info: "Error in messaging-history.set queue",
+        sessionId,
+        err
+      });
+    }
   });
 
   wbot.ev.on("messages.upsert", async ({ messages, type }) => {
@@ -1131,6 +1361,51 @@ const init = async (whatsapp: Whatsapp): Promise<void> => {
       }
 
       logger.info({ info: "Session connected", sessionId });
+
+      // Auto-sync de todos os grupos do WhatsApp para garantir nomes reais
+      setTimeout(async () => {
+        try {
+          const groups = await wbot.groupFetchAllParticipating();
+          for (const [groupId, meta] of Object.entries(groups)) {
+            const groupNumber = groupId.split("@")[0];
+            const subject = meta.subject || groupNumber;
+            if (subject && subject !== groupNumber) {
+              await CreateOrUpdateContactService({
+                name: subject,
+                number: groupNumber,
+                isGroup: true
+              });
+            }
+          }
+          logger.info({ info: "Synced participating groups", count: Object.keys(groups).length, sessionId });
+        } catch (err) {
+          logger.debug({ info: "Could not fetch participating groups on open", sessionId, err });
+        }
+
+        // Varredura de resolução de LIDs contra o store.contacts
+        try {
+          const allStoreContacts = Object.values(wbot.store?.contacts || {});
+          for (const c of allStoreContacts as any[]) {
+            if (!c?.id) continue;
+            const jid = c.id;
+            const lid = c.lid || (jid.endsWith("@lid") ? jid : undefined);
+            const pn = jid.endsWith("@s.whatsapp.net") ? jid.split("@")[0] : undefined;
+            const name = c.name || c.notify || c.verifiedName;
+
+            if (pn && lid) {
+              await CreateOrUpdateContactService({
+                name: name || pn,
+                number: pn,
+                lid,
+                isGroup: false
+              });
+            }
+          }
+          logger.info({ info: "Synced contacts from store", count: allStoreContacts.length, sessionId });
+        } catch (err) {
+          logger.debug({ info: "Error in store contacts resolution pass", sessionId, err });
+        }
+      }, 2000);
     }
 
     if (qr !== undefined) {
@@ -1145,6 +1420,104 @@ const init = async (whatsapp: Whatsapp): Promise<void> => {
       });
 
       logger.info({ info: "QR Code generated", sessionId });
+    }
+  });
+
+  wbot.ev.on("contacts.upsert", async contacts => {
+    for (const c of contacts) {
+      try {
+        const jid = c.id || "";
+        const lid = (c as any).lid || (jid.endsWith("@lid") ? jid : undefined);
+        const pn = jid.endsWith("@s.whatsapp.net") ? jid.split("@")[0] : undefined;
+        const name = c.name || c.notify || (c as any).verifiedName;
+
+        if (pn || lid) {
+          await CreateOrUpdateContactService({
+            name: name || pn || lid?.split("@")[0] || "",
+            number: pn || lid?.split("@")[0] || "",
+            lid,
+            isGroup: false
+          });
+        }
+      } catch (err) {
+        logger.debug({ info: "Error in contacts.upsert", err });
+      }
+    }
+  });
+
+  wbot.ev.on("contacts.update", async updates => {
+    for (const c of updates) {
+      try {
+        const jid = c.id || "";
+        const lid = (c as any).lid || (jid.endsWith("@lid") ? jid : undefined);
+        const pn = jid.endsWith("@s.whatsapp.net") ? jid.split("@")[0] : undefined;
+        const name = c.name || c.notify || (c as any).verifiedName;
+
+        if (name && (pn || lid)) {
+          await CreateOrUpdateContactService({
+            name,
+            number: pn || lid?.split("@")[0] || "",
+            lid,
+            isGroup: false
+          });
+        }
+      } catch (err) {
+        logger.debug({ info: "Error in contacts.update", err });
+      }
+    }
+  });
+
+  wbot.ev.on("groups.upsert", async groups => {
+    for (const g of groups) {
+      try {
+        const groupNumber = g.id.split("@")[0];
+        const groupName = g.subject || groupNumber;
+        await CreateOrUpdateContactService({
+          name: groupName,
+          number: groupNumber,
+          isGroup: true
+        });
+      } catch (err) {
+        logger.debug({ info: "Error in groups.upsert", err });
+      }
+    }
+  });
+
+  wbot.ev.on("groups.update", async updates => {
+    for (const u of updates) {
+      try {
+        if (u.id && u.subject) {
+          const groupNumber = u.id.split("@")[0];
+          const contact = await Contact.findOne({
+            where: { number: groupNumber, isGroup: true }
+          });
+          if (contact) {
+            await contact.update({ name: u.subject });
+            getIO().emit("contact", { action: "update", contact });
+          }
+        }
+      } catch (err) {
+        logger.debug({ info: "Error in groups.update", err });
+      }
+    }
+  });
+
+  wbot.ev.on("chats.upsert", async chats => {
+    for (const chat of chats) {
+      try {
+        if (chat.name && chat.id) {
+          const number = chat.id.split("@")[0];
+          const contact = await Contact.findOne({
+            where: { number }
+          });
+          if (contact && (!contact.name || contact.name === number || /^\d+$/.test(contact.name))) {
+            await contact.update({ name: chat.name });
+            getIO().emit("contact", { action: "update", contact });
+          }
+        }
+      } catch (err) {
+        logger.debug({ info: "Error in chats.upsert", err });
+      }
     }
   });
 

@@ -34,6 +34,7 @@ import MainContainer from "../../components/MainContainer";
 import toastError from "../../errors/toastError";
 import { AuthContext } from "../../context/Auth/AuthContext";
 import { Can } from "../../components/Can";
+import { getContactDisplayName, formatPhoneNumber } from "../../helpers/contactHelper";
 
 const reducer = (state, action) => {
   if (action.type === "LOAD_CONTACTS") {
@@ -301,10 +302,12 @@ const Contacts = () => {
               {contacts.map((contact) => (
                 <TableRow key={contact.id}>
                   <TableCell style={{ paddingRight: 0 }}>
-                    {<Avatar src={contact.profilePicUrl} />}
+                    {<Avatar src={contact.profilePicUrl}>{getContactDisplayName(contact).charAt(0).toUpperCase()}</Avatar>}
                   </TableCell>
-                  <TableCell>{contact.name}</TableCell>
-                  <TableCell align="center">{contact.number}</TableCell>
+                  <TableCell style={{ fontWeight: 600 }}>{getContactDisplayName(contact)}</TableCell>
+                  <TableCell align="center">
+                    {formatPhoneNumber(contact.number) || "-"}
+                  </TableCell>
                   <TableCell align="center">{contact.email}</TableCell>
                   <TableCell align="center">
                     <IconButton

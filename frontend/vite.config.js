@@ -1,4 +1,4 @@
-import { defineConfig } from "vite";
+﻿import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 
 export default defineConfig({
@@ -9,7 +9,8 @@ export default defineConfig({
   ],
   server: {
     port: 3000,
-    open: true,
+    open: false,
+    host: true,
   },
   build: {
     outDir: "build",
@@ -36,6 +37,11 @@ export default defineConfig({
     global: "globalThis",
   },
   optimizeDeps: {
+    esbuildOptions: {
+      loader: {
+        ".js": "jsx",
+      },
+    },
     include: [
       "mic-recorder-to-mp3",
       "@material-ui/core",

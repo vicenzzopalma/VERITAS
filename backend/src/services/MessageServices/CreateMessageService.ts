@@ -1,4 +1,5 @@
 import { getIO } from "../../libs/socket";
+import Contact from "../../models/Contact";
 import Message from "../../models/Message";
 import Ticket from "../../models/Ticket";
 import Whatsapp from "../../models/Whatsapp";
@@ -14,6 +15,8 @@ interface MessageData {
   mediaUrl?: string;
   ack?: number;
   quotedMsgId?: string;
+  createdAt?: Date;
+  updatedAt?: Date;
 }
 interface Request {
   messageData: MessageData;
@@ -22,6 +25,20 @@ interface Request {
 const CreateMessageService = async ({
   messageData
 }: Request): Promise<Message> => {
+  if (messageData.quotedMsgId) {
+    const quotedExists = await Message.findByPk(messageData.quotedMsgId);
+    if (!quotedExists) {
+      delete messageData.quotedMsgId;
+    }
+  }
+
+  if (messageData.contactId) {
+    const contactExists = await Contact.findByPk(messageData.contactId);
+    if (!contactExists) {
+      delete messageData.contactId;
+    }
+  }
+
   await Message.upsert(messageData);
 
   const message = await Message.findByPk(messageData.id, {

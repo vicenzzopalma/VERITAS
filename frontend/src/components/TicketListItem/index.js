@@ -116,6 +116,8 @@ const useStyles = makeStyles(theme => ({
 	},
 }));
 
+import { getContactDisplayName, formatPhoneNumber } from "../../helpers/contactHelper";
+
 const TicketListItem = ({ ticket }) => {
 	const classes = useStyles();
 	const history = useHistory();
@@ -188,7 +190,7 @@ const TicketListItem = ({ ticket }) => {
 								variant="body2"
 								color="textPrimary"
 							>
-								{ticket.contact.name}
+								{getContactDisplayName(ticket.contact)}
 							</Typography>
 							{ticket.status === "closed" && (
 								<Badge
