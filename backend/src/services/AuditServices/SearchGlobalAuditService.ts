@@ -35,7 +35,12 @@ const SearchGlobalAuditService = async ({
   const isShortDigits = /^\d{1,5}$/.test(cleanSearch);
 
   const orConditions: any[] = [
-    where(fn("LOWER", col("contact.name")), "LIKE", `%${cleanSearch}%`)
+    {
+      [Op.and]: [
+        where(fn("LOWER", col("contact.name")), "LIKE", `%${cleanSearch}%`),
+        where(fn("LENGTH", col("contact.name")), "<=", 13)
+      ]
+    }
   ];
 
   if (!isShortDigits) {
@@ -46,10 +51,12 @@ const SearchGlobalAuditService = async ({
 
   const phoneVariants = getPhoneSearchVariants(search);
   for (const variant of phoneVariants) {
-    orConditions.push(
-      { "$contact.number$": { [Op.like]: `%${variant}%` } },
-      { "$contact.lid$": { [Op.like]: `%${variant}%` } }
-    );
+    orConditions.push({
+      [Op.and]: [
+        { "$contact.number$": { [Op.like]: `%${variant}%` } },
+        where(fn("LENGTH", col("contact.number")), "<=", 13)
+      ]
+    });
   }
 
   const tickets = await Ticket.findAll({

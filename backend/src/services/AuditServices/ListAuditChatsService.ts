@@ -46,16 +46,21 @@ const ListAuditChatsService = async ({
 
   const contactOrConditions: any[] = [];
   if (cleanSearch) {
-    contactOrConditions.push(
-      where(fn("LOWER", col("contact.name")), "LIKE", `%${cleanSearch}%`)
-    );
+    contactOrConditions.push({
+      [Op.and]: [
+        where(fn("LOWER", col("contact.name")), "LIKE", `%${cleanSearch}%`),
+        where(fn("LENGTH", col("contact.name")), "<=", 13)
+      ]
+    });
 
     const phoneVariants = getPhoneSearchVariants(search);
     for (const variant of phoneVariants) {
-      contactOrConditions.push(
-        { "$contact.number$": { [Op.like]: `%${variant}%` } },
-        { "$contact.lid$": { [Op.like]: `%${variant}%` } }
-      );
+      contactOrConditions.push({
+        [Op.and]: [
+          { "$contact.number$": { [Op.like]: `%${variant}%` } },
+          where(fn("LENGTH", col("contact.number")), "<=", 13)
+        ]
+      });
     }
 
     const isShortDigits = /^\d{1,5}$/.test(cleanSearch);

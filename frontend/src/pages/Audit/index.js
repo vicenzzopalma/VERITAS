@@ -284,6 +284,23 @@ const useStyles = makeStyles((theme) => ({
     backgroundRepeat: "repeat",
     overflow: "hidden",
   },
+  activeChatHeader: {
+    backgroundColor: theme.palette.background.paper,
+    padding: theme.spacing(1.2, 2),
+    borderBottom: "1px solid rgba(0, 0, 0, 0.08)",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "space-between",
+    zIndex: 6,
+    boxShadow: "0 1px 2px rgba(0,0,0,0.03)",
+  },
+  activeChatAvatar: {
+    backgroundColor: theme.palette.primary.main,
+    width: 44,
+    height: 44,
+    fontSize: "1.05rem",
+    fontWeight: 700,
+  },
   filterToolbar: {
     backgroundColor: theme.palette.background.paper,
     padding: theme.spacing(0.8, 1.5),
@@ -503,17 +520,19 @@ const Audit = () => {
       status: result.deviceStatus,
     };
 
-    setSelectedDevice(targetDevice);
-
-    // 2. Definir a conversa selecionada
-    setSelectedChat({
+    const targetChat = {
       ticketId: result.ticketId,
       whatsappId: result.whatsappId,
       contact: result.contact,
       lastMessage: result.lastMessage,
       totalMessages: result.totalMessages,
       deletedMessages: result.deletedMessages,
-    });
+      updatedAt: result.updatedAt || new Date().toISOString(),
+    };
+
+    setSelectedDevice(targetDevice);
+    setSelectedChat(targetChat);
+    setChats((prev) => [targetChat, ...prev.filter((c) => c.ticketId !== targetChat.ticketId)]);
   };
 
   // Debounce para busca de conversas na lateral
@@ -620,18 +639,26 @@ const Audit = () => {
         params: { search: chatSearch },
       });
       const newChats = data.chats || [];
-      setChats(newChats);
-      if (newChats.length > 0) {
-        setSelectedChat((prevChat) => {
-          // Se não há conversa selecionada ou pertencia a outro aparelho, pega a primeira
-          if (!prevChat || prevChat.whatsappId !== selectedDevice.id) {
-            return newChats[0];
-          }
-          // Se já está selecionada uma conversa deste aparelho, preserva ela!
+
+      setSelectedChat((prevChat) => {
+        // Se já está selecionada uma conversa deste aparelho, preserva ela!
+        if (prevChat && prevChat.whatsappId === selectedDevice.id) {
           const currentStillExists = newChats.find((c) => c.ticketId === prevChat.ticketId);
-          return currentStillExists || newChats[0];
-        });
-      } else {
+          if (!currentStillExists) {
+            // Se o chat selecionado não veio nos 40 primeiros, fixa ele no topo da lista
+            setChats([prevChat, ...newChats]);
+            return prevChat;
+          }
+          setChats(newChats);
+          return currentStillExists;
+        }
+
+        // Se não havia chat ou trocou de aparelho, pega o primeiro
+        setChats(newChats);
+        return newChats.length > 0 ? newChats[0] : null;
+      });
+
+      if (newChats.length === 0) {
         setSelectedChat(null);
         setMessages([]);
       }
@@ -1045,6 +1072,42 @@ const Audit = () => {
 
         {/* Painel Direito: Timeline de Mensagens & Filtros */}
         <div className={classes.timelinePanel}>
+          {/* Cabeçalho da Conversa Selecionada */}
+          {selectedChat && (
+            <div className={classes.activeChatHeader}>
+              <Box display="flex" alignItems="center" gap={1.5}>
+                <Avatar className={classes.activeChatAvatar} src={selectedChat.contact?.profilePicUrl}>
+                  {getContactDisplayName(selectedChat.contact).charAt(0).toUpperCase()}
+                </Avatar>
+                <Box>
+                  <Typography variant="subtitle1" style={{ fontWeight: 700, color: "#0f172a", lineHeight: 1.2 }}>
+                    {getContactDisplayName(selectedChat.contact)}
+                  </Typography>
+                  <Box display="flex" alignItems="center" gap={1} mt={0.3}>
+                    <Typography variant="caption" style={{ color: "#64748b" }}>
+                      📱 <strong>{selectedDevice?.name || "Dispositivo"}</strong>
+                    </Typography>
+                    {selectedChat.contact?.isGroup && (
+                      <Chip
+                        label="👥 Grupo"
+                        size="small"
+                        style={{ height: 18, fontSize: "0.65rem", backgroundColor: "#e2e8f0" }}
+                      />
+                    )}
+                  </Box>
+                </Box>
+              </Box>
+
+              <Box display="flex" alignItems="center" gap={1}>
+                <Chip
+                  label={`${messages.length} mensagens`}
+                  size="small"
+                  style={{ backgroundColor: "#e0f2fe", color: "#0369a1", fontWeight: 700, height: 24 }}
+                />
+              </Box>
+            </div>
+          )}
+
           {/* Barra de Filtros e Busca Rápida */}
           <div className={classes.filterToolbar}>
             <TextField
