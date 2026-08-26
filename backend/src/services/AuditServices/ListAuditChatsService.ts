@@ -1,7 +1,8 @@
-import { Op } from "sequelize";
+import { Op, fn, where, col } from "sequelize";
 import Ticket from "../../models/Ticket";
 import Contact from "../../models/Contact";
 import Message from "../../models/Message";
+import { getPhoneSearchVariants } from "../../helpers/phoneSearchHelper";
 
 interface Request {
   whatsappId: number | string;
@@ -37,25 +38,42 @@ const ListAuditChatsService = async ({
   const page = Math.max(1, Number(pageNumber));
   const offset = limit * (page - 1);
 
-  const contactWhere: any = {};
-  if (search && search.trim()) {
-    const cleanSearch = search.trim();
-    contactWhere[Op.or] = [
-      { name: { [Op.like]: `%${cleanSearch}%` } },
-      { number: { [Op.like]: `%${cleanSearch}%` } }
-    ];
+  const cleanSearch = (search || "").trim().toLowerCase();
+
+  let ticketWhere: any = {
+    whatsappId: Number(whatsappId)
+  };
+
+  const contactOrConditions: any[] = [];
+  if (cleanSearch) {
+    contactOrConditions.push(
+      where(fn("LOWER", col("contact.name")), "LIKE", `%${cleanSearch}%`)
+    );
+
+    const phoneVariants = getPhoneSearchVariants(search);
+    for (const variant of phoneVariants) {
+      contactOrConditions.push(
+        { "$contact.number$": { [Op.like]: `%${variant}%` } },
+        { "$contact.lid$": { [Op.like]: `%${variant}%` } }
+      );
+    }
+
+    ticketWhere = {
+      ...ticketWhere,
+      [Op.or]: [
+        ...contactOrConditions,
+        where(fn("LOWER", col("lastMessage")), "LIKE", `%${cleanSearch}%`)
+      ]
+    };
   }
 
   const { count, rows: tickets } = await Ticket.findAndCountAll({
-    where: {
-      whatsappId: Number(whatsappId)
-    },
+    where: ticketWhere,
     include: [
       {
         model: Contact,
         as: "contact",
-        where: Object.keys(contactWhere).length > 0 ? contactWhere : undefined,
-        required: Object.keys(contactWhere).length > 0
+        required: true
       }
     ],
     limit,

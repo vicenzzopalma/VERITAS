@@ -36,12 +36,12 @@ class Message extends Model<Message> {
 
   @Column(DataType.STRING)
   get mediaUrl(): string | null {
-    if (this.getDataValue("mediaUrl")) {
-      return `${process.env.BACKEND_URL}:${
-        process.env.PROXY_PORT
-      }/public/${this.getDataValue("mediaUrl")}`;
+    const raw = this.getDataValue("mediaUrl");
+    if (!raw) return null;
+    if (raw.startsWith("http://") || raw.startsWith("https://")) {
+      return raw;
     }
-    return null;
+    return `/public/${encodeURIComponent(raw)}`;
   }
 
   @Column

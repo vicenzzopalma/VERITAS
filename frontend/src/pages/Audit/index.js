@@ -23,7 +23,12 @@ import {
   Badge,
   Card,
   CardActionArea,
-  CardContent,
+  Popper,
+  ClickAwayListener,
+  List,
+  ListItem,
+  ListItemAvatar,
+  ListItemText,
 } from "@material-ui/core";
 import {
   Search as SearchIcon,
@@ -43,6 +48,8 @@ import {
   DateRange as DateRangeIcon,
   FilterList as FilterListIcon,
   Refresh as RefreshIcon,
+  Smartphone as PhoneAndroidIcon,
+  ArrowForward as ArrowForwardIcon,
 } from "@material-ui/icons";
 import { format, parseISO } from "date-fns";
 import api from "../../services/api";
@@ -55,137 +62,188 @@ const useStyles = makeStyles((theme) => ({
   root: {
     display: "flex",
     flexDirection: "column",
-    height: "calc(100vh - 64px)",
-    backgroundColor: "#f1f5f9",
+    height: "calc(100vh - 48px)",
+    backgroundColor: theme.palette.background.default,
     overflow: "hidden",
   },
   headerBar: {
-    background: "linear-gradient(90deg, #0f172a 0%, #1e293b 100%)",
-    color: "#ffffff",
-    padding: theme.spacing(1.5, 2.5),
+    backgroundColor: theme.palette.background.paper,
+    borderBottom: "1px solid rgba(0, 0, 0, 0.12)",
+    padding: theme.spacing(0.8, 2),
     display: "flex",
     alignItems: "center",
     justifyContent: "space-between",
-    boxShadow: "0 2px 8px rgba(0,0,0,0.15)",
+    gap: theme.spacing(2),
     zIndex: 10,
   },
   headerTitle: {
     display: "flex",
     alignItems: "center",
-    gap: theme.spacing(1.5),
-    fontWeight: 700,
-    fontSize: "1.25rem",
-    letterSpacing: "-0.02em",
+    gap: theme.spacing(1),
+    fontWeight: 600,
+    fontSize: "1.15rem",
+    color: theme.palette.text.primary,
+    flexShrink: 0,
   },
   headerIcon: {
-    color: "#38bdf8",
-    fontSize: 28,
+    color: theme.palette.primary.main,
+    fontSize: 24,
+  },
+  globalSearchContainer: {
+    position: "relative",
+    flexGrow: 1,
+    maxWidth: 460,
+  },
+  globalSearchField: {
+    width: "100%",
+    "& .MuiOutlinedInput-root": {
+      borderRadius: 30,
+      backgroundColor: theme.palette.background.default,
+      fontSize: "0.85rem",
+      paddingRight: 6,
+    },
+    "& .MuiOutlinedInput-input": {
+      padding: "8px 12px",
+    },
+  },
+  popperPaper: {
+    width: 460,
+    maxHeight: 380,
+    overflowY: "auto",
+    borderRadius: 8,
+    boxShadow: "0 8px 24px rgba(0,0,0,0.15)",
+    border: "1px solid rgba(0, 0, 0, 0.12)",
+    zIndex: 1400,
+    marginTop: 4,
+  },
+  globalResultItem: {
+    padding: theme.spacing(1, 1.5),
+    borderBottom: "1px solid rgba(0, 0, 0, 0.05)",
+    cursor: "pointer",
+    transition: "background 0.15s ease",
+    "&:hover": {
+      backgroundColor: "rgba(2, 132, 199, 0.08)",
+    },
+  },
+  deviceBadge: {
+    backgroundColor: "#e0f2fe",
+    color: "#0369a1",
+    fontWeight: 700,
+    fontSize: "0.72rem",
+    padding: "2px 8px",
+    borderRadius: 12,
+    display: "inline-flex",
+    alignItems: "center",
+    gap: 4,
   },
   headerStats: {
     display: "flex",
     alignItems: "center",
-    gap: theme.spacing(2),
+    gap: theme.spacing(1.2),
+    flexShrink: 0,
   },
   statBadge: {
-    backgroundColor: "rgba(255, 255, 255, 0.08)",
-    border: "1px solid rgba(255, 255, 255, 0.12)",
-    borderRadius: 8,
-    padding: "4px 12px",
+    backgroundColor: theme.palette.background.default,
+    border: "1px solid rgba(0, 0, 0, 0.08)",
+    borderRadius: 6,
+    padding: "3px 10px",
     display: "flex",
     alignItems: "center",
     gap: 6,
-    fontSize: "0.85rem",
+    fontSize: "0.8rem",
+    color: theme.palette.text.secondary,
   },
   deviceRibbon: {
-    backgroundColor: "#ffffff",
-    borderBottom: "1px solid #e2e8f0",
-    padding: theme.spacing(1, 2),
+    backgroundColor: theme.palette.background.paper,
+    borderBottom: "1px solid rgba(0, 0, 0, 0.08)",
+    padding: theme.spacing(0.8, 2),
     display: "flex",
-    gap: theme.spacing(1.5),
+    gap: theme.spacing(1.2),
     overflowX: "auto",
     whiteSpace: "nowrap",
     "&::-webkit-scrollbar": {
-      height: 6,
+      height: 5,
     },
     "&::-webkit-scrollbar-thumb": {
       backgroundColor: "#cbd5e1",
-      borderRadius: 4,
+      borderRadius: 3,
     },
   },
   deviceCard: {
-    minWidth: 175,
-    maxWidth: 220,
+    minWidth: 165,
+    maxWidth: 210,
     flexShrink: 0,
-    border: "1px solid #e2e8f0",
-    borderRadius: 8,
+    border: "1px solid rgba(0, 0, 0, 0.08)",
+    borderRadius: 6,
     transition: "all 0.2s ease-in-out",
     cursor: "pointer",
-    backgroundColor: "#ffffff",
+    backgroundColor: theme.palette.background.paper,
     "&:hover": {
-      borderColor: "#0284c7",
-      boxShadow: "0 2px 6px rgba(2, 132, 199, 0.15)",
+      borderColor: theme.palette.primary.main,
+      boxShadow: "0 2px 6px rgba(0, 0, 0, 0.08)",
     },
   },
   deviceCardSelected: {
-    borderColor: "#0284c7 !important",
-    backgroundColor: "#f0f9ff !important",
-    boxShadow: "0 0 0 2px #0284c7 !important",
+    borderColor: `${theme.palette.primary.main} !important`,
+    backgroundColor: "rgba(2, 132, 199, 0.06) !important",
+    boxShadow: `0 0 0 1px ${theme.palette.primary.main} !important`,
   },
   deviceCardContent: {
-    padding: "8px 12px !important",
+    padding: "6px 10px !important",
   },
   mainContent: {
     display: "flex",
     flexGrow: 1,
-    height: "calc(100% - 130px)",
+    height: "calc(100% - 95px)",
     overflow: "hidden",
   },
   // Painel Esquerdo: Lista de Conversas
   chatsPanel: {
-    width: 360,
-    minWidth: 320,
-    borderRight: "1px solid #e2e8f0",
-    backgroundColor: "#ffffff",
+    width: 340,
+    minWidth: 300,
+    borderRight: "1px solid rgba(0, 0, 0, 0.08)",
+    backgroundColor: theme.palette.background.paper,
     display: "flex",
     flexDirection: "column",
     height: "100%",
   },
   chatSearchBox: {
-    padding: theme.spacing(1.5),
-    borderBottom: "1px solid #e2e8f0",
-    backgroundColor: "#f8fafc",
+    padding: theme.spacing(1),
+    borderBottom: "1px solid rgba(0, 0, 0, 0.08)",
+    backgroundColor: theme.palette.background.default,
   },
   chatsList: {
     flexGrow: 1,
     overflowY: "auto",
     "&::-webkit-scrollbar": {
-      width: 6,
+      width: 5,
     },
     "&::-webkit-scrollbar-thumb": {
       backgroundColor: "#cbd5e1",
-      borderRadius: 4,
+      borderRadius: 3,
     },
   },
   chatItem: {
-    padding: theme.spacing(1.5, 2),
-    borderBottom: "1px solid #f1f5f9",
+    padding: theme.spacing(1.2, 1.5),
+    borderBottom: "1px solid rgba(0, 0, 0, 0.04)",
     display: "flex",
     alignItems: "center",
-    gap: theme.spacing(1.5),
+    gap: theme.spacing(1.2),
     cursor: "pointer",
     transition: "background 0.15s ease",
     "&:hover": {
-      backgroundColor: "#f8fafc",
+      backgroundColor: "rgba(0, 0, 0, 0.02)",
     },
   },
   chatItemSelected: {
-    backgroundColor: "#e0f2fe !important",
-    borderLeft: "4px solid #0284c7",
+    backgroundColor: "rgba(2, 132, 199, 0.08) !important",
+    borderLeft: `4px solid ${theme.palette.primary.main}`,
   },
   chatAvatar: {
-    backgroundColor: "#0284c7",
-    width: 44,
-    height: 44,
+    backgroundColor: theme.palette.primary.main,
+    width: 40,
+    height: 40,
+    fontSize: "0.95rem",
     fontWeight: 600,
   },
   chatInfo: {
@@ -194,23 +252,23 @@ const useStyles = makeStyles((theme) => ({
   },
   chatName: {
     fontWeight: 600,
-    fontSize: "0.92rem",
-    color: "#0f172a",
+    fontSize: "0.88rem",
+    color: theme.palette.text.primary,
     whiteSpace: "nowrap",
     overflow: "hidden",
     textOverflow: "ellipsis",
   },
   chatLastMsg: {
-    fontSize: "0.8rem",
-    color: "#64748b",
+    fontSize: "0.78rem",
+    color: theme.palette.text.secondary,
     whiteSpace: "nowrap",
     overflow: "hidden",
     textOverflow: "ellipsis",
     marginTop: 2,
   },
   chatDate: {
-    fontSize: "0.72rem",
-    color: "#94a3b8",
+    fontSize: "0.7rem",
+    color: theme.palette.text.secondary,
     whiteSpace: "nowrap",
   },
   // Painel Direito: Timeline de Mensagens & Filtros
@@ -225,19 +283,18 @@ const useStyles = makeStyles((theme) => ({
     overflow: "hidden",
   },
   filterToolbar: {
-    backgroundColor: "rgba(255, 255, 255, 0.95)",
-    backdropFilter: "blur(8px)",
-    padding: theme.spacing(1, 2),
-    borderBottom: "1px solid #e2e8f0",
+    backgroundColor: theme.palette.background.paper,
+    padding: theme.spacing(0.8, 1.5),
+    borderBottom: "1px solid rgba(0, 0, 0, 0.08)",
     display: "flex",
     alignItems: "center",
-    gap: theme.spacing(1.5),
+    gap: theme.spacing(1.2),
     flexWrap: "wrap",
-    boxShadow: "0 1px 4px rgba(0,0,0,0.05)",
+    boxShadow: "0 1px 3px rgba(0,0,0,0.04)",
     zIndex: 5,
   },
   filterItem: {
-    minWidth: 140,
+    minWidth: 130,
   },
   deletedSwitch: {
     color: "#dc2626 !important",
@@ -250,28 +307,28 @@ const useStyles = makeStyles((theme) => ({
   },
   messagesScrollArea: {
     flexGrow: 1,
-    padding: theme.spacing(2.5, 3),
+    padding: theme.spacing(2, 2.5),
     overflowY: "auto",
     display: "flex",
     flexDirection: "column",
-    gap: theme.spacing(1.2),
+    gap: theme.spacing(1),
     "&::-webkit-scrollbar": {
-      width: 8,
+      width: 6,
     },
     "&::-webkit-scrollbar-thumb": {
       backgroundColor: "rgba(0,0,0,0.2)",
-      borderRadius: 4,
+      borderRadius: 3,
     },
   },
   messageBubble: {
     maxWidth: "68%",
     minWidth: 160,
-    padding: "8px 12px 6px 12px",
-    borderRadius: 8,
-    boxShadow: "0 1px 2px rgba(0,0,0,0.15)",
+    padding: "7px 11px 5px 11px",
+    borderRadius: 7.5,
+    boxShadow: "0 1px 2px rgba(0,0,0,0.12)",
     position: "relative",
     wordBreak: "break-word",
-    fontSize: "0.9rem",
+    fontSize: "0.88rem",
   },
   messageOperator: {
     alignSelf: "flex-end",
@@ -289,28 +346,28 @@ const useStyles = makeStyles((theme) => ({
     backgroundColor: "#fef2f2",
     border: "1px solid #f87171",
     color: "#b91c1c",
-    padding: "4px 8px",
-    borderRadius: 6,
-    fontSize: "0.76rem",
+    padding: "3px 7px",
+    borderRadius: 5,
+    fontSize: "0.74rem",
     fontWeight: 700,
     display: "flex",
     alignItems: "center",
-    gap: 5,
-    marginBottom: 6,
+    gap: 4,
+    marginBottom: 5,
   },
   quotedMsgBox: {
     backgroundColor: "rgba(0,0,0,0.05)",
     borderLeft: "3px solid #0284c7",
     borderRadius: 4,
-    padding: "4px 8px",
-    marginBottom: 6,
-    fontSize: "0.8rem",
+    padding: "3px 7px",
+    marginBottom: 5,
+    fontSize: "0.78rem",
     color: "#475569",
   },
   mediaPreview: {
     maxWidth: "100%",
-    maxHeight: 280,
-    borderRadius: 6,
+    maxHeight: 260,
+    borderRadius: 5,
     cursor: "pointer",
     marginTop: 4,
     marginBottom: 4,
@@ -321,8 +378,8 @@ const useStyles = makeStyles((theme) => ({
     alignItems: "center",
     justifyContent: "flex-end",
     gap: 4,
-    marginTop: 4,
-    fontSize: "0.72rem",
+    marginTop: 3,
+    fontSize: "0.7rem",
     color: "#64748b",
   },
   noChatSelected: {
@@ -339,18 +396,11 @@ const useStyles = makeStyles((theme) => ({
 const Audit = () => {
   const classes = useStyles();
 
-  // Helpers de Formatação e Cores de Grupo
+  // Helpers de Cores de Grupo
   const getParticipantColor = (name = "") => {
     const colors = [
-      "#0284c7", // Azul
-      "#7c3aed", // Roxo
-      "#d97706", // Âmbar
-      "#059669", // Esmeralda
-      "#db2777", // Rosa
-      "#ea580c", // Laranja
-      "#0891b2", // Ciano
-      "#4f46e5", // Indigo
-      "#be185d", // Magenta
+      "#0284c7", "#7c3aed", "#d97706", "#059669",
+      "#db2777", "#ea580c", "#0891b2", "#4f46e5", "#be185d",
     ];
     let hash = 0;
     for (let i = 0; i < name.length; i++) {
@@ -369,8 +419,18 @@ const Audit = () => {
   const [loadingChats, setLoadingChats] = useState(false);
   const [loadingMessages, setLoadingMessages] = useState(false);
 
-  // Filtros
+  // Busca Global no Topo (Todos os Aparelhos)
+  const [globalSearchInput, setGlobalSearchInput] = useState("");
+  const [globalResults, setGlobalResults] = useState([]);
+  const [globalLoading, setGlobalLoading] = useState(false);
+  const [globalPopperOpen, setGlobalPopperOpen] = useState(false);
+  const globalSearchRef = useRef(null);
+  const globalSearchTimeout = useRef(null);
+
+  // Filtros de busca local
+  const [chatSearchInput, setChatSearchInput] = useState("");
   const [chatSearch, setChatSearch] = useState("");
+  const [searchTermInput, setSearchTermInput] = useState("");
   const [searchTerm, setSearchTerm] = useState("");
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
@@ -381,8 +441,100 @@ const Audit = () => {
   const [exportModalOpen, setExportModalOpen] = useState(false);
 
   const messagesEndRef = useRef(null);
+  const chatSearchTimeout = useRef(null);
+  const searchTermTimeout = useRef(null);
 
-  // 1. Carregar lista dos 20 smartphones
+  // 1. Busca Global em Todos os Aparelhos
+  const executeGlobalSearch = async (val) => {
+    if (!val || val.trim().length === 0) {
+      setGlobalResults([]);
+      setGlobalPopperOpen(false);
+      setGlobalLoading(false);
+      return;
+    }
+
+    setGlobalLoading(true);
+    setGlobalPopperOpen(true);
+
+    try {
+      const { data } = await api.get("/audit/search-all", {
+        params: { search: val.trim() },
+      });
+      setGlobalResults(Array.isArray(data) ? data : []);
+    } catch (err) {
+      console.error("Erro na busca global:", err);
+    } finally {
+      setGlobalLoading(false);
+    }
+  };
+
+  const handleGlobalSearchChange = (e) => {
+    const val = e.target.value;
+    setGlobalSearchInput(val);
+
+    if (globalSearchTimeout.current) clearTimeout(globalSearchTimeout.current);
+
+    if (!val || val.trim().length === 0) {
+      setGlobalResults([]);
+      setGlobalPopperOpen(false);
+      setGlobalLoading(false);
+      return;
+    }
+
+    setGlobalLoading(true);
+    setGlobalPopperOpen(true);
+
+    globalSearchTimeout.current = setTimeout(() => {
+      executeGlobalSearch(val);
+    }, 150);
+  };
+
+  // Ao clicar em um resultado da busca global: seleciona o smartphone e a conversa!
+  const handleSelectGlobalResult = (result) => {
+    setGlobalPopperOpen(false);
+    setGlobalSearchInput("");
+
+    // 1. Encontrar o smartphone do resultado na lista
+    const targetDevice = devices.find((d) => d.id === result.whatsappId) || {
+      id: result.whatsappId,
+      name: result.deviceName,
+      status: result.deviceStatus,
+    };
+
+    setSelectedDevice(targetDevice);
+
+    // 2. Definir a conversa selecionada
+    setSelectedChat({
+      ticketId: result.ticketId,
+      whatsappId: result.whatsappId,
+      contact: result.contact,
+      lastMessage: result.lastMessage,
+      totalMessages: result.totalMessages,
+      deletedMessages: result.deletedMessages,
+    });
+  };
+
+  // Debounce para busca de conversas na lateral
+  const handleChatSearchChange = (e) => {
+    const val = e.target.value;
+    setChatSearchInput(val);
+    if (chatSearchTimeout.current) clearTimeout(chatSearchTimeout.current);
+    chatSearchTimeout.current = setTimeout(() => {
+      setChatSearch(val);
+    }, 350);
+  };
+
+  // Debounce para busca de termos dentro das mensagens
+  const handleSearchTermChange = (e) => {
+    const val = e.target.value;
+    setSearchTermInput(val);
+    if (searchTermTimeout.current) clearTimeout(searchTermTimeout.current);
+    searchTermTimeout.current = setTimeout(() => {
+      setSearchTerm(val);
+    }, 400);
+  };
+
+  // 1. Carregar lista dos smartphones
   const fetchDevices = async () => {
     setLoadingDevices(true);
     try {
@@ -412,7 +564,9 @@ const Audit = () => {
       });
       setChats(data.chats || []);
       if (data.chats?.length > 0) {
-        setSelectedChat(data.chats[0]);
+        if (!selectedChat || selectedChat.whatsappId !== selectedDevice.id) {
+          setSelectedChat(data.chats[0]);
+        }
       } else {
         setSelectedChat(null);
         setMessages([]);
@@ -430,11 +584,13 @@ const Audit = () => {
 
   // 3. Carregar mensagens da conversa ou filtros
   const fetchMessages = async () => {
-    if (!selectedDevice) return;
+    const activeWhatsappId = selectedChat?.whatsappId || selectedDevice?.id;
+    if (!activeWhatsappId) return;
+
     setLoadingMessages(true);
     try {
       const params = {
-        whatsappId: selectedDevice.id,
+        whatsappId: activeWhatsappId,
         ticketId: selectedChat?.ticketId,
         search: searchTerm || undefined,
         startDate: startDate || undefined,
@@ -454,19 +610,18 @@ const Audit = () => {
   };
 
   useEffect(() => {
-    if (selectedDevice) {
+    if (selectedChat || searchTerm || startDate || endDate || onlyDeleted || mediaType !== "all") {
       fetchMessages();
     }
   }, [selectedDevice, selectedChat, searchTerm, startDate, endDate, onlyDeleted, mediaType]);
 
-  // Auto-scroll ao carregar mensagens
+  // Scroll suave para última mensagem
   useEffect(() => {
-    if (messagesEndRef.current) {
-      messagesEndRef.current.scrollIntoView({ behavior: "smooth" });
-    }
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
-  const handleClearFilters = () => {
+  const clearFilters = () => {
+    setSearchTermInput("");
     setSearchTerm("");
     setStartDate("");
     setEndDate("");
@@ -477,45 +632,177 @@ const Audit = () => {
   // Totais agregados
   const totalArchived = devices.reduce((acc, d) => acc + (d.totalMessages || 0), 0);
   const totalDeletedCount = devices.reduce((acc, d) => acc + (d.deletedMessages || 0), 0);
-  const totalMediaCount = devices.reduce((acc, d) => acc + (d.mediaMessages || 0), 0);
 
   return (
     <div className={classes.root}>
       {/* 1. Header Bar de Auditoria */}
-      <div className={classes.headerBar}>
+      <Paper elevation={0} square className={classes.headerBar}>
         <div className={classes.headerTitle}>
           <SecurityIcon className={classes.headerIcon} />
-          <div>
-            <Typography variant="h6" style={{ fontWeight: 700, lineHeight: 1.2 }}>
-              Cofre de Auditoria Perpétua & Backup WhatsApp
-            </Typography>
-            <Typography variant="caption" style={{ color: "#94a3b8" }}>
-              Monitoramento Silencioso • Anti-Delete Forense • Preservação Soberana
-            </Typography>
-          </div>
+          <Typography variant="h6" style={{ fontWeight: 600, fontSize: "1.15rem" }}>
+            Auditoria
+          </Typography>
         </div>
+
+        {/* Balão de Busca Global: Localiza o número e em qual celular está */}
+        <ClickAwayListener onClickAway={() => setGlobalPopperOpen(false)}>
+          <div className={classes.globalSearchContainer} ref={globalSearchRef}>
+            <TextField
+              size="small"
+              variant="outlined"
+              placeholder="🔍 Localizar número em qualquer celular..."
+              value={globalSearchInput}
+              onChange={handleGlobalSearchChange}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  if (globalSearchTimeout.current) clearTimeout(globalSearchTimeout.current);
+                  executeGlobalSearch(globalSearchInput);
+                }
+              }}
+              onFocus={() => {
+                if (globalSearchInput.trim().length > 0) setGlobalPopperOpen(true);
+              }}
+              className={classes.globalSearchField}
+              InputProps={{
+                startAdornment: (
+                  <InputAdornment position="start">
+                    <SearchIcon style={{ color: "#0284c7" }} fontSize="small" />
+                  </InputAdornment>
+                ),
+                endAdornment: (
+                  <InputAdornment position="end">
+                    {globalLoading ? (
+                      <CircularProgress size={16} />
+                    ) : globalSearchInput ? (
+                      <IconButton
+                        size="small"
+                        onClick={() => {
+                          setGlobalSearchInput("");
+                          setGlobalResults([]);
+                          setGlobalPopperOpen(false);
+                        }}
+                      >
+                        <ClearIcon fontSize="small" />
+                      </IconButton>
+                    ) : null}
+                  </InputAdornment>
+                ),
+              }}
+            />
+
+            <Popper
+              open={Boolean(globalPopperOpen && globalSearchInput.trim().length > 0)}
+              anchorEl={globalSearchRef.current}
+              placement="bottom-start"
+              disablePortal
+              style={{ zIndex: 1400, width: "100%" }}
+            >
+              <Paper elevation={6} className={classes.popperPaper}>
+                {globalLoading ? (
+                  <Box p={2.5} textAlign="center" display="flex" flexDirection="column" alignItems="center" justifyContent="center">
+                    <CircularProgress size={22} style={{ color: "#0284c7" }} />
+                    <Typography variant="caption" style={{ marginTop: 8, color: "#64748b", fontWeight: 600 }}>
+                      Buscando número em todos os aparelhos...
+                    </Typography>
+                  </Box>
+                ) : globalResults.length === 0 ? (
+                  <Box p={2.5} textAlign="center" color="#64748b">
+                    <Typography variant="body2" style={{ fontWeight: 600 }}>
+                      Nenhum resultado encontrado nos aparelhos.
+                    </Typography>
+                    <Typography variant="caption" color="textSecondary">
+                      Verifique se o número foi digitado corretamente.
+                    </Typography>
+                  </Box>
+                ) : (
+                  <List disablePadding>
+                    <Box px={2} py={1} bgcolor="#f8fafc" borderBottom="1px solid #e2e8f0">
+                      <Typography variant="caption" style={{ fontWeight: 700, color: "#64748b" }}>
+                        ENCONTRADO EM {globalResults.length} APARELHO(S) - CLIQUE PARA ABRIR:
+                      </Typography>
+                    </Box>
+                    {globalResults.map((res) => (
+                      <ListItem
+                        key={`${res.whatsappId}-${res.ticketId}`}
+                        className={classes.globalResultItem}
+                        onClick={() => handleSelectGlobalResult(res)}
+                      >
+                        <ListItemAvatar style={{ minWidth: 44 }}>
+                          <Avatar style={{ width: 34, height: 34, backgroundColor: "#0284c7", fontSize: "0.85rem" }}>
+                            {getContactDisplayName(res.contact).charAt(0).toUpperCase()}
+                          </Avatar>
+                        </ListItemAvatar>
+                        <ListItemText
+                          primary={
+                            <Box display="flex" justifyContent="space-between" alignItems="center">
+                              <Typography variant="subtitle2" style={{ fontWeight: 700, color: "#0f172a" }}>
+                                {getContactDisplayName(res.contact)}
+                              </Typography>
+                              <span className={classes.deviceBadge}>
+                                📱 {res.deviceName}
+                              </span>
+                            </Box>
+                          }
+                          secondary={
+                            <Box display="flex" justifyContent="space-between" alignItems="center" mt={0.3}>
+                              <Typography variant="caption" style={{ color: "#64748b", maxWidth: 220, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                                {res.lastMessage || "Conversa iniciada"}
+                              </Typography>
+                              <Box display="flex" alignItems="center" gap={0.5}>
+                                <Typography variant="caption" style={{ color: "#94a3b8", fontSize: "0.7rem" }}>
+                                  {res.totalMessages} msgs
+                                </Typography>
+                                {res.deletedMessages > 0 && (
+                                  <Chip
+                                    size="small"
+                                    label={`🚫 ${res.deletedMessages}`}
+                                    style={{
+                                      height: 15,
+                                      fontSize: "0.6rem",
+                                      backgroundColor: "#fee2e2",
+                                      color: "#991b1b",
+                                      fontWeight: 700,
+                                    }}
+                                  />
+                                )}
+                                <ArrowForwardIcon style={{ fontSize: 14, color: "#0284c7" }} />
+                              </Box>
+                            </Box>
+                          }
+                        />
+                      </ListItem>
+                    ))}
+                  </List>
+                )}
+              </Paper>
+            </Popper>
+          </div>
+        </ClickAwayListener>
 
         <div className={classes.headerStats}>
           <div className={classes.statBadge}>
-            <Typography variant="caption" style={{ color: "#94a3b8" }}>
-              Total de Mensagens:
-            </Typography>
-            <Typography variant="body2" style={{ fontWeight: 700, color: "#38bdf8" }}>
-              {totalArchived.toLocaleString("pt-BR")}
-            </Typography>
+            <span>Mensagens:</span>
+            <strong style={{ color: "#0284c7" }}>{totalArchived.toLocaleString("pt-BR")}</strong>
           </div>
 
           <div className={classes.statBadge}>
-            <BlockIcon style={{ color: "#f87171", fontSize: 16 }} />
-            <Typography variant="caption" style={{ color: "#94a3b8" }}>
-              Apagadas Recuperadas:
-            </Typography>
-            <Typography variant="body2" style={{ fontWeight: 700, color: "#f87171" }}>
-              {totalDeletedCount.toLocaleString("pt-BR")}
-            </Typography>
+            <BlockIcon style={{ color: "#ef4444", fontSize: 15 }} />
+            <span>Apagadas:</span>
+            <strong style={{ color: "#ef4444" }}>{totalDeletedCount.toLocaleString("pt-BR")}</strong>
           </div>
 
-          <Tooltip title="Atualizar dados de auditoria">
+          <Button
+            variant="outlined"
+            color="primary"
+            size="small"
+            startIcon={<GetAppIcon />}
+            onClick={() => setExportModalOpen(true)}
+            style={{ textTransform: "none", borderRadius: 6 }}
+          >
+            Exportar
+          </Button>
+
+          <Tooltip title="Atualizar dados">
             <IconButton
               size="small"
               onClick={() => {
@@ -523,18 +810,17 @@ const Audit = () => {
                 fetchChats();
                 fetchMessages();
               }}
-              style={{ color: "#ffffff" }}
             >
               <RefreshIcon fontSize="small" />
             </IconButton>
           </Tooltip>
         </div>
-      </div>
+      </Paper>
 
-      {/* 2. Seletor Visual dos 20 Celulares (Ribbon Superior) */}
+      {/* 2. Seletor Visual dos Celulares (Ribbon Superior) */}
       <div className={classes.deviceRibbon}>
         {loadingDevices ? (
-          <CircularProgress size={24} style={{ margin: "auto" }} />
+          <CircularProgress size={20} style={{ margin: "auto" }} />
         ) : (
           devices.map((device) => {
             const isSelected = selectedDevice?.id === device.id;
@@ -548,17 +834,17 @@ const Audit = () => {
               >
                 <CardActionArea className={classes.deviceCardContent}>
                   <Box display="flex" alignItems="center" justifyContent="space-between">
-                    <Typography variant="subtitle2" style={{ fontWeight: 700, color: isSelected ? "#0284c7" : "#1e293b" }}>
+                    <Typography variant="subtitle2" style={{ fontWeight: 600, color: isSelected ? "#0284c7" : "inherit" }}>
                       📱 {device.name}
                     </Typography>
                     {isOnline ? (
-                      <OnlineIcon style={{ color: "#10b981", fontSize: 16 }} />
+                      <OnlineIcon style={{ color: "#10b981", fontSize: 15 }} />
                     ) : (
-                      <OfflineIcon style={{ color: "#94a3b8", fontSize: 16 }} />
+                      <OfflineIcon style={{ color: "#94a3b8", fontSize: 15 }} />
                     )}
                   </Box>
 
-                  <Box display="flex" alignItems="center" justifyContent="space-between" mt={0.5}>
+                  <Box display="flex" alignItems="center" justifyContent="space-between" mt={0.3}>
                     <Typography variant="caption" color="textSecondary">
                       {device.totalMessages || 0} msgs
                     </Typography>
@@ -567,8 +853,8 @@ const Audit = () => {
                         size="small"
                         label={`🚫 ${device.deletedMessages}`}
                         style={{
-                          height: 18,
-                          fontSize: "0.68rem",
+                          height: 16,
+                          fontSize: "0.65rem",
                           backgroundColor: "#fee2e2",
                           color: "#991b1b",
                           fontWeight: 700,
@@ -589,21 +875,21 @@ const Audit = () => {
         <div className={classes.chatsPanel}>
           <div className={classes.chatSearchBox}>
             <TextField
-              size="small"
               fullWidth
-              placeholder="Buscar contato ou número..."
+              size="small"
+              placeholder="Buscar no celular selecionado..."
               variant="outlined"
-              value={chatSearch}
-              onChange={(e) => setChatSearch(e.target.value)}
+              value={chatSearchInput}
+              onChange={handleChatSearchChange}
               InputProps={{
                 startAdornment: (
                   <InputAdornment position="start">
                     <SearchIcon style={{ color: "#94a3b8" }} fontSize="small" />
                   </InputAdornment>
                 ),
-                endAdornment: chatSearch && (
+                endAdornment: chatSearchInput && (
                   <InputAdornment position="end">
-                    <IconButton size="small" onClick={() => setChatSearch("")}>
+                    <IconButton size="small" onClick={() => { setChatSearchInput(""); setChatSearch(""); }}>
                       <ClearIcon fontSize="small" />
                     </IconButton>
                   </InputAdornment>
@@ -615,11 +901,16 @@ const Audit = () => {
           <div className={classes.chatsList}>
             {loadingChats ? (
               <Box display="flex" justifyContent="center" p={4}>
-                <CircularProgress size={28} />
+                <CircularProgress size={24} />
               </Box>
             ) : chats.length === 0 ? (
               <Box p={3} textAlign="center" color="#64748b">
-                <Typography variant="body2">Nenhuma conversa encontrada neste aparelho.</Typography>
+                <Typography variant="body2">Nenhuma conversa encontrada neste celular.</Typography>
+                {chatSearchInput && (
+                  <Button size="small" color="primary" onClick={() => { setChatSearchInput(""); setChatSearch(""); }} style={{ marginTop: 8 }}>
+                    Limpar Busca
+                  </Button>
+                )}
               </Box>
             ) : (
               chats.map((chat) => {
@@ -648,20 +939,15 @@ const Audit = () => {
                         {chat.lastMessage || "Conversa iniciada"}
                       </Typography>
 
-                      <Box display="flex" gap={1} mt={0.5}>
-                        {formatPhoneNumber(chat.contact?.number) && (
-                          <Typography variant="caption" style={{ color: "#64748b", fontSize: "0.72rem" }}>
-                            {formatPhoneNumber(chat.contact?.number)}
-                          </Typography>
-                        )}
+                      <Box display="flex" gap={1} mt={0.3}>
                         {chat.deletedMessages > 0 && (
                           <span
                             style={{
                               backgroundColor: "#fee2e2",
                               color: "#b91c1c",
-                              padding: "1px 6px",
-                              borderRadius: 8,
-                              fontSize: "0.68rem",
+                              padding: "1px 5px",
+                              borderRadius: 6,
+                              fontSize: "0.65rem",
                               fontWeight: 700,
                             }}
                           >
@@ -679,49 +965,54 @@ const Audit = () => {
 
         {/* Painel Direito: Timeline de Mensagens & Filtros */}
         <div className={classes.timelinePanel}>
-          {/* Barra de Ferramentas de Auditoria */}
+          {/* Barra de Filtros e Busca Rápida */}
           <div className={classes.filterToolbar}>
-            {/* Busca Textual */}
             <TextField
               size="small"
-              placeholder="Buscar termo (ex: PIX, acordo)..."
+              placeholder="Buscar termo nesta conversa (ex: PIX, acordo)..."
               variant="outlined"
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              style={{ minWidth: 220 }}
+              value={searchTermInput}
+              onChange={handleSearchTermChange}
+              style={{ minWidth: 200, flexGrow: 1 }}
               InputProps={{
                 startAdornment: (
                   <InputAdornment position="start">
-                    <SearchIcon fontSize="small" style={{ color: "#64748b" }} />
+                    <SearchIcon style={{ color: "#94a3b8" }} fontSize="small" />
+                  </InputAdornment>
+                ),
+                endAdornment: searchTermInput && (
+                  <InputAdornment position="end">
+                    <IconButton size="small" onClick={() => { setSearchTermInput(""); setSearchTerm(""); }}>
+                      <ClearIcon fontSize="small" />
+                    </IconButton>
                   </InputAdornment>
                 ),
               }}
             />
 
-            {/* Data Inicial */}
             <TextField
               size="small"
               type="date"
-              label="Data Início"
+              label="Data Inicial"
               variant="outlined"
               InputLabelProps={{ shrink: true }}
               value={startDate}
               onChange={(e) => setStartDate(e.target.value)}
+              className={classes.filterItem}
             />
 
-            {/* Data Final */}
             <TextField
               size="small"
               type="date"
-              label="Data Fim"
+              label="Data Final"
               variant="outlined"
               InputLabelProps={{ shrink: true }}
               value={endDate}
               onChange={(e) => setEndDate(e.target.value)}
+              className={classes.filterItem}
             />
 
-            {/* Tipo de Mídia */}
-            <FormControl size="small" variant="outlined" style={{ minWidth: 130 }}>
+            <FormControl size="small" variant="outlined" className={classes.filterItem}>
               <InputLabel>Tipo Mídia</InputLabel>
               <Select
                 value={mediaType}
@@ -729,90 +1020,71 @@ const Audit = () => {
                 label="Tipo Mídia"
               >
                 <MenuItem value="all">Todas as Mensagens</MenuItem>
-                <MenuItem value="audio">🎙️ Áudios</MenuItem>
-                <MenuItem value="image">🖼️ Fotos</MenuItem>
+                <MenuItem value="audio">🎵 Áudios & Voz</MenuItem>
+                <MenuItem value="image">🖼️ Fotos & Imagens</MenuItem>
+                <MenuItem value="document">📄 Documentos & Boletos</MenuItem>
                 <MenuItem value="video">🎥 Vídeos</MenuItem>
-                <MenuItem value="document">📄 Documentos / PDF</MenuItem>
+                <MenuItem value="vcard">👤 Contatos (vCard)</MenuItem>
               </Select>
             </FormControl>
 
-            {/* Switch Apenas Apagadas */}
             <FormControlLabel
               control={
                 <Switch
+                  size="small"
                   checked={onlyDeleted}
                   onChange={(e) => setOnlyDeleted(e.target.checked)}
                   className={classes.deletedSwitch}
                 />
               }
               label={
-                <span style={{ fontSize: "0.82rem", fontWeight: 700, color: onlyDeleted ? "#dc2626" : "#475569" }}>
+                <Typography variant="body2" style={{ color: onlyDeleted ? "#dc2626" : "inherit", fontWeight: onlyDeleted ? 700 : 400 }}>
                   🚫 Apenas Apagadas
-                </span>
+                </Typography>
               }
             />
 
-            {/* Limpar Filtros */}
             {(searchTerm || startDate || endDate || onlyDeleted || mediaType !== "all") && (
               <Button
                 size="small"
                 variant="outlined"
-                onClick={handleClearFilters}
+                color="secondary"
                 startIcon={<ClearIcon />}
-                style={{ textTransform: "none", fontSize: "0.78rem" }}
+                onClick={clearFilters}
               >
                 Limpar
               </Button>
             )}
-
-            {/* Botão Exportar Laudo */}
-            <Button
-              size="small"
-              variant="contained"
-              onClick={() => setExportModalOpen(true)}
-              startIcon={<GetAppIcon />}
-              style={{
-                marginLeft: "auto",
-                backgroundColor: "#0284c7",
-                color: "#ffffff",
-                fontWeight: 700,
-                textTransform: "none",
-                borderRadius: 6,
-              }}
-            >
-              Exportar Laudo
-            </Button>
           </div>
 
           {/* Área de Mensagens (Timeline) */}
           <div className={classes.messagesScrollArea}>
             {loadingMessages ? (
-              <Box display="flex" justifyContent="center" alignItems="center" flexGrow={1}>
-                <CircularProgress size={32} />
+              <Box display="flex" justifyContent="center" alignItems="center" height="100%">
+                <CircularProgress />
               </Box>
-            ) : messages.length === 0 ? (
+            ) : !selectedChat && !searchTerm ? (
               <div className={classes.noChatSelected}>
-                <SecurityIcon style={{ fontSize: 48, color: "#94a3b8" }} />
-                <Typography variant="h6" style={{ fontWeight: 600 }}>
-                  Nenhuma mensagem encontrada
-                </Typography>
+                <SecurityIcon style={{ fontSize: 48, opacity: 0.3 }} />
+                <Typography variant="h6">Selecione uma conversa para auditar</Typography>
                 <Typography variant="body2">
-                  Selecione uma conversa ao lado ou ajuste os filtros de auditoria.
+                  Você pode usar o balão de busca acima para localizar qualquer número em todos os celulares.
                 </Typography>
               </div>
+            ) : messages.length === 0 ? (
+              <Box textAlign="center" p={4} color="#64748b">
+                <Typography variant="body1" style={{ fontWeight: 600 }}>
+                  Nenhum registro encontrado para os filtros selecionados.
+                </Typography>
+              </Box>
             ) : (
               messages.map((message) => {
                 const isOp = message.fromMe;
-                const isDeleted = message.isDeleted;
-                const dateFormatted = message.createdAt
-                  ? format(parseISO(message.createdAt), "dd/MM/yyyy HH:mm:ss")
-                  : "";
-
-                const isGroupChat = selectedChat?.contact?.isGroup || message.ticket?.contact?.isGroup;
+                const isGroup = selectedChat?.contact?.isGroup;
                 const senderName = isOp
-                  ? (selectedDevice?.name || "Você (Operador)")
-                  : getContactDisplayName(message.contact);
-                const senderColor = isOp ? "#059669" : getParticipantColor(senderName);
+                  ? `📱 ${selectedDevice?.name || "Operador"}`
+                  : (message.contact ? getContactDisplayName(message.contact) : "Participante");
+                const senderColor = isOp ? "#0284c7" : getParticipantColor(senderName);
 
                 return (
                   <div
@@ -821,47 +1093,50 @@ const Audit = () => {
                       isOp ? classes.messageOperator : classes.messageClient
                     }`}
                   >
-                    {/* Identificação do Remetente em Conversas de Grupo */}
-                    {isGroupChat && (
-                      <div
+                    {/* Header do Remetente em Grupo */}
+                    {isGroup && (
+                      <Typography
+                        variant="caption"
                         style={{
-                          fontSize: "0.76rem",
-                          fontWeight: 800,
+                          fontWeight: 700,
                           color: senderColor,
+                          display: "block",
                           marginBottom: 3,
-                          display: "flex",
-                          alignItems: "center",
-                          gap: 4,
+                          fontSize: "0.76rem",
                         }}
                       >
-                        <span>{isOp ? `📱 ${senderName}` : `👤 ${senderName}`}</span>
-                      </div>
+                        {senderName}
+                      </Typography>
                     )}
 
-                    {/* Badge de Anti-Delete em Destaque */}
-                    {isDeleted && (
+                    {/* Banner de Mensagem Apagada */}
+                    {message.isDeleted && (
                       <div className={classes.deletedBanner}>
                         <BlockIcon style={{ fontSize: 14 }} />
-                        <span>🚫 MENSAGEM APAGADA NO WHATSAPP (Preservada no Cofre)</span>
+                        <span>MENSAGEM APAGADA NO WHATSAPP</span>
                       </div>
                     )}
 
-                    {/* Mensagem Citada (Quoted) */}
+                    {/* Mensagem Respondida (Quoted) */}
                     {message.quotedMsg && (
                       <div className={classes.quotedMsgBox}>
-                        <Typography variant="caption" style={{ fontWeight: 700, display: "block" }}>
-                          {message.quotedMsg.fromMe ? "Operador" : getContactDisplayName(message.quotedMsg.contact)}
+                        <Typography variant="caption" style={{ fontWeight: 700, color: "#0284c7", display: "block" }}>
+                          {message.quotedMsg.fromMe
+                            ? `📱 ${selectedDevice?.name || "Operador"}`
+                            : (message.quotedMsg.contact ? getContactDisplayName(message.quotedMsg.contact) : "Participante")}
                         </Typography>
-                        <Typography variant="caption">{message.quotedMsg.body}</Typography>
+                        <Typography variant="caption" style={{ whiteSpace: "pre-wrap", display: "block" }}>
+                          {message.quotedMsg.body}
+                        </Typography>
                       </div>
                     )}
 
-                    {/* Mídia: Imagem */}
+                    {/* Mídia: Foto / Imagem */}
                     {message.mediaUrl && (message.mediaType === "image" || message.mediaUrl.match(/\.(jpeg|jpg|gif|png)$/i)) && (
                       <div>
                         <img
                           src={message.mediaUrl}
-                          alt="Mídia"
+                          alt="Arquivo"
                           className={classes.mediaPreview}
                           onClick={() => window.open(message.mediaUrl, "_blank")}
                         />
@@ -870,53 +1145,55 @@ const Audit = () => {
 
                     {/* Mídia: Áudio */}
                     {message.mediaUrl && (message.mediaType?.includes("audio") || message.mediaUrl.match(/\.(ogg|mp3|wav|m4a)$/i)) && (
-                      <Box my={1}>
-                        <audio controls style={{ width: "100%", height: 36 }}>
+                      <div style={{ margin: "4px 0" }}>
+                        <audio controls style={{ width: "100%", maxWidth: 280, height: 38 }}>
                           <source src={message.mediaUrl} type="audio/ogg" />
+                          <source src={message.mediaUrl} type="audio/mp4" />
                           <source src={message.mediaUrl} type="audio/mpeg" />
-                          Seu navegador não suporta player de áudio.
+                          <source src={message.mediaUrl} type="audio/wav" />
+                          Seu navegador não suporta áudio.
                         </audio>
-                      </Box>
+                      </div>
                     )}
 
-                    {/* Mídia: Documento / PDF */}
+                    {/* Mídia: Documento / Boleto / PDF */}
                     {message.mediaUrl && (message.mediaType?.includes("document") || message.mediaUrl.match(/\.(pdf|doc|docx|xlsx|zip)$/i)) && (
-                      <Box my={1} display="flex" alignItems="center" gap={1}>
-                        <DocumentIcon style={{ color: "#0284c7" }} />
+                      <div style={{ margin: "6px 0" }}>
                         <Button
-                          size="small"
                           variant="outlined"
+                          size="small"
+                          color="primary"
+                          startIcon={<DocumentIcon />}
                           onClick={() => window.open(message.mediaUrl, "_blank")}
-                          style={{ textTransform: "none", fontSize: "0.78rem" }}
+                          style={{ textTransform: "none", borderRadius: 6 }}
                         >
-                          Baixar Documento ({message.mediaType || "arquivo"})
+                          {message.body && message.body !== message.mediaUrl ? message.body : "Abrir Documento"}
                         </Button>
-                      </Box>
+                      </div>
                     )}
 
-                    {/* Texto da Mensagem */}
-                    <Typography
-                      variant="body2"
-                      style={{
-                        whiteSpace: "pre-wrap",
-                        color: isDeleted ? "#7f1d1d" : "inherit",
-                        textDecoration: isDeleted ? "line-through" : "none",
-                      }}
-                    >
-                      {message.body}
-                    </Typography>
+                    {/* Texto Principal */}
+                    {(!message.mediaUrl || message.mediaType === "chat" || (message.body && !message.body.includes(".pdf") && !message.body.includes(".ogg"))) && (
+                      <Typography variant="body2" style={{ whiteSpace: "pre-wrap", lineHeight: 1.4 }}>
+                        {message.body}
+                      </Typography>
+                    )}
 
-                    {/* Rodapé com Timestamp e Status */}
+                    {/* Rodapé: Horário & Status */}
                     <div className={classes.metaFooter}>
-                      <span>{dateFormatted}</span>
+                      <span>
+                        {message.createdAt ? format(parseISO(message.createdAt), "HH:mm") : ""}
+                      </span>
                       {isOp && (
-                        message.ack === 3 ? (
-                          <DoneAllIcon style={{ color: "#38bdf8", fontSize: 15 }} />
-                        ) : message.ack === 2 ? (
-                          <DoneAllIcon style={{ color: "#94a3b8", fontSize: 15 }} />
-                        ) : (
-                          <DoneIcon style={{ color: "#94a3b8", fontSize: 15 }} />
-                        )
+                        <span>
+                          {message.ack === 3 ? (
+                            <DoneAllIcon style={{ fontSize: 14, color: "#38bdf8" }} />
+                          ) : message.ack === 2 ? (
+                            <DoneAllIcon style={{ fontSize: 14 }} />
+                          ) : (
+                            <DoneIcon style={{ fontSize: 14 }} />
+                          )}
+                        </span>
                       )}
                     </div>
                   </div>
@@ -933,12 +1210,7 @@ const Audit = () => {
         open={exportModalOpen}
         onClose={() => setExportModalOpen(false)}
         selectedDevice={selectedDevice}
-        selectedChat={selectedChat}
-        searchFilter={searchTerm}
-        startDate={startDate}
-        endDate={endDate}
-        onlyDeleted={onlyDeleted}
-        mediaType={mediaType}
+        devices={devices}
       />
     </div>
   );

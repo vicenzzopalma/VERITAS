@@ -223,6 +223,17 @@ export const handleMessage = async (
   timestamp?: Date
 ): Promise<void> => {
   try {
+    // REGRA CRÍTICA: MENSAGENS DE GRUPOS NÃO DEVEM SER ARMAZENADAS NO CRM
+    if (
+      contactPayload.isGroup ||
+      Boolean(contextPayload.groupContact) ||
+      contactPayload.number?.includes("@g.us") ||
+      messagePayload.from?.includes("@g.us") ||
+      messagePayload.to?.includes("@g.us")
+    ) {
+      return;
+    }
+
     const processedMessage = processLocationMessage(messagePayload);
 
     const contact = await CreateOrUpdateContactService({

@@ -31,17 +31,7 @@ import whatsBackground from "../../assets/wa-background.png";
 import api from "../../services/api";
 import toastError from "../../errors/toastError";
 import Audio from "../Audio";
-
-const getContactDisplayName = (contact) => {
-  if (!contact) return "Participante";
-  if (contact.name && !/^\d{14,}$/.test(contact.name)) {
-    return contact.name;
-  }
-  if (contact.number && contact.number.length <= 13) {
-    return `+${contact.number}`;
-  }
-  return contact.name || "Participante";
-};
+import { getContactDisplayName, formatPhoneNumber } from "../../helpers/contactHelper";
 
 const useStyles = makeStyles((theme) => ({
   messagesListWrapper: {

@@ -19,7 +19,10 @@ const app = express();
 app.use(
   cors({
     credentials: true,
-    origin: process.env.FRONTEND_URL
+    origin: (origin, callback) => {
+      // Permite localhost, túneis Cloudflare e requisições sem origin (ex: server-side proxy)
+      callback(null, origin || process.env.FRONTEND_URL);
+    }
   })
 );
 app.use(cookieParser());

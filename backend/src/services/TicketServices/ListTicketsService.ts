@@ -7,6 +7,7 @@ import Message from "../../models/Message";
 import Queue from "../../models/Queue";
 import ShowUserService from "../UserServices/ShowUserService";
 import Whatsapp from "../../models/Whatsapp";
+import { getPhoneSearchVariants } from "../../helpers/phoneSearchHelper";
 
 interface Request {
   searchParam?: string;
@@ -72,6 +73,7 @@ const ListTicketsService = async ({
 
   if (searchParam) {
     const sanitizedSearchParam = searchParam.toLocaleLowerCase().trim();
+    const cleanNumbersOnly = searchParam.replace(/\D/g, "");
 
     includeCondition = [
       ...includeCondition,
@@ -81,7 +83,7 @@ const ListTicketsService = async ({
         attributes: ["id", "body"],
         where: {
           body: where(
-            fn("LOWER", col("body")),
+            fn("LOWER", col("messages.body")),
             "LIKE",
             `%${sanitizedSearchParam}%`
           )
@@ -91,25 +93,36 @@ const ListTicketsService = async ({
       }
     ];
 
+    const orMatches: any[] = [
+      {
+        "$contact.name$": where(
+          fn("LOWER", col("contact.name")),
+          "LIKE",
+          `%${sanitizedSearchParam}%`
+        )
+      },
+      {
+        lastMessage: where(
+          fn("LOWER", col("lastMessage")),
+          "LIKE",
+          `%${sanitizedSearchParam}%`
+        )
+      }
+    ];
+
+    const phoneVariants = getPhoneSearchVariants(searchParam);
+    for (const variant of phoneVariants) {
+      orMatches.push({ "$contact.number$": { [Op.like]: `%${variant}%` } });
+      orMatches.push({ "$contact.lid$": { [Op.like]: `%${variant}%` } });
+    }
+
+    if (/^\d+$/.test(sanitizedSearchParam)) {
+      orMatches.push({ id: +sanitizedSearchParam });
+    }
+
     whereCondition = {
       ...whereCondition,
-      [Op.or]: [
-        {
-          "$contact.name$": where(
-            fn("LOWER", col("contact.name")),
-            "LIKE",
-            `%${sanitizedSearchParam}%`
-          )
-        },
-        { "$contact.number$": { [Op.like]: `%${sanitizedSearchParam}%` } },
-        {
-          "$message.body$": where(
-            fn("LOWER", col("body")),
-            "LIKE",
-            `%${sanitizedSearchParam}%`
-          )
-        }
-      ]
+      [Op.or]: orMatches
     };
   }
 

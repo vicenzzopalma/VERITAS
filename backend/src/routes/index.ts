@@ -15,6 +15,7 @@ import auditRoutes from "./auditRoutes";
 
 const routes = Router();
 
+routes.use(auditRoutes);
 routes.use(userRoutes);
 routes.use("/auth", authRoutes);
 routes.use(settingRoutes);
@@ -25,7 +26,6 @@ routes.use(messageRoutes);
 routes.use(whatsappSessionRoutes);
 routes.use(queueRoutes);
 routes.use(quickAnswerRoutes);
-routes.use(auditRoutes);
 routes.use("/api/messages", apiRoutes);
 
 export default routes;

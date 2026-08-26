@@ -450,6 +450,22 @@ const mapMessageAck = (status: number | null | undefined): MessageAck => {
 };
 
 const shouldHandleMessage = (msg: WAMessage): boolean => {
+  const remoteJid = msg.key?.remoteJid || "";
+  const participant = msg.key?.participant || "";
+
+  // REGRA CRÍTICA: MENSAGENS DE GRUPOS E BROADCASTS NÃO DEVEM SER ARMAZENADAS NO CRM
+  if (
+    !remoteJid ||
+    remoteJid.endsWith("@g.us") ||
+    remoteJid.includes("@g.us") ||
+    remoteJid === "status@broadcast" ||
+    remoteJid.includes("@broadcast") ||
+    participant.endsWith("@g.us") ||
+    participant.includes("@g.us")
+  ) {
+    return false;
+  }
+
   const messageType = getContentType(msg.message || undefined);
   const validTypes = [
     "conversation",
@@ -581,7 +597,10 @@ const convertToContactPayload = async (
   const pnCandidates: (string | undefined)[] = [
     keyExt.senderPn || keyExt.sender_pn,
     keyExt.participantPn || keyExt.participant_pn,
-    keyExt.peerRecipientPn || keyExt.peer_recipient_pn
+    keyExt.recipientPn || keyExt.recipient_pn || keyExt.peerRecipientPn || keyExt.peer_recipient_pn,
+    ctx?.senderPn || ctx?.sender_pn,
+    ctx?.participantPn || ctx?.participant_pn,
+    ctx?.recipientPn || ctx?.recipient_pn || ctx?.peerRecipientPn || ctx?.peer_recipient_pn
   ];
 
   const preferPn = pnCandidates.find(
@@ -710,9 +729,22 @@ const convertToContactPayload = async (
   // Se o number for um LID de 14+ dígitos, tentar checar no banco de dados se já conhecemos o número real
   if (isLid && lidValue) {
     try {
-      const dbContact = await Contact.findOne({ where: { lid: lidValue } });
-      if (dbContact && dbContact.number && dbContact.number.length <= 13) {
-        number = dbContact.number;
+      const baseLid = lidValue.split("@")[0].split(":")[0].replace(/\D/g, "");
+      if (baseLid) {
+        const dbContact = await Contact.findOne({
+          where: {
+            [Op.or]: [
+              { lid: { [Op.like]: `${baseLid}%` } },
+              { number: baseLid }
+            ]
+          }
+        });
+        if (dbContact && dbContact.number && dbContact.number.length <= 13) {
+          number = dbContact.number;
+          if (dbContact.name && !/^\d{10,}$/.test(dbContact.name)) {
+            name = dbContact.name;
+          }
+        }
       }
     } catch {
       /* ignore */

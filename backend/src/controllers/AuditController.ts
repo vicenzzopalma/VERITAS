@@ -3,6 +3,7 @@ import ListAuditDevicesService from "../services/AuditServices/ListAuditDevicesS
 import ListAuditChatsService from "../services/AuditServices/ListAuditChatsService";
 import ListAuditMessagesService from "../services/AuditServices/ListAuditMessagesService";
 import ExportAuditService from "../services/AuditServices/ExportAuditService";
+import SearchGlobalAuditService from "../services/AuditServices/SearchGlobalAuditService";
 
 export const indexDevices = async (req: Request, res: Response): Promise<Response> => {
   const devices = await ListAuditDevicesService();
@@ -25,6 +26,20 @@ export const listChats = async (req: Request, res: Response): Promise<Response> 
   });
 
   return res.json({ chats, count, hasMore });
+};
+
+export const searchGlobal = async (req: Request, res: Response): Promise<Response> => {
+  const { search, limit } = req.query as {
+    search?: string;
+    limit?: string;
+  };
+
+  const results = await SearchGlobalAuditService({
+    search: search || "",
+    limit: limit ? Number(limit) : 20
+  });
+
+  return res.json(results);
 };
 
 export const listMessages = async (req: Request, res: Response): Promise<Response> => {

@@ -53,8 +53,12 @@ export default function({url}) {
 
     return (
         <>
-            <audio ref={audioRef} controls>
-                <source src={url} type="audio/ogg"></source>
+            <audio ref={audioRef} controls style={{ width: "100%", maxWidth: 280, height: 40 }}>
+                <source src={url} type="audio/ogg" />
+                <source src={url} type="audio/mp4" />
+                <source src={url} type="audio/mpeg" />
+                <source src={url} type="audio/wav" />
+                Seu navegador não suporta este áudio.
             </audio>
             {showButtonRate && <Button style={{marginLeft: "5px", marginTop: "-45px"}} onClick={toogleRate}>{audioRate}x</Button>}
         </>

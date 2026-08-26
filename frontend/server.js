@@ -1,6 +1,14 @@
 const http = require("http");
 const fs = require("fs");
 const path = require("path");
+const url = require("url");
+
+process.on("uncaughtException", (err) => {
+    console.error("Uncaught exception in server.js:", err.message);
+});
+process.on("unhandledRejection", (err) => {
+    console.error("Unhandled rejection in server.js:", err);
+});
 
 const PORT = process.env.PORT || 6001;
 const BACKEND_PORT = 6002;
@@ -42,7 +50,12 @@ const server = http.createServer((req, res) => {
     if (isStaticAsset && fs.existsSync(filePath) && fs.statSync(filePath).isFile()) {
         const ext = path.extname(filePath).toLowerCase();
         const contentType = MIME_TYPES[ext] || "application/octet-stream";
-        res.writeHead(200, { "Content-Type": contentType });
+        res.writeHead(200, {
+            "Content-Type": contentType,
+            "Cache-Control": "no-cache, no-store, must-revalidate",
+            "Pragma": "no-cache",
+            "Expires": "0"
+        });
         return fs.createReadStream(filePath).pipe(res);
     }
 
@@ -64,16 +77,22 @@ const server = http.createServer((req, res) => {
                          parsedUrl === "/audit/devices" ||
                          parsedUrl === "/audit/messages" ||
                          parsedUrl === "/audit/export" ||
+                         parsedUrl === "/audit/search-all" ||
+                         parsedUrl === "/audit/search-global" ||
+                         parsedUrl === "/audit/search" ||
                          parsedUrl.startsWith("/public/") ||
                          parsedUrl.startsWith("/socket.io");
 
     if (isApiRequest) {
+        const proxyHeaders = { ...req.headers };
+        proxyHeaders.host = `127.0.0.1:${BACKEND_PORT}`;
+
         const proxyReq = http.request({
             hostname: "127.0.0.1",
             port: BACKEND_PORT,
             path: req.url,
             method: req.method,
-            headers: req.headers
+            headers: proxyHeaders
         }, (proxyRes) => {
             res.writeHead(proxyRes.statusCode, proxyRes.headers);
             proxyRes.pipe(res, { end: true });
@@ -85,14 +104,23 @@ const server = http.createServer((req, res) => {
             res.end(JSON.stringify({ error: "Backend indisponível" }));
         });
 
-        req.pipe(proxyReq, { end: true });
+        if (req.method === "GET" || req.method === "HEAD") {
+            proxyReq.end();
+        } else {
+            req.pipe(proxyReq, { end: true });
+        }
         return;
     }
 
     // 3. SPA Fallback (index.html) para rotas de navegação (/login, /tickets, /connections, etc.)
     const indexPath = path.join(BUILD_DIR, "index.html");
     if (fs.existsSync(indexPath)) {
-        res.writeHead(200, { "Content-Type": "text/html" });
+        res.writeHead(200, {
+            "Content-Type": "text/html",
+            "Cache-Control": "no-cache, no-store, must-revalidate",
+            "Pragma": "no-cache",
+            "Expires": "0"
+        });
         return fs.createReadStream(indexPath).pipe(res);
     }
 
