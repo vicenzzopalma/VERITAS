@@ -21,14 +21,17 @@ export const formatPhoneNumber = (num = "") => {
   if (clean.length >= 8 && clean.length <= 13) {
     return `+${clean}`;
   }
-  // Se for qualquer outro identificador/número (ex: LIDs de 14+ dígitos), exibir o número diretamente!
+  // Se for identificador LID do WhatsApp (14+ dígitos sem formato de telefone)
+  if (clean.length >= 14) {
+    return `Contato (${clean.slice(-4)})`;
+  }
   return clean;
 };
 
 export const getContactDisplayName = (contact) => {
   if (!contact) return "";
 
-  // Se for grupo, exibe o nome do grupo
+  // 1. Se for grupo, exibe o nome do grupo
   if (contact.isGroup) {
     if (contact.name && !/^\d{16,}$/.test(contact.name)) {
       return contact.name;
@@ -36,7 +39,29 @@ export const getContactDisplayName = (contact) => {
     return "Grupo WhatsApp";
   }
 
-  // REGRA ABSOLUTA: O NOME DO CONTATO SEMPRE É O PRÓPRIO NÚMERO DE TELEFONE
-  const phone = contact.number || contact.name || "";
-  return formatPhoneNumber(phone);
+  // 2. Se tem um nome real de pessoa/empresa (com letras), exibe o nome
+  if (contact.name && /[a-zA-ZÀ-ÿ]/.test(contact.name)) {
+    return contact.name;
+  }
+
+  // 3. Se for número de telefone real (10 a 13 dígitos), formata como telefone
+  const rawNumber = String(contact.number || "").replace(/\D/g, "");
+  if (rawNumber && rawNumber.length >= 10 && rawNumber.length <= 13) {
+    return formatPhoneNumber(rawNumber);
+  }
+
+  // 4. Se tiver apenas nome numérico curto (ex: 5541991189892)
+  const rawName = String(contact.name || "").replace(/\D/g, "");
+  if (rawName && rawName.length >= 10 && rawName.length <= 13) {
+    return formatPhoneNumber(rawName);
+  }
+
+  // 5. Se for identificador LID (14+ dígitos)
+  if (rawNumber.length >= 14 || rawName.length >= 14) {
+    const lidDigits = rawNumber.length >= 14 ? rawNumber : rawName;
+    return `📱 Contato (${lidDigits.slice(-4)})`;
+  }
+
+  return formatPhoneNumber(contact.number || contact.name || "");
 };
+

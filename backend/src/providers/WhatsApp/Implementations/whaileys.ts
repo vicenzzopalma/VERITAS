@@ -909,7 +909,7 @@ const getMessageData = async (
   };
 };
 
-const getWbot = (sessionId: number): Session => {
+export const getWbot = (sessionId: number): Session => {
   const wbot = sessions.get(sessionId);
 
   if (!wbot) {
