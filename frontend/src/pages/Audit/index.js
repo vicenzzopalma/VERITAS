@@ -537,28 +537,28 @@ const Audit = () => {
   };
 
   // 1. Carregar lista dos smartphones
-  const fetchDevices = async () => {
-    setLoadingDevices(true);
+  const fetchDevices = async (isInitial = false) => {
+    if (isInitial) setLoadingDevices(true);
     try {
       const { data } = await api.get("/audit/devices");
       setDevices(data);
-      if (data.length > 0 && !selectedDevice) {
-        setSelectedDevice(data[0]);
+      if (data.length > 0) {
+        setSelectedDevice((prev) => prev || data[0]);
       }
     } catch (err) {
       toastError(err);
     } finally {
-      setLoadingDevices(false);
+      if (isInitial) setLoadingDevices(false);
     }
   };
 
   useEffect(() => {
-    fetchDevices();
+    fetchDevices(true);
 
-    // 1. Polling de sincronização a cada 8s para garantir status real
+    // 1. Polling de sincronização a cada 12s para garantir status real (silencioso, sem piscar UI)
     const interval = setInterval(() => {
-      fetchDevices();
-    }, 8000);
+      fetchDevices(false);
+    }, 12000);
 
     // 2. Conexão WebSocket em tempo real para atualizações instantâneas
     const socket = openSocket();
@@ -601,7 +601,7 @@ const Audit = () => {
 
     socket.on("appMessage", (data) => {
       if (data.action === "create") {
-        fetchDevices();
+        fetchDevices(false);
       }
     });
 
@@ -612,18 +612,25 @@ const Audit = () => {
   }, []);
 
   // 2. Carregar conversas do aparelho selecionado
-  const fetchChats = async () => {
+  const fetchChats = async (isInitial = false) => {
     if (!selectedDevice) return;
-    setLoadingChats(true);
+    if (isInitial) setLoadingChats(true);
     try {
       const { data } = await api.get(`/audit/devices/${selectedDevice.id}/chats`, {
         params: { search: chatSearch },
       });
-      setChats(data.chats || []);
-      if (data.chats?.length > 0) {
-        if (!selectedChat || selectedChat.whatsappId !== selectedDevice.id) {
-          setSelectedChat(data.chats[0]);
-        }
+      const newChats = data.chats || [];
+      setChats(newChats);
+      if (newChats.length > 0) {
+        setSelectedChat((prevChat) => {
+          // Se não há conversa selecionada ou pertencia a outro aparelho, pega a primeira
+          if (!prevChat || prevChat.whatsappId !== selectedDevice.id) {
+            return newChats[0];
+          }
+          // Se já está selecionada uma conversa deste aparelho, preserva ela!
+          const currentStillExists = newChats.find((c) => c.ticketId === prevChat.ticketId);
+          return currentStillExists || newChats[0];
+        });
       } else {
         setSelectedChat(null);
         setMessages([]);
@@ -631,20 +638,20 @@ const Audit = () => {
     } catch (err) {
       toastError(err);
     } finally {
-      setLoadingChats(false);
+      if (isInitial) setLoadingChats(false);
     }
   };
 
   useEffect(() => {
-    fetchChats();
-  }, [selectedDevice, chatSearch]);
+    fetchChats(true);
+  }, [selectedDevice?.id, chatSearch]);
 
   // 3. Carregar mensagens da conversa ou filtros
-  const fetchMessages = async () => {
+  const fetchMessages = async (showLoading = false) => {
     const activeWhatsappId = selectedChat?.whatsappId || selectedDevice?.id;
     if (!activeWhatsappId) return;
 
-    setLoadingMessages(true);
+    if (showLoading) setLoadingMessages(true);
     try {
       const params = {
         whatsappId: activeWhatsappId,
@@ -662,20 +669,22 @@ const Audit = () => {
     } catch (err) {
       toastError(err);
     } finally {
-      setLoadingMessages(false);
+      if (showLoading) setLoadingMessages(false);
     }
   };
 
   useEffect(() => {
     if (selectedChat || searchTerm || startDate || endDate || onlyDeleted || mediaType !== "all") {
-      fetchMessages();
+      fetchMessages(true);
     }
-  }, [selectedDevice, selectedChat, searchTerm, startDate, endDate, onlyDeleted, mediaType]);
+  }, [selectedChat?.ticketId, selectedChat?.whatsappId, searchTerm, startDate, endDate, onlyDeleted, mediaType]);
 
-  // Scroll suave para última mensagem
+  // Scroll suave para última mensagem somente ao trocar de conversa
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages]);
+    if (messages.length > 0) {
+      messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    }
+  }, [selectedChat?.ticketId]);
 
   const clearFilters = () => {
     setSearchTermInput("");
