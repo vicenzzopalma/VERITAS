@@ -50,9 +50,11 @@ import {
   Refresh as RefreshIcon,
   Smartphone as PhoneAndroidIcon,
   ArrowForward as ArrowForwardIcon,
+  CropFree as QrCodeIcon,
 } from "@material-ui/icons";
 import { format, parseISO } from "date-fns";
 import api from "../../services/api";
+import openSocket from "../../services/socket-io";
 import toastError from "../../errors/toastError";
 import ExportAuditModal from "../../components/ExportAuditModal";
 import { getContactDisplayName, formatPhoneNumber } from "../../helpers/contactHelper";
@@ -552,6 +554,61 @@ const Audit = () => {
 
   useEffect(() => {
     fetchDevices();
+
+    // 1. Polling de sincronização a cada 8s para garantir status real
+    const interval = setInterval(() => {
+      fetchDevices();
+    }, 8000);
+
+    // 2. Conexão WebSocket em tempo real para atualizações instantâneas
+    const socket = openSocket();
+
+    socket.on("whatsapp", (data) => {
+      if (data.action === "update" && data.whatsapp) {
+        setDevices((prev) => {
+          const index = prev.findIndex((d) => d.id === data.whatsapp.id);
+          if (index !== -1) {
+            const copy = [...prev];
+            copy[index] = { ...copy[index], ...data.whatsapp };
+            return copy;
+          }
+          return prev;
+        });
+      }
+      if (data.action === "delete") {
+        setDevices((prev) => prev.filter((d) => d.id !== data.whatsappId));
+      }
+    });
+
+    socket.on("whatsappSession", (data) => {
+      if (data.action === "update" && data.session) {
+        setDevices((prev) => {
+          const index = prev.findIndex((d) => d.id === data.session.id);
+          if (index !== -1) {
+            const copy = [...prev];
+            copy[index] = {
+              ...copy[index],
+              status: data.session.status,
+              qrcode: data.session.qrcode,
+              updatedAt: data.session.updatedAt,
+            };
+            return copy;
+          }
+          return prev;
+        });
+      }
+    });
+
+    socket.on("appMessage", (data) => {
+      if (data.action === "create") {
+        fetchDevices();
+      }
+    });
+
+    return () => {
+      clearInterval(interval);
+      socket.disconnect();
+    };
   }, []);
 
   // 2. Carregar conversas do aparelho selecionado
@@ -824,7 +881,9 @@ const Audit = () => {
         ) : (
           devices.map((device) => {
             const isSelected = selectedDevice?.id === device.id;
-            const isOnline = device.status === "CONNECTED";
+            const isConnected = device.status === "CONNECTED";
+            const isOpening = device.status === "OPENING";
+            const isQrCode = device.status === "qrcode";
 
             return (
               <Card
@@ -837,10 +896,22 @@ const Audit = () => {
                     <Typography variant="subtitle2" style={{ fontWeight: 600, color: isSelected ? "#0284c7" : "inherit" }}>
                       📱 {device.name}
                     </Typography>
-                    {isOnline ? (
-                      <OnlineIcon style={{ color: "#10b981", fontSize: 15 }} />
+                    {isConnected ? (
+                      <Tooltip title="Conectado e Operando">
+                        <OnlineIcon style={{ color: "#10b981", fontSize: 16 }} />
+                      </Tooltip>
+                    ) : isOpening ? (
+                      <Tooltip title="Conectando / Sincronizando...">
+                        <CircularProgress size={13} style={{ color: "#eab308" }} />
+                      </Tooltip>
+                    ) : isQrCode ? (
+                      <Tooltip title="Aguardando Leitura de QR Code">
+                        <QrCodeIcon style={{ color: "#0284c7", fontSize: 16 }} />
+                      </Tooltip>
                     ) : (
-                      <OfflineIcon style={{ color: "#94a3b8", fontSize: 15 }} />
+                      <Tooltip title="Desconectado">
+                        <OfflineIcon style={{ color: "#ef4444", fontSize: 16 }} />
+                      </Tooltip>
                     )}
                   </Box>
 

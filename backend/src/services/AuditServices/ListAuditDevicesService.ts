@@ -3,6 +3,7 @@ import Ticket from "../../models/Ticket";
 import Message from "../../models/Message";
 import { Op } from "sequelize";
 import sequelize from "../../database";
+import { getSessionStatus } from "../../providers/WhatsApp/Implementations/whaileys";
 
 export interface AuditDeviceResponse {
   id: number;
@@ -69,10 +70,18 @@ const ListAuditDevicesService = async (): Promise<AuditDeviceResponse[]> => {
         }
       }
 
+      let liveStatus = w.status || "DISCONNECTED";
+      const runtimeStatus = getSessionStatus(w.id);
+      if (runtimeStatus) {
+        liveStatus = runtimeStatus;
+      } else if (w.status === "CONNECTED" && !runtimeStatus) {
+        liveStatus = "DISCONNECTED";
+      }
+
       return {
         id: w.id,
         name: w.name || `WhatsApp ${w.id}`,
-        status: w.status || "DISCONNECTED",
+        status: liveStatus,
         number: (w as any).number || "",
         isDefault: w.isDefault || false,
         battery: w.battery || "",

@@ -80,6 +80,13 @@ interface Session extends WASocket {
 const sessions = new Map<number, Session>();
 const stores = new Map<number, Store>();
 
+export const getSessionStatus = (whatsappId: number): string | undefined => {
+  const session = sessions.get(whatsappId);
+  if (!session) return undefined;
+  if (session.user) return "CONNECTED";
+  return undefined;
+};
+
 const msgRetryCounterLRU = new LRUCache<string, number>({
   max: 5000,
   ttl: 600 * 1000,
