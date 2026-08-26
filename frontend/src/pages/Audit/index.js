@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useContext } from "react";
 import {
   makeStyles,
   Paper,
@@ -53,6 +53,8 @@ import {
   CropFree as QrCodeIcon,
 } from "@material-ui/icons";
 import { format, parseISO } from "date-fns";
+import { useHistory } from "react-router-dom";
+import { AuthContext } from "../../context/Auth/AuthContext";
 import api from "../../services/api";
 import openSocket from "../../services/socket-io";
 import toastError from "../../errors/toastError";
@@ -414,6 +416,18 @@ const useStyles = makeStyles((theme) => ({
 
 const Audit = () => {
   const classes = useStyles();
+  const { user } = useContext(AuthContext);
+  const history = useHistory();
+
+  useEffect(() => {
+    if (user && user.profile !== "admin") {
+      history.push("/tickets");
+    }
+  }, [user, history]);
+
+  if (user && user.profile !== "admin") {
+    return null;
+  }
 
   // Helpers de Cores de Grupo
   const getParticipantColor = (name = "") => {

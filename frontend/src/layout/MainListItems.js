@@ -78,10 +78,16 @@ const MainListItems = (props) => {
         primary="Dashboard"
         icon={<DashboardOutlinedIcon />}
       />
-      <ListItemLink
-        to="/audit"
-        primary="Cofre de Auditoria"
-        icon={<SecurityOutlinedIcon style={{ color: "#0284c7" }} />}
+      <Can
+        role={user.profile}
+        perform="audit:view"
+        yes={() => (
+          <ListItemLink
+            to="/audit"
+            primary="Cofre de Auditoria"
+            icon={<SecurityOutlinedIcon style={{ color: "#0284c7" }} />}
+          />
+        )}
       />
       <ListItemLink
         to="/connections"
