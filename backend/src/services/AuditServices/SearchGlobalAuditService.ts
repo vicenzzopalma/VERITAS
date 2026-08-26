@@ -32,10 +32,17 @@ const SearchGlobalAuditService = async ({
     return [];
   }
 
+  const isShortDigits = /^\d{1,5}$/.test(cleanSearch);
+
   const orConditions: any[] = [
-    where(fn("LOWER", col("contact.name")), "LIKE", `%${cleanSearch}%`),
-    where(fn("LOWER", col("lastMessage")), "LIKE", `%${cleanSearch}%`)
+    where(fn("LOWER", col("contact.name")), "LIKE", `%${cleanSearch}%`)
   ];
+
+  if (!isShortDigits) {
+    orConditions.push(
+      where(fn("LOWER", col("lastMessage")), "LIKE", `%${cleanSearch}%`)
+    );
+  }
 
   const phoneVariants = getPhoneSearchVariants(search);
   for (const variant of phoneVariants) {

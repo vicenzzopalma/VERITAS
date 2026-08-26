@@ -58,12 +58,16 @@ const ListAuditChatsService = async ({
       );
     }
 
+    const isShortDigits = /^\d{1,5}$/.test(cleanSearch);
+    if (!isShortDigits) {
+      contactOrConditions.push(
+        where(fn("LOWER", col("lastMessage")), "LIKE", `%${cleanSearch}%`)
+      );
+    }
+
     ticketWhere = {
       ...ticketWhere,
-      [Op.or]: [
-        ...contactOrConditions,
-        where(fn("LOWER", col("lastMessage")), "LIKE", `%${cleanSearch}%`)
-      ]
+      [Op.or]: contactOrConditions
     };
   }
 
