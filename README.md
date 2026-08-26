@@ -1,4 +1,4 @@
-# 🛡️ GISAIO — Cofre & Auditoria WhatsApp Enterprise
+# 🛡️ GISAIO — WhatsApp Forensic Vault & Compliance Platform
 
 <div align="center">
 
@@ -10,52 +10,47 @@
 
 **Plataforma Corporativa de Auditoria Passiva, Gravação Perpétua de Mensagens e Laudos Jurídicos para WhatsApp**
 
-*Substituto Enterprise do Digisac — Economia Real de R$ 35.520,00 ao ano.*
-
 </div>
 
 ---
 
 ## 📋 Índice
-- [🎯 1. Visão Geral & Retorno de Investimento (ROI)](#-1-visão-geral--retorno-de-investimento-roi)
+- [🎯 1. Visão Geral do Sistema](#-1-visão-geral-do-sistema)
 - [⚡ 2. Eficiência Arquitetural: Baileys vs Puppeteer](#-2-eficiência-arquitetural-baileys-vs-puppeteer)
 - [🛡️ 3. Pilares de Engenharia e Regras de Compliance](#️-3-pilares-de-engenharia-e-regras-de-compliance)
 - [🔍 4. Módulo: Cofre de Auditoria Unitária](#-4-módulo-cofre-de-auditoria-unitária)
 - [🧠 5. Mecanismo de Busca Telefônica Inteligente (Omnisearch)](#-5-mecanismo-de-busca-telefônica-inteligente-omnisearch)
 - [🏗️ 6. Diagrama de Arquitetura do Sistema](#️-6-diagrama-de-arquitetura-do-sistema)
 - [🌐 7. Especificação de Rotas & Endpoints](#-7-especificação-de-rotas--endpoints)
-- [🚀 8. Guia de Execução e Inicialização](#-8-guia-de-execução-e-inicialização)
-- [👥 9. Matriz de Perfis e Permissões](#-9-matriz-de-perfis-e-permissões)
+- [👥 8. Matriz de Perfis e Segurança (RBAC)](#-8-matriz-de-perfis-e-segurança-rbac)
+- [🚀 9. Guia de Execução e Inicialização](#-9-guia-de-execução-e-inicialização)
 - [📄 10. Licença & Segurança](#-10-licença--segurança)
 
 ---
 
-## 🎯 1. Visão Geral & Retorno de Investimento (ROI)
+## 🎯 1. Visão Geral do Sistema
 
-O **GISAIO** foi concebido para eliminar os custos abusivos de plataformas de Helpdesk por número conectado, oferecendo uma infraestrutura dedicada de **armazenamento forense, auditoria contínua e compliance de conversas**.
+O **GISAIO** é uma solução de alta performance desenvolvida para empresas e organizações que necessitam de **armazenamento forense contínuo, conformidade jurídica e auditoria transparente de múltiplos canais de WhatsApp**.
 
-### 💰 Comparativo de Custo Operacional (20 Smartphones)
-
-| Métrica | Plataforma Anterior (Digisac) | GISAIO (Nosso Cofre) |
-| :--- | :--- | :--- |
-| **Custo por Aparelho** | R$ 150,00 / mês por chip | **R$ 0,00** (Sem limites de conexão) |
-| **Custo Mensal Total** | **R$ 3.000,00 / mês** | **~R$ 40,00 / mês** (VPS Hostinger) |
-| **Custo Anual Total** | **R$ 36.000,00 / ano** | **~R$ 480,00 / ano** |
-| **Economia Líquida Projetada** | — | **🔥 R$ 35.520,00 / ano de economia** |
-| **Retenção de Mensagens Apagadas** | Limitada / Depende de Ticket | **100% Imutável & Perpétua (Anti-Delete)** |
+### 🌟 Destaques Principais:
+* **Armazenamento 100% Imutável (Anti-Delete)**: Nenhuma mensagem ou mídia pode ser removida do banco de dados por ações externas.
+* **Modo Auditor Silencioso**: Operação passiva que não altera a rotina dos operadores nem exibe robôs invasivos para os clientes.
+* **Escalabilidade Massiva**: Conexão simultânea de dezenas de aparelhos com consumo mínimo de memória RAM.
+* **Busca Telefônica Inteligente (Omnisearch)**: Localização instantânea de contatos considerando todas as variações de formato brasileiras (com/sem 9º dígito, com/sem DDI 55, DDD e parciais).
+* **Exportação Forense**: Emissão de relatórios estruturados nos formatos **PDF**, **CSV** e **TXT** para fins comprobatórios.
 
 ---
 
 ## ⚡ 2. Eficiência Arquitetural: Baileys vs Puppeteer
 
-Diferente de soluções legadas que abrem instâncias completas do Google Chrome no servidor, o GISAIO opera sobre a biblioteca **Baileys (WebSockets Puros)**:
+Diferente de sistemas legados que instanciam navegadores Chromium completos para cada celular conectado, o GISAIO opera sobre a biblioteca **Baileys (WebSockets Puros)**:
 
-| Característica | Puppeteer / WWebJS (Antigo) | Baileys WebSockets (GISAIO) |
+| Característica | Puppeteer / WWebJS (Legado) | Baileys WebSockets (GISAIO) |
 | :--- | :--- | :--- |
 | **Tecnologia de Conexão** | 1 Navegador Chromium Headless por chip | Conexão socket TCP/TLS nativa |
 | **Consumo de Memória (RAM)** | 300MB a 500MB por celular | **~25MB a 30MB por celular** |
-| **Uso Total para 20 Chips** | 8GB a 12GB RAM (Instável) | **~600MB RAM (Ultraleve)** |
-| **Infraestrutura Necessária** | Servidor Dedicado / VPS Cara | **VPS Básica (2 vCPUs / 4GB RAM)** |
+| **Footprint para 20 Chips** | 8GB a 12GB RAM (Instável) | **~600MB RAM (Ultraleve)** |
+| **Infraestrutura Necessária** | Servidor Dedicado de Alto Custo | **VPS Básica (2 vCPUs / 4GB RAM)** |
 | **Resiliência de Rede** | Quedas frequentes por crash de render | **Reconexão automática silenciosa** |
 
 ---
@@ -63,7 +58,7 @@ Diferente de soluções legadas que abrem instâncias completas do Google Chrome
 ## 🛡️ 3. Pilares de Engenharia e Regras de Compliance
 
 ### 1. 🔒 Imutabilidade Absoluta de Identidade e Nomes
-* O nome atribuído pelo operador a um smartphone no pareamento (ex: `ANA 2255`, `BRUNA ANJOS - 6843`) torna-se **100% perpétuo e imutável**.
+* O nome atribuído pelo operador a um smartphone no pareamento (ex: `DISPOSITIVO 01`, `CENTRAL SUL - 8270`) torna-se **100% perpétuo e imutável**.
 * Proibição total de renomeações em lote, resets de sessão ou sobrescrita automática por rotinas de sincronização.
 
 ### 2. 🔇 Modo "Auditor Silencioso" (Caixa Preta)
@@ -87,16 +82,18 @@ O módulo de Auditoria (`/audit`) foi projetado especificamente para supervisão
 ┌─────────────────────────────────────────────────────────────────────────────────────────────┐
 │ 🛡️ Auditoria   [ 🔍 Localizar número em qualquer celular (Omnisearch)... ]     [📥 Exportar] │
 ├─────────────────────────────────────────────────────────────────────────────────────────────┤
-│ [ 📱 ANA 2255  324 msgs ] [ 📱 BRUNA ANJOS  169 msgs ] [ 📱 LAIZ  20 msgs ] [ 📱 PAOLA... ] │
+│ [ 📱 DISPOSITIVO 01  324 msgs ] [ 📱 CENTRAL SUL  169 msgs ] [ 📱 ATENDIMENTO 03  20 msgs ] │
 ├───────────────────────────────┬─────────────────────────────────────────────────────────────┤
-│ 💬 Conversas do Aparelho      │ 🕒 Timeline Contínua & Filtros Avançados                    │
-│ ┌───────────────────────────┐ │ [ 🔍 Buscar termo ] [ 📅 De: dd/mm/aaaa ] [ 📅 Até: ]       │
-│ │ 👤 Eliane Kozoris         │ │ [🔴 Apenas Apagadas] [📁 Tipo de Mídia: Todos ▾]            │
-│ │    554799151766           │ │───────────────────────────────────────────────────────────│
-│ │    NF 1.pdf               │ │ 👤 Cliente: Segue o comprovante em anexo.                   │
-│ ├───────────────────────────┤ │ 📱 Operador: Recebido com sucesso.                          │
-│ │ 👤 Sandro Marcelo         │ │ 🚫 [MENSAGEM APAGADA]: Valor confirmado via PIX.           │
-│ │    555599916869           │ │ 🎙️ [Áudio de Voz - 0:28] ▶ 🔘━━━━━━━━━━━ 🔊                │
+│ 💬 Conversas do Aparelho      │ 📱 +55 (47) 9915-1766 ── DISPOSITIVO 01 ── 32 msgs          │
+│ ┌───────────────────────────┐ │─────────────────────────────────────────────────────────────│
+│ │ 📞 +55 (47) 9915-1766     │ │ 🕒 Timeline Contínua & Filtros Avançados                    │
+│ │    NF 1.pdf               │ │ [ 🔍 Buscar termo ] [ 📅 De: dd/mm/aaaa ] [ 📅 Até: ]       │
+│ ├───────────────────────────┤ │ [🔴 Apenas Apagadas] [📁 Tipo de Mídia: Todos ▾]            │
+│ │ 📞 +55 (55) 9991-6869     │ │───────────────────────────────────────────────────────────│
+│ │    Comprovante PIX        │ │ 👤 Cliente: Segue o comprovante em anexo.                   │
+│ └───────────────────────────┘ │ 📱 Operador: Recebido com sucesso.                          │
+│                               │ 🚫 [MENSAGEM APAGADA]: Valor confirmado via PIX.           │
+│                               │ 🎙️ [Áudio de Voz - 0:28] ▶ 🔘━━━━━━━━━━━ 🔊                │
 └───────────────────────────────┴─────────────────────────────────────────────────────────────┘
 ```
 
@@ -118,7 +115,7 @@ graph TD
     P1 --> D1["Com DDI 55 (554199118)"]
     P2 --> D2["Com DDI 55 (55419118)"]
     Clean --> Local["Variação Local (99118 / 9118)"]
-    D1 & D2 & P1 & P2 & Local --> Match["Consulta Indexada no SQLite/Postgres"]
+    D1 & D2 & P1 & P2 & Local --> Match["Consulta Indexada no SQLite / PostgreSQL"]
 ```
 
 * ✅ **Busca sem o 9** (`419118`) ➡️ Encontra contatos gravados no formato 8 dígitos (`554191189892`).
@@ -135,12 +132,13 @@ flowchart TB
     subgraph WhatsApp["Dispositivos Físicos"]
         W1[📱 Smartphone 01]
         W2[📱 Smartphone 02]
-        Wn[📱 Smartphone 20]
+        Wn[📱 Smartphone N]
     end
 
     subgraph Backend["Backend Node.js (Porta 6002)"]
         BW[Engine Baileys WebSocket]
         Auth[Auth & JWT Service]
+        RBAC[Middleware isAdmin / isAuth]
         AuditSvc[Audit & Search Services]
         AntiDel[Mecanismo Anti-Delete]
     end
@@ -174,7 +172,7 @@ flowchart TB
 
 ## 🌐 7. Especificação de Rotas & Endpoints
 
-### Módulo de Auditoria Forense
+### Módulo de Auditoria Forense *(Requer Perfil Admin)*
 | Método | Endpoint | Descrição |
 | :--- | :--- | :--- |
 | `GET` | `/audit/devices` | Lista os smartphones com status de conexão e volume de mensagens |
@@ -193,7 +191,18 @@ flowchart TB
 
 ---
 
-## 🚀 8. Guia de Execução e Inicialização
+## 👥 8. Matriz de Perfis e Segurança (RBAC)
+
+O sistema conta com controle de acesso baseado em papéis (Role-Based Access Control) rigoroso tanto na interface quanto na camada de API:
+
+| Perfil | Cofre de Auditoria | Atendimento (Tickets) | Gestão de Conexões | Usuários & Filas |
+| :--- | :---: | :---: | :---: | :---: |
+| **Administrador (`admin`)** | ✅ Total | ✅ Total | ✅ Total | ✅ Total |
+| **Operador (`user`)** | ❌ **Bloqueado (403)** | ✅ Apenas Atendimento | ❌ Bloqueado | ❌ Bloqueado |
+
+---
+
+## 🚀 9. Guia de Execução e Inicialização
 
 ### Pré-requisitos
 * Node.js `>= 14.x`
@@ -228,17 +237,6 @@ cloudflared tunnel --url http://localhost:6001
 cd d:\whaticket
 docker-compose up -d --build
 ```
-
----
-
-## 👥 9. Matriz de Perfis e Permissões
-
-| Usuário | Login | Perfil | Finalidade |
-| :--- | :--- | :--- | :--- |
-| **Yasmin** | `yasmin` | Administrador | Supervisão e Auditoria Geral |
-| **Arthur Hille** | `arthur.hille` | Administrador | Gestão Técnica e Conexões |
-| **Jana Juttel** | `jana.juttel` | Administrador | Supervisão de Atendimento |
-| **Admin Master** | `admin@whaticket.com` | Administrador Master | Manutenção e Configuração do Sistema |
 
 ---
 
