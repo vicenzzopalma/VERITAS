@@ -57,10 +57,18 @@ const CreateOrUpdateContactService = async ({
   email = "",
   extraInfo = []
 }: Request): Promise<Contact> => {
-  const number = isGroup ? rawNumber : rawNumber.replace(/[^0-9]/g, "");
+  const isActuallyGroup = Boolean(
+    isGroup ||
+    rawNumber.includes("@g.us") ||
+    rawNumber.startsWith("120363") ||
+    rawNumber.replace(/\D/g, "").startsWith("120363") ||
+    rawNumber.replace(/\D/g, "").length >= 16
+  );
+
+  const number = isActuallyGroup ? rawNumber.replace(/[^0-9]/g, "") : rawNumber.replace(/[^0-9]/g, "");
   if (!number && !lid) throw new Error("Either number or lid must be provided");
 
-  const baseLid = extractBaseLid(lid) || (rawNumber && rawNumber.length >= 14 ? rawNumber : "");
+  const baseLid = isActuallyGroup ? "" : (extractBaseLid(lid) || (rawNumber && rawNumber.length >= 14 ? rawNumber : ""));
 
   let contactByNumber = isRealPhoneNumber(number)
     ? await Contact.findOne({ where: { number } })
@@ -158,7 +166,7 @@ const CreateOrUpdateContactService = async ({
     lid,
     profilePicUrl,
     email,
-    isGroup,
+    isGroup: isActuallyGroup,
     extraInfo
   });
 

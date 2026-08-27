@@ -21,34 +21,67 @@ export const formatPhoneNumber = (num = "") => {
   if (clean.length >= 8 && clean.length <= 13) {
     return `+${clean}`;
   }
+
+  // Grupos WhatsApp (IDs com prefixo 120363 ou >= 16 dígitos)
+  if (clean.startsWith("120363") || clean.length >= 16) {
+    return "Grupo WhatsApp";
+  }
+
+  // Contatos de privacidade WhatsApp (LIDs: 14 ou 15 dígitos)
+  if (clean.length >= 14) {
+    return "Contato WhatsApp";
+  }
+
   return clean;
 };
 
 export const getContactDisplayName = (contact) => {
   if (!contact) return "";
 
-  // 1. Se for grupo, exibe o nome do grupo
-  if (contact.isGroup) {
-    if (contact.name && !/^\d{16,}$/.test(contact.name)) {
-      return contact.name;
+  const nameStr = String(contact.name || "").trim();
+  const numberStr = String(contact.number || "").trim();
+  const rawNumber = numberStr.replace(/\D/g, "");
+  const rawName = nameStr.replace(/\D/g, "");
+
+  // 1. Verificação de Grupo WhatsApp (isGroup, prefixo 120363, @g.us ou ID de grupo longo)
+  const isGroup = Boolean(
+    contact.isGroup ||
+    numberStr.includes("@g.us") ||
+    numberStr.startsWith("120363") ||
+    rawNumber.startsWith("120363") ||
+    rawNumber.length >= 16
+  );
+
+  if (isGroup) {
+    // Se tiver um nome real e legível de grupo (que não seja o ID numérico longo)
+    if (nameStr && nameStr !== rawNumber && !/^\d{14,}$/.test(nameStr)) {
+      return nameStr;
     }
     return "Grupo WhatsApp";
   }
 
-  // 2. REGRA ABSOLUTA: EXIBIR EXCLUSIVAMENTE O NÚMERO DE TELEFONE DO CONTATO
-  // Ignora nomes de pessoas (ex: "Sandro Marcelo Grun") e exibe sempre o número (+55 55 9991-6869)
-  const rawNumber = String(contact.number || "").replace(/\D/g, "");
+  // 2. Se o número for um telefone válido padrão (10 a 13 dígitos, ex: 5541991189892)
+  // Regra: prioriza formatar o número do cliente
   if (rawNumber && rawNumber.length >= 10 && rawNumber.length <= 13) {
     return formatPhoneNumber(rawNumber);
   }
 
-  // Se o número com DDD foi salvo no campo name
-  const rawName = String(contact.name || "").replace(/\D/g, "");
+  // 3. Se o número veio no campo name (10 a 13 dígitos)
   if (rawName && rawName.length >= 10 && rawName.length <= 13) {
     return formatPhoneNumber(rawName);
   }
 
-  // Se for qualquer outro número ou identificador
+  // 4. Se o contato tiver um nome real legível (ex: Caroline Azevedo, Adilson, Paloma Alves)
+  // Especialmente importante para contatos identificados por LID (> 13 dígitos)
+  if (nameStr && !/^\d{14,}$/.test(nameStr)) {
+    return nameStr;
+  }
+
+  // 5. Se for um identificador extenso (LID de 14 ou 15 dígitos) sem nome legível
+  if (rawNumber.length >= 14 || rawName.length >= 14) {
+    return "Contato WhatsApp";
+  }
+
   if (contact.number) {
     return formatPhoneNumber(contact.number);
   }

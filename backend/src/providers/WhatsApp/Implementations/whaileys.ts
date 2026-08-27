@@ -1308,6 +1308,50 @@ const init = async (whatsapp: Whatsapp): Promise<void> => {
     );
   });
 
+  wbot.ev.on("contacts.upsert", async contacts => {
+    for (const c of contacts) {
+      try {
+        const jid = c.id || "";
+        const lid = (c as any).lid || (jid.endsWith("@lid") ? jid : undefined);
+        const pn = jid.endsWith("@s.whatsapp.net") ? jid.split("@")[0] : (c as any).phoneNumber?.split("@")[0];
+        const name = c.name || c.notify || (c as any).verifiedName;
+
+        if (pn || lid) {
+          await CreateOrUpdateContactService({
+            name: name || pn || lid?.split("@")[0] || "",
+            number: pn || lid?.split("@")[0] || "",
+            lid,
+            isGroup: isJidGroup(jid)
+          });
+        }
+      } catch {
+        /* ignore */
+      }
+    }
+  });
+
+  wbot.ev.on("contacts.update", async updates => {
+    for (const c of updates) {
+      try {
+        const jid = c.id || "";
+        const lid = (c as any).lid || (jid.endsWith("@lid") ? jid : undefined);
+        const pn = jid.endsWith("@s.whatsapp.net") ? jid.split("@")[0] : (c as any).phoneNumber?.split("@")[0];
+        const name = c.name || c.notify || (c as any).verifiedName;
+
+        if (pn || lid) {
+          await CreateOrUpdateContactService({
+            name: name || pn || lid?.split("@")[0] || "",
+            number: pn || lid?.split("@")[0] || "",
+            lid,
+            isGroup: isJidGroup(jid)
+          });
+        }
+      } catch {
+        /* ignore */
+      }
+    }
+  });
+
   wbot.ev.on("connection.update", async update => {
     const { connection, lastDisconnect, qr } = update;
 
