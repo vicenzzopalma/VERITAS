@@ -374,7 +374,7 @@ const Connections = () => {
 										<TableRow key={whatsApp.id}>
 											<TableCell align="center">
 												<div>{whatsApp.name}</div>
-												{whatsApp.proxyUrl ? (
+												{whatsApp.proxyUrl && (
 													<Typography
 														variant="caption"
 														style={{
@@ -385,17 +385,6 @@ const Connections = () => {
 														}}
 													>
 														🔒 Proxy Ativo
-													</Typography>
-												) : (
-													<Typography
-														variant="caption"
-														style={{
-															color: "#0284c7",
-															display: "block",
-															fontSize: "0.72rem"
-														}}
-													>
-														🌐 Rota Direta
 													</Typography>
 												)}
 											</TableCell>
