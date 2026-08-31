@@ -31,6 +31,8 @@ import whatsBackground from "../../assets/wa-background.png";
 import api from "../../services/api";
 import toastError from "../../errors/toastError";
 import Audio from "../Audio";
+import MediaViewerModal from "../MediaViewerModal";
+import PictureAsPdfIcon from "@material-ui/icons/PictureAsPdf";
 import { getContactDisplayName, formatPhoneNumber } from "../../helpers/contactHelper";
 
 const useStyles = makeStyles((theme) => ({
@@ -260,6 +262,61 @@ const useStyles = makeStyles((theme) => ({
     backgroundColor: "inherit",
     padding: 10,
   },
+  pdfCard: {
+    backgroundColor: theme.palette.type === "dark" ? "#1e293b" : "#f8fafc",
+    border: `1px solid ${theme.palette.type === "dark" ? "#334155" : "#e2e8f0"}`,
+    borderRadius: 8,
+    overflow: "hidden",
+    marginTop: 6,
+    marginBottom: 6,
+    cursor: "pointer",
+    transition: "all 0.2s ease-in-out",
+    maxWidth: 320,
+    width: "100%",
+    boxShadow: "0 1px 3px rgba(0,0,0,0.06)",
+    "&:hover": {
+      borderColor: "#0284c7",
+      boxShadow: "0 4px 12px rgba(2, 132, 199, 0.15)",
+    },
+  },
+  pdfCardHeader: {
+    display: "flex",
+    alignItems: "center",
+    padding: "8px 12px",
+    backgroundColor: theme.palette.type === "dark" ? "#0f172a" : "#ffffff",
+    borderBottom: `1px solid ${theme.palette.type === "dark" ? "#334155" : "#e2e8f0"}`,
+  },
+  pdfPreviewWrapper: {
+    position: "relative",
+    height: 160,
+    width: "100%",
+    backgroundColor: "#475569",
+    overflow: "hidden",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  pdfMiniIframe: {
+    width: "100%",
+    height: "100%",
+    border: "none",
+    pointerEvents: "none",
+  },
+  pdfOverlayHover: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: "rgba(0,0,0,0.12)",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    transition: "background 0.2s ease",
+    "&:hover": {
+      backgroundColor: "rgba(0,0,0,0.38)",
+    },
+  },
 }));
 
 const reducer = (state, action) => {
@@ -321,6 +378,19 @@ const MessagesList = ({ ticketId, isGroup }) => {
   const [anchorEl, setAnchorEl] = useState(null);
   const messageOptionsMenuOpen = Boolean(anchorEl);
   const currentTicketId = useRef(ticketId);
+
+  const [mediaModalOpen, setMediaModalOpen] = useState(false);
+  const [activeMedia, setActiveMedia] = useState({ url: "", type: "", title: "" });
+
+  const handleOpenMediaModal = (url, type, title) => {
+    setActiveMedia({ url, type, title });
+    setMediaModalOpen(true);
+  };
+
+  const handleCloseMediaModal = () => {
+    setMediaModalOpen(false);
+    setActiveMedia({ url: "", type: "", title: "" });
+  };
 
   useEffect(() => {
     dispatch({ type: "RESET" });
@@ -466,7 +536,7 @@ const MessagesList = ({ ticketId, isGroup }) => {
         )
       } else return (<></>)
     }*/
-    else if ( /^.*\.(jpe?g|png|gif)?$/i.exec(message.mediaUrl) && message.mediaType === "image") {
+    else if ( /^.*\.(jpe?g|png|gif|webp)?$/i.exec(message.mediaUrl) && message.mediaType === "image") {
       return <ModalImageCors imageUrl={message.mediaUrl} />;
     } else if (message.mediaType === "audio") {
       return <Audio url={message.mediaUrl} />
@@ -476,7 +546,39 @@ const MessagesList = ({ ticketId, isGroup }) => {
           className={classes.messageMedia}
           src={message.mediaUrl}
           controls
+          onClick={() => handleOpenMediaModal(message.mediaUrl, "video", message.body)}
         />
+      );
+    } else if (message.mediaUrl && message.mediaUrl.toLowerCase().includes(".pdf")) {
+      return (
+        <div
+          className={classes.pdfCard}
+          onClick={() => handleOpenMediaModal(message.mediaUrl, "application/pdf", message.body)}
+        >
+          <div className={classes.pdfCardHeader}>
+            <PictureAsPdfIcon style={{ color: "#ef4444", fontSize: 28, marginRight: 8 }} />
+            <div style={{ overflow: "hidden", flexGrow: 1 }}>
+              <span style={{ fontWeight: 600, fontSize: "0.82rem", display: "block", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                {message.body && message.body !== message.mediaUrl ? message.body : message.mediaUrl.split("/").pop()}
+              </span>
+              <span style={{ color: "#64748b", fontSize: "0.72rem", display: "block" }}>
+                Documento PDF • Clique para expandir
+              </span>
+            </div>
+          </div>
+          <div className={classes.pdfPreviewWrapper}>
+            <iframe
+              src={`${message.mediaUrl}#toolbar=0&navpanes=0&scrollbar=0&view=FitH`}
+              title="PDF Preview"
+              className={classes.pdfMiniIframe}
+            />
+            <div className={classes.pdfOverlayHover}>
+              <span style={{ color: "#ffffff", fontWeight: 700, backgroundColor: "rgba(0,0,0,0.65)", padding: "4px 10px", borderRadius: 20, fontSize: "0.75rem" }}>
+                🔍 Visualizar em Popup
+              </span>
+            </div>
+          </div>
+        </div>
       );
     } else {
       return (
@@ -486,10 +588,9 @@ const MessagesList = ({ ticketId, isGroup }) => {
               startIcon={<GetApp />}
               color="primary"
               variant="outlined"
-              target="_blank"
-              href={message.mediaUrl}
+              onClick={() => handleOpenMediaModal(message.mediaUrl, message.mediaType, message.body)}
             >
-              Download
+              {message.body && message.body !== message.mediaUrl ? message.body : "Visualizar Arquivo"}
             </Button>
           </div>
           <Divider />
@@ -684,6 +785,13 @@ const MessagesList = ({ ticketId, isGroup }) => {
         anchorEl={anchorEl}
         menuOpen={messageOptionsMenuOpen}
         handleClose={handleCloseMessageOptionsMenu}
+      />
+      <MediaViewerModal
+        open={mediaModalOpen}
+        onClose={handleCloseMediaModal}
+        mediaUrl={activeMedia.url}
+        mediaType={activeMedia.type}
+        title={activeMedia.title}
       />
       <div
         id="messagesList"
