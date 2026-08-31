@@ -29,7 +29,6 @@ const isRealName = (name?: string, number?: string, lid?: string): boolean => {
   const cleanName = name.trim();
   if (number && cleanName === number) return false;
   if (lid && (cleanName === lid || cleanName === lid.split("@")[0] || cleanName === lid.split(":")[0])) return false;
-  // Se for apenas dígitos e tiver mais de 10 dígitos (típico de LID ou grupo)
   if (/^\d{10,}$/.test(cleanName)) return false;
   return true;
 };
@@ -37,15 +36,17 @@ const isRealName = (name?: string, number?: string, lid?: string): boolean => {
 const isRealPhoneNumber = (num?: string): boolean => {
   if (!num || !num.trim()) return false;
   const clean = num.replace(/\D/g, "");
-  // Número real no Brasil ou internacional: 10 a 13 dígitos
-  // LIDs do WhatsApp têm tipicamente 14 a 16 dígitos e começam com 2... ou 93... ou 10... etc.
   if (clean.length >= 10 && clean.length <= 13) return true;
   return false;
 };
 
 const emitContact = (action: "update" | "create", contact: Contact) => {
-  const io = getIO();
-  io.emit("contact", { action, contact });
+  try {
+    const io = getIO();
+    io.emit("contact", { action, contact });
+  } catch (err) {
+    logger.warn("Socket IO not ready to emit contact");
+  }
 };
 
 const CreateOrUpdateContactService = async ({
@@ -70,11 +71,20 @@ const CreateOrUpdateContactService = async ({
 
   const baseLid = isActuallyGroup ? "" : (extractBaseLid(lid) || (rawNumber && rawNumber.length >= 14 ? rawNumber : ""));
 
-  let contactByNumber = isRealPhoneNumber(number)
-    ? await Contact.findOne({ where: { number } })
+  // 1. Busca defensiva por número
+  let contactByNumber = number
+    ? await Contact.findOne({
+        where: {
+          [Op.or]: [
+            { number },
+            ...(lid ? [{ lid }] : [])
+          ]
+        }
+      })
     : null;
 
-  let contactByLid = baseLid
+  // 2. Busca defensiva por LID
+  let contactByLid = baseLid && (!contactByNumber || contactByNumber.lid !== lid)
     ? await Contact.findOne({
         where: {
           [Op.or]: [
@@ -108,13 +118,6 @@ const CreateOrUpdateContactService = async ({
       name: bestName,
       lid: contactByLid.lid || lid,
       profilePicUrl: profilePicUrl || contactByNumber.profilePicUrl || contactByLid.profilePicUrl
-    });
-
-    logger.info({
-      info: "Merged contacts by number and lid",
-      primaryContactId: contactByNumber.id,
-      mergedContactId: contactByLid.id,
-      resolvedName: bestName
     });
 
     emitContact("update", contactByNumber);
@@ -160,18 +163,50 @@ const CreateOrUpdateContactService = async ({
     return contactByLid;
   }
 
-  const created = await Contact.create({
-    name,
-    number,
-    lid,
-    profilePicUrl,
-    email,
-    isGroup: isActuallyGroup,
-    extraInfo
-  });
+  // 3. Inserção blindada com captura de colisão de chave única (UNIQUE constraint fallback)
+  try {
+    const created = await Contact.create({
+      name,
+      number,
+      lid,
+      profilePicUrl,
+      email,
+      isGroup: isActuallyGroup,
+      extraInfo
+    });
 
-  emitContact("create", created);
-  return created;
+    emitContact("create", created);
+    return created;
+  } catch (err: any) {
+    if (err.name === "SequelizeUniqueConstraintError" || err.message?.includes("UNIQUE constraint failed")) {
+      logger.warn({
+        info: "Unique constraint collision caught in CreateOrUpdateContactService, applying update fallback",
+        number,
+        lid
+      });
+
+      // Busca o registro existente que colidiu
+      const existing = await Contact.findOne({
+        where: {
+          [Op.or]: [
+            ...(number ? [{ number }] : []),
+            ...(lid ? [{ lid }] : [])
+          ]
+        }
+      });
+
+      if (existing) {
+        await existing.update({
+          name: isRealName(name, number, lid) ? name : existing.name,
+          lid: lid || existing.lid,
+          profilePicUrl: profilePicUrl || existing.profilePicUrl
+        });
+        emitContact("update", existing);
+        return existing;
+      }
+    }
+    throw err;
+  }
 };
 
 export default CreateOrUpdateContactService;
