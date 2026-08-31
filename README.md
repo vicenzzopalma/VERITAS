@@ -24,32 +24,32 @@ Modern end-to-end encrypted messaging ecosystems (such as WhatsApp, built upon t
 
 ---
 
-## 🏛️ Project Lineage & Architectural Evolution (Remanejamento do Whaticket)
+## 🏛️ Project Lineage & Architectural Evolution (Whaticket Architectural Remodeling)
 
-**VERITAS** was born from a fundamental architectural overhaul of the open-source **Whaticket** project. While Whaticket was originally conceived as a multi-attendant ticketing/CRM tool, VERITAS completely restructures and elevates the codebase into an enterprise-grade **Forensic Compliance & Distributed Communication Vault**:
+**VERITAS** was born from a fundamental architectural overhaul and extensive remodeling of the open-source **Whaticket** codebase. While Whaticket was originally conceived as a conventional customer service / ticketing CRM, VERITAS completely restructures and elevates the system into an enterprise-grade **Forensic Compliance & Distributed Communication Vault**:
 
 ```
 ┌────────────────────────────────────────────────────────────────────────────────────────┐
-│                        🧬 EVOLUÇÃO E REMANEJAMENTO ARQUITETURAL                        │
+│                  🧬 ARCHITECTURAL EVOLUTION & SYSTEM REMODELING                        │
 ├───────────────────────────────────────────┬────────────────────────────────────────────┤
-│ 📦 WHATICKET (BASE DE ORIGEM)             │ 🛡️ VERITAS (SISTEMA REMANEJADO & ATUAL)   │
+│ 📦 WHATICKET (FOUNDATIONAL BASE)          │ 🛡️ VERITAS (REMODELED & STATE-OF-THE-ART)   │
 ├───────────────────────────────────────────┼────────────────────────────────────────────┤
-│ • Foco em Atendimento / SAC Simples       │ • Cofre de Auditoria Forense & Compliance │
-│ • Instabilidade com Múltiplos Chips       │ • Orquestrador Baileys Escalável (Zero-RAM)│
-│ • Mensagens apagadas somem do histórico   │ • Anti-Delete 100% Imutável & Perpétuo     │
-│ • Sem isolamento de rede (Alto risco ban) │ • Virtualização de Proxy HTTP/SOCKS5 / Chip│
-│ • Envio robótico em bloco                 │ • Human Flow (Simulação de Digitação)      │
-│ • Armazenamento opaco (sem métricas)      │ • Telemetria de Armazenamento SQLite ao vivo│
-│ • Mídias abrem em abas externas           │ • Visualizador Popup Lightbox & Mini-PDFs  │
+│ • Conventional Helpdesk / Support Focus   │ • Institutional Forensic Audit & Compliance│
+│ • Severe Memory Leaks on Multiple Channels│ • Scalable Baileys Cluster (Ultralight RAM)│
+│ • Deleted messages vanish from history    │ • 100% Immutable & Perpetual Anti-Delete   │
+│ • Single IP routing (High ban liability)  │ • Per-Channel HTTP/SOCKS5 Proxy Isolation  │
+│ • Robotic packet burst transmission       │ • Human Flow Engine (Organic Jitter/Typing)│
+│ • Opaque black-box storage metrics        │ • Real-Time Live SQLite & Media Telemetry  │
+│ • Media binaries force external tab opens │ • Native Lightbox Popup & Inline PDF Cards │
 └───────────────────────────────────────────┴────────────────────────────────────────────┘
 ```
 
-### Principais Transformações Implementadas:
-1. **Reengenharia do Core de Conexão:** Substituição de instâncias pesadas por conexões WebSocket diretas em Baileys com handshakes escalonados de 800ms.
-2. **Cofre de Auditoria e Conformidade Legal:** Adição de camada de persistência com preservação absoluta de mensagens excluídas, visualização de conversas respondidas (*quoted messages*) e exportação forense (PDF/CSV/TXT).
-3. **Telemetria de Armazenamento e Disco:** Monitoramento do arquivo `whaticket.sqlite`, diretório de mídia `/public` e detalhamento de consumo por número.
-4. **Proteção Anti-Ban e Fluxo Humano:** Roteamento por proxy dedicado e delay orgânico dinâmico proporcional ao tamanho do texto.
-5. **Experiência do Usuário (UI/UX):** Pré-visualização semi-integrada de PDFs nas bolhas de chat e popup modal nativo (sem abrir abas no navegador).
+### Key Architectural Transformations:
+1. **Connection Core Re-Engineering:** Substituted resource-heavy browser sessions with direct Baileys WebSocket streams orchestrated via jittered 800ms staggered handshakes.
+2. **Forensic Compliance & Evidentiary Vault:** Implemented perpetual anti-delete message interception, bi-directional quoted reply graph reconstruction, and certified evidentiary exports (PDF / CSV / TXT).
+3. **Real-Time Disk & Database Telemetry:** Built embedded low-latency disk monitoring for `whaticket.sqlite`, the `/public` media directory, and per-device footprint distribution.
+4. **Anti-Ban Protection & Human Flow:** Integrated session-level proxy virtualization and dynamic delay heuristics proportional to payload character length.
+5. **Seamless User Experience (UI/UX):** Introduced inline semi-rendered PDF cards within chat bubbles and a native unified lightbox modal, eliminating 100% of external tab launches.
 
 ---
 
@@ -146,33 +146,33 @@ VERITAS features an embedded low-latency disk monitoring engine that inspects th
 
 ```
 ┌──────────────────────────────────────────────────────────────────────────────────────────┐
-│ 🗄️ ARMAZENAMENTO DO SISTEMA EM TEMPO REAL                                                │
+│ 🗄️ REAL-TIME SYSTEM STORAGE TELEMETRY                                                    │
 ├──────────────────────────────┬──────────────────────────────┬────────────────────────────┤
-│ 🗄️ BANCO DE DADOS (SQLITE)   │ 📁 MÍDIAS & ANEXOS EM DISCO  │ 💾 ARMAZENAMENTO TOTAL     │
+│ 🗄️ DATABASE (SQLITE)         │ 📁 MEDIA & DISK ATTACHMENTS  │ 💾 TOTAL STORAGE FOOTPRINT │
 │ 28.25 MB                     │ 131.11 MB                    │ 159.36 MB                  │
-│ whaticket.sqlite (8,832 msgs)│ /public (925 arquivos)       │ 37,765 Contatos • 17 Canais│
+│ whaticket.sqlite (8,832 msgs)│ /public (925 files)          │ 37,765 Contacts • 17 Lines │
 └──────────────────────────────┴──────────────────────────────┴────────────────────────────┘
 
 ┌──────────────────────────────────────────────────────────────────────────────────────────┐
-│ 📱 CONSUMO DE ARMAZENAMENTO POR NÚMERO DE WHATSAPP                                       │
+│ 📱 STORAGE CONSUMPTION BREAKDOWN PER WHATSAPP ENDPOINT                                   │
 ├──────────────────────┬─────────────┬──────────────┬──────────────┬──────────────┬────────┤
-│ Aparelho / WhatsApp  │ Status      │ Mensagens    │ Espaço Banco │ Espaço Mídia │ % Total│
+│ Device / Channel     │ Status      │ Messages     │ DB Footprint │ Media Blobs  │ % Total│
 ├──────────────────────┼─────────────┼──────────────┼──────────────┼──────────────┼────────┤
-│ BRUNA ANJOS - 6843   │ 🟢 Conectado│ 747 msgs     │ 208.07 KB    │ 11.04 MB     │ 7.1% █ │
-│ ARTHUR 1827          │ 🟢 Conectado│ 2,029 msgs   │ 478.38 KB    │ 9.45 MB      │ 6.2% █ │
-│ STHEFANNY 6542       │ 🟢 Conectado│ 1,514 msgs   │ 366.68 KB    │ 8.66 MB      │ 5.7% █ │
-│ RESERVA 6696         │ 🟢 Conectado│ 775 msgs     │ 163.03 KB    │ 6.16 MB      │ 4.0% █ │
-│ RESERVA 2255         │ 🟢 Conectado│ 367 msgs     │ 75.77 KB     │ 4.57 MB      │ 2.9% █ │
-│ RESERVA 7191         │ 🟢 Conectado│ 638 msgs     │ 131.77 KB    │ 3.78 MB      │ 2.5% █ │
-│ RESERVA 2186         │ 🟢 Conectado│ 791 msgs     │ 156.70 KB    │ 3.82 MB      │ 2.5% █ │
-│ RESERVA 4632         │ 🟢 Conectado│ 366 msgs     │ 83.16 KB     │ 3.02 MB      │ 2.0% █ │
-│ RESERVA 0425         │ 🟢 Conectado│ 379 msgs     │ 77.54 KB     │ 2.42 MB      │ 1.6% █ │
-│ KASSIEL 5392         │ 🟢 Conectado│ 582 msgs     │ 117.32 KB    │ 1.65 MB      │ 1.1% █ │
-│ BRUNA REIS - 6626    │ 🟢 Conectado│ 53 msgs      │ 15.55 KB     │ 1.59 MB      │ 1.0% █ │
-│ PAOLA 5151           │ 🟢 Conectado│ 119 msgs     │ 28.98 KB     │ 1.07 MB      │ 0.7% █ │
-│ HELOISA PES 8229     │ 🟢 Conectado│ 202 msgs     │ 39.83 KB     │ 0.95 MB      │ 0.6% █ │
-│ RESERVA 3495         │ 🟢 Conectado│ 61 msgs      │ 14.92 KB     │ 0.95 MB      │ 0.6% █ │
-│ RENATA 1808          │ 🟢 Conectado│ 180 msgs     │ 39.12 KB     │ 0.43 MB      │ 0.3% █ │
+│ BRUNA ANJOS - 6843   │ 🟢 Connected│ 747 msgs     │ 208.07 KB    │ 11.04 MB     │ 7.1% █ │
+│ ARTHUR 1827          │ 🟢 Connected│ 2,029 msgs   │ 478.38 KB    │ 9.45 MB      │ 6.2% █ │
+│ STHEFANNY 6542       │ 🟢 Connected│ 1,514 msgs   │ 366.68 KB    │ 8.66 MB      │ 5.7% █ │
+│ RESERVA 6696         │ 🟢 Connected│ 775 msgs     │ 163.03 KB    │ 6.16 MB      │ 4.0% █ │
+│ RESERVA 2255         │ 🟢 Connected│ 367 msgs     │ 75.77 KB     │ 4.57 MB      │ 2.9% █ │
+│ RESERVA 7191         │ 🟢 Connected│ 638 msgs     │ 131.77 KB    │ 3.78 MB      │ 2.5% █ │
+│ RESERVA 2186         │ 🟢 Connected│ 791 msgs     │ 156.70 KB    │ 3.82 MB      │ 2.5% █ │
+│ RESERVA 4632         │ 🟢 Connected│ 366 msgs     │ 83.16 KB     │ 3.02 MB      │ 2.0% █ │
+│ RESERVA 0425         │ 🟢 Connected│ 379 msgs     │ 77.54 KB     │ 2.42 MB      │ 1.6% █ │
+│ KASSIEL 5392         │ 🟢 Connected│ 582 msgs     │ 117.32 KB    │ 1.65 MB      │ 1.1% █ │
+│ BRUNA REIS - 6626    │ 🟢 Connected│ 53 msgs      │ 15.55 KB     │ 1.59 MB      │ 1.0% █ │
+│ PAOLA 5151           │ 🟢 Connected│ 119 msgs     │ 28.98 KB     │ 1.07 MB      │ 0.7% █ │
+│ HELOISA PES 8229     │ 🟢 Connected│ 202 msgs     │ 39.83 KB     │ 0.95 MB      │ 0.6% █ │
+│ RESERVA 3495         │ 🟢 Connected│ 61 msgs      │ 14.92 KB     │ 0.95 MB      │ 0.6% █ │
+│ RENATA 1808          │ 🟢 Connected│ 180 msgs     │ 39.12 KB     │ 0.43 MB      │ 0.3% █ │
 └──────────────────────┴─────────────┴──────────────┴──────────────┴──────────────┴────────┘
 ```
 
