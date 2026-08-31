@@ -13,6 +13,7 @@ import CheckContactNumber from "../services/WbotServices/CheckNumber";
 import GetProfilePicUrl from "../services/WbotServices/GetProfilePicUrl";
 import SendWhatsAppMedia from "../services/WbotServices/SendWhatsAppMedia";
 import SendWhatsAppMessage from "../services/WbotServices/SendWhatsAppMessage";
+import { validateFileMagicNumber } from "../helpers/fileSignatureHelper";
 
 type WhatsappData = {
   whatsappId: number;
@@ -93,7 +94,14 @@ export const index = async (req: Request, res: Response): Promise<Response> => {
 
   const contactAndTicket = await createContact(whatsappId, newContact.number);
 
-  if (medias) {
+  if (medias && medias.length > 0) {
+    for (const media of medias) {
+      const isValid = await validateFileMagicNumber(media.path);
+      if (!isValid) {
+        throw new AppError(`O arquivo "${media.originalname}" possui assinatura binária inválida ou conteúdo forjado.`, 400);
+      }
+    }
+
     await Promise.all(
       medias.map(async (media: Express.Multer.File) => {
         await SendWhatsAppMedia({ body, media, ticket: contactAndTicket });

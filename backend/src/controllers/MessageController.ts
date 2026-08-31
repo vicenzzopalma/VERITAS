@@ -3,6 +3,8 @@ import { Request, Response } from "express";
 import SetTicketMessagesAsRead from "../helpers/SetTicketMessagesAsRead";
 import { getIO } from "../libs/socket";
 import Message from "../models/Message";
+import AppError from "../errors/AppError";
+import { validateFileMagicNumber } from "../helpers/fileSignatureHelper";
 
 import ListMessagesService from "../services/MessageServices/ListMessagesService";
 import ShowTicketService from "../services/TicketServices/ShowTicketService";
@@ -44,7 +46,15 @@ export const store = async (req: Request, res: Response): Promise<Response> => {
 
   SetTicketMessagesAsRead(ticket);
 
-  if (medias) {
+  if (medias && medias.length > 0) {
+    // Validação profunda de Magic Numbers de cada arquivo
+    for (const media of medias) {
+      const isValid = await validateFileMagicNumber(media.path);
+      if (!isValid) {
+        throw new AppError(`O arquivo "${media.originalname}" possui assinatura binária inválida ou conteúdo forjado.`, 400);
+      }
+    }
+
     await Promise.all(
       medias.map(async (media: Express.Multer.File) => {
         await SendWhatsAppMedia({ media, ticket });

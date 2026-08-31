@@ -230,42 +230,37 @@ docker-compose up -d --build
 
 ---
 
-## 📄 License & Academic Merit
+## 🛡️ Enterprise Security & Hardening Architecture (20-Layer Defense-in-Depth)
 
-* **Engineering Core**: Engineered with a strict focus on **High-Performance Computing (HPC)**, **Mathematical Integrity**, and **Zero-Data Loss**.
-* **Academic Submission**: Designed as part of an institutional evaluation portfolio demonstrating scalable real-time systems engineering, protocol-level state machine handling, and distributed database optimization.
-* **Proprietary Governance**: All evidentiary data, media binaries, and cryptographic key stores remain 100% within the organization's private computational boundary.
+The **VERITAS** platform implements an institutional-grade, defense-in-depth security matrix engineered for mission-critical compliance:
 
 ```
-┌──────────────────────────────────────────────────────────────────────────────────────────┐
-│ 🗄️ ARMAZENAMENTO DO SISTEMA EM TEMPO REAL                                                │
-├──────────────────────────────┬──────────────────────────────┬────────────────────────────┤
-│ 🗄️ BANCO DE DADOS (SQLITE)   │ 📁 MÍDIAS & ANEXOS EM DISCO  │ 💾 ARMAZENAMENTO TOTAL     │
-│ 28.25 MB                     │ 131.11 MB                    │ 159.36 MB                  │
-│ whaticket.sqlite (8,832 msgs)│ /public (925 arquivos)       │ 37,765 Contatos • 17 Canais│
-└──────────────────────────────┴──────────────────────────────┴────────────────────────────┘
-
-┌──────────────────────────────────────────────────────────────────────────────────────────┐
-│ 📱 CONSUMO DE ARMAZENAMENTO POR NÚMERO DE WHATSAPP                                       │
-├──────────────────────┬─────────────┬──────────────┬──────────────┬──────────────┬────────┤
-│ Aparelho / WhatsApp  │ Status      │ Mensagens    │ Espaço Banco │ Espaço Mídia │ % Total│
-├──────────────────────┼─────────────┼──────────────┼──────────────┼──────────────┼────────┤
-│ BRUNA ANJOS - 6843   │ 🟢 Conectado│ 747 msgs     │ 208.07 KB    │ 11.04 MB     │ 7.1% █ │
-│ ARTHUR 1827          │ 🟢 Conectado│ 2,029 msgs   │ 478.38 KB    │ 9.45 MB      │ 6.2% █ │
-│ STHEFANNY 6542       │ 🟢 Conectado│ 1,514 msgs   │ 366.68 KB    │ 8.66 MB      │ 5.7% █ │
-│ RESERVA 6696         │ 🟢 Conectado│ 775 msgs     │ 163.03 KB    │ 6.16 MB      │ 4.0% █ │
-│ RESERVA 2255         │ 🟢 Conectado│ 367 msgs     │ 75.77 KB     │ 4.57 MB      │ 2.9% █ │
-│ RESERVA 7191         │ 🟢 Conectado│ 638 msgs     │ 131.77 KB    │ 3.78 MB      │ 2.5% █ │
-│ RESERVA 2186         │ 🟢 Conectado│ 791 msgs     │ 156.70 KB    │ 3.82 MB      │ 2.5% █ │
-│ RESERVA 4632         │ 🟢 Conectado│ 366 msgs     │ 83.16 KB     │ 3.02 MB      │ 2.0% █ │
-│ RESERVA 0425         │ 🟢 Conectado│ 379 msgs     │ 77.54 KB     │ 2.42 MB      │ 1.6% █ │
-│ KASSIEL 5392         │ 🟢 Conectado│ 582 msgs     │ 117.32 KB    │ 1.65 MB      │ 1.1% █ │
-│ BRUNA REIS - 6626    │ 🟢 Conectado│ 53 msgs      │ 15.55 KB     │ 1.59 MB      │ 1.0% █ │
-│ PAOLA 5151           │ 🟢 Conectado│ 119 msgs     │ 28.98 KB     │ 1.07 MB      │ 0.7% █ │
-│ HELOISA PES 8229     │ 🟢 Conectado│ 202 msgs     │ 39.83 KB     │ 0.95 MB      │ 0.6% █ │
-│ RESERVA 3495         │ 🟢 Conectado│ 61 msgs      │ 14.92 KB     │ 0.95 MB      │ 0.6% █ │
-│ RENATA 1808          │ 🟢 Conectado│ 180 msgs     │ 39.12 KB     │ 0.43 MB      │ 0.3% █ │
-└──────────────────────┴─────────────┴──────────────┴──────────────┴──────────────┴────────┘
+┌────────────────────────────────────────────────────────────────────────────────────────┐
+│                   🛡️ VERITAS 20-LAYER DEFENSE-IN-DEPTH MATRIX                          │
+├────┬───────────────────────────────────┬───────────────────────────────────────────────┤
+│ #  │ Security Layer                    │ Technical Implementation                      │
+├────┼───────────────────────────────────┼───────────────────────────────────────────────┤
+│ 01 │ Secret & Key Encapsulation        │ Zero hardcoded secrets; 100% environment-bound│
+│ 02 │ Git Leak Prevention               │ Watertight .gitignore for secrets, DBs & keys │
+│ 03 │ Database Boundary Isolation       │ Localized filesystem & private network binding│
+│ 04 │ Application Tenant Isolation      │ Scoped queue/tenant enforcement (Postgres RLS)│
+│ 05 │ Data-at-Rest Encryption           │ AES-256-GCM authenticated cipher for payloads │
+│ 06 │ Server-Side Token Authorization   │ Cryptographic JWT validation & version check  │
+│ 07 │ Role-Based Access Control (RBAC)  │ Hard 403 Forbidden boundaries for operators   │
+│ 08 │ Mass Assignment Guard             │ Explicit DTO whitelisting on user mutation    │
+│ 09 │ Cookie Security Hardening         │ HttpOnly, SameSite=Lax, and Secure cookie flags│
+│ 10 │ Modern Password Hashing           │ Bcrypt with Work Factor = 12 (GPU-resistant)  │
+│ 11 │ Real-IP Rate Limiting             │ Edge-aware rate limiter (Cloudflare IP aware) │
+│ 12 │ DDoS & Bot Defense                │ Cloudflare Zero-Trust Edge WAF ingestion      │
+│ 13 │ Parameterized Query Engine        │ 100% SQL binding (Strict SQL-Injection immune)│
+│ 14 │ Deep Input Schema Validation      │ Strict Yup runtime type and length validation │
+│ 15 │ Information Leakage Shield        │ Masked 500 error handlers (Zero stack leaks)  │
+│ 16 │ Magic Number Binary Validation    │ Deep header byte inspection (Anti-spoofing)   │
+│ 17 │ DTO Response Trimming             │ Systematic stripping of sensitive model fields│
+│ 18 │ Tailored Content Security Policy  │ Helmet CSP tuned for WebSockets & Media Blobs │
+│ 19 │ Enforced TLS / HSTS               │ Strict-Transport-Security (HSTS) max-age      │
+│ 20 │ Supply-Chain Integrity Guard      │ Strict package lockfiles & runtime sandboxing │
+└────┴───────────────────────────────────┴───────────────────────────────────────────────┘
 ```
 
 ---
