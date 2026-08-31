@@ -20,7 +20,36 @@
 
 Modern end-to-end encrypted messaging ecosystems (such as WhatsApp, built upon the **Signal Protocol** and **Noise Framework**) present fundamental challenges for institutional governance, dispute resolution, and legal compliance. Standard client applications do not provide non-repudiation audit trails, allow retroactive deletion of evidentiary artifacts, and suffer from severe memory bottlenecks when managed at scale.
 
-**GISAIO** is a high-throughput, low-latency distributed platform engineered to solve these challenges. Operating via native WebSocket stream interception and session key state caching, GISAIO decouples message capture from resource-intensive headless browser renders. The system simultaneously orchestrates dozens of concurrent WhatsApp endpoints, enforces immutable anti-delete compliance, provides real-time per-channel disk and database telemetry, and applies advanced session-level proxy virtualization alongside human behavior simulation (*Human Flow*) to prevent heuristic traffic anomalies.
+**GISAIO** is a high-throughput, low-latency distributed platform engineered to solve these challenges. Originating as an advanced architectural evolution and extensive re-engineering (*remanejamento*) of the open-source **Whaticket** codebase, GISAIO decouples message capture from resource-intensive headless browser renders through native WebSocket stream interception and session key caching. The system orchestrates dozens of concurrent WhatsApp endpoints, enforces immutable anti-delete compliance, provides real-time per-channel disk and database telemetry, and applies advanced session-level proxy virtualization alongside human behavior simulation (*Human Flow*) to prevent heuristic traffic anomalies.
+
+---
+
+## 🏛️ Project Lineage & Architectural Evolution (Remanejamento do Whaticket)
+
+**GISAIO** was born from a fundamental architectural overhaul of the open-source **Whaticket** project. While Whaticket was originally conceived as a multi-attendant ticketing/CRM tool, GISAIO completely restructures and elevates the codebase into an enterprise-grade **Forensic Compliance & Distributed Communication Vault**:
+
+```
+┌────────────────────────────────────────────────────────────────────────────────────────┐
+│                        🧬 EVOLUÇÃO E REMANEJAMENTO ARQUITETURAL                        │
+├───────────────────────────────────────────┬────────────────────────────────────────────┤
+│ 📦 WHATICKET (BASE DE ORIGEM)             │ 🛡️ GISAIO (SISTEMA REMANEJADO & ATUAL)    │
+├───────────────────────────────────────────┼────────────────────────────────────────────┤
+│ • Foco em Atendimento / SAC Simples       │ • Cofre de Auditoria Forense & Compliance │
+│ • Instabilidade com Múltiplos Chips       │ • Orquestrador Baileys Escalável (Zero-RAM)│
+│ • Mensagens apagadas somem do histórico   │ • Anti-Delete 100% Imutável & Perpétuo     │
+│ • Sem isolamento de rede (Alto risco ban) │ • Virtualização de Proxy HTTP/SOCKS5 / Chip│
+│ • Envio robótico em bloco                 │ • Human Flow (Simulação de Digitação)      │
+│ • Armazenamento opaco (sem métricas)      │ • Telemetria de Armazenamento SQLite ao vivo│
+│ • Mídias abrem em abas externas           │ • Visualizador Popup Lightbox & Mini-PDFs  │
+└───────────────────────────────────────────┴────────────────────────────────────────────┘
+```
+
+### Principais Transformações Implementadas:
+1. **Reengenharia do Core de Conexão:** Substituição de instâncias pesadas por conexões WebSocket diretas em Baileys com handshakes escalonados de 800ms.
+2. **Cofre de Auditoria e Conformidade Legal:** Adição de camada de persistência com preservação absoluta de mensagens excluídas, visualização de conversas respondidas (*quoted messages*) e exportação forense (PDF/CSV/TXT).
+3. **Telemetria de Armazenamento e Disco:** Monitoramento do arquivo `whaticket.sqlite`, diretório de mídia `/public` e detalhamento de consumo por número.
+4. **Proteção Anti-Ban e Fluxo Humano:** Roteamento por proxy dedicado e delay orgânico dinâmico proporcional ao tamanho do texto.
+5. **Experiência do Usuário (UI/UX):** Pré-visualização semi-integrada de PDFs nas bolhas de chat e popup modal nativo (sem abrir abas no navegador).
 
 ---
 
