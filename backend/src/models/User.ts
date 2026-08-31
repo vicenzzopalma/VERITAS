@@ -78,6 +78,14 @@ class User extends Model<User> {
   public checkPassword = async (password: string): Promise<boolean> => {
     return compare(password, this.getDataValue("passwordHash"));
   };
+
+  public toJSON(): any {
+    const values = { ...this.get() };
+    delete values.password;
+    delete values.passwordHash;
+    delete values.tokenVersion;
+    return values;
+  }
 }
 
 export default User;
