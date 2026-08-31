@@ -1,62 +1,44 @@
-version: '3'
+version: '3.8'
 
 networks:
-  whaticket:
+  veritas-net:
+    driver: bridge
 
 services:
-
   backend:
     build:
       context: ./backend
       dockerfile: ./Dockerfile
     environment:
-      - DB_HOST=mysql
-      - DB_USER=root
-      - DB_PASS=${MYSQL_ROOT_PASSWORD:-strongpassword}
-      - DB_NAME=${MYSQL_DATABASE:-whaticket}
-      - JWT_SECRET=${JWT_SECRET:-3123123213123}
-      - JWT_REFRESH_SECRET=${JWT_REFRESH_SECRET:-75756756756}
-      - BACKEND_URL=${BACKEND_URL:-http://localhost}
-      - FRONTEND_URL=${FRONTEND_URL:-http://localhost:3000}
-      - PROXY_PORT=${PROXY_PORT:-8080}
-      - CHROME_ARGS=--no-sandbox --disable-setuid-sandbox
+      - NODE_ENV=production
+      - PORT=6002
+      - BACKEND_URL=${BACKEND_URL:-http://localhost:6002}
+      - FRONTEND_URL=${FRONTEND_URL:-http://localhost:6001}
+      - JWT_SECRET=${JWT_SECRET:-veritas_jwt_super_secret_key_2026}
+      - JWT_REFRESH_SECRET=${JWT_REFRESH_SECRET:-veritas_jwt_refresh_super_secret_2026}
+      - ENCRYPTION_KEY=${ENCRYPTION_KEY:-veritas_master_encryption_vault_key}
+      - DB_DIALECT=${DB_DIALECT:-sqlite}
     ports:
-      - ${BACKEND_PORT:-8080}:3000
+      - "${BACKEND_PORT:-6002}:6002"
     volumes:
       - ./backend/public/:/usr/src/app/public/
+      - ./backend/whaticket.sqlite:/usr/src/app/whaticket.sqlite
       - ./backend/.wwebjs_auth/:/usr/src/app/.wwebjs_auth/
+    restart: unless-stopped
     networks:
-      - whaticket
+      - veritas-net
 
   frontend:
-    ports:
-      - ${FRONTEND_PORT:-3000}:80
-      - ${FRONTEND_SSL_PORT:-3001}:443
     build:
       context: ./frontend
       dockerfile: ./Dockerfile
     environment:
-      - URL_BACKEND=backend:3000
-      - REACT_APP_BACKEND_URL=${BACKEND_URL:-http://localhost}:${PROXY_PORT:-8080}/
-      - FRONTEND_SERVER_NAME=${FRONTEND_SERVER_NAME}
-      - BACKEND_SERVER_NAME=${BACKEND_SERVER_NAME}
-    volumes:
-      - ./ssl/certs/:/etc/nginx/ssl/
-      - ./ssl/www/:/var/www/letsencrypt/
-    networks:
-      - whaticket
-
-  mysql:
-    image: ${MYSQL_ENGINE:-mariadb}:${MYSQL_VERSION:-10.6}
-    command: --character-set-server=utf8mb4 --collation-server=utf8mb4_bin    
-    volumes:
-      - ./.docker/data/:/var/lib/mysql
-    environment:
-      - MYSQL_DATABASE=${MYSQL_DATABASE:-whaticket}
-      - MYSQL_ROOT_PASSWORD=${MYSQL_ROOT_PASSWORD:-strongpassword}
-      - TZ=${TZ:-America/Fortaleza}
+      - URL_BACKEND=backend:6002
+      - REACT_APP_BACKEND_URL=${BACKEND_URL:-http://localhost:6002}/
     ports:
-      - ${MYSQL_PORT:-3306}:3306
-    restart: always
+      - "${FRONTEND_PORT:-6001}:80"
+    depends_on:
+      - backend
+    restart: unless-stopped
     networks:
-      - whaticket
+      - veritas-net
