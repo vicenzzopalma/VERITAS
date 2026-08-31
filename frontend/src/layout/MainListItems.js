@@ -85,7 +85,7 @@ const MainListItems = (props) => {
           <ListItemLink
             to="/audit"
             primary="Cofre de Auditoria"
-            icon={<SecurityOutlinedIcon style={{ color: "#0284c7" }} />}
+            icon={<SecurityOutlinedIcon />}
           />
         )}
       />

@@ -341,6 +341,26 @@ const useStyles = makeStyles((theme) => ({
       borderRadius: 3,
     },
   },
+  dailyTimestampContainer: {
+    display: "flex",
+    justifyContent: "center",
+    alignItems: "center",
+    margin: "12px 0 8px 0",
+    width: "100%",
+  },
+  dailyTimestampBadge: {
+    backgroundColor: "rgba(17, 27, 33, 0.88)",
+    color: "#e9edef",
+    padding: "4px 12px",
+    borderRadius: 8,
+    fontSize: "0.75rem",
+    fontWeight: 600,
+    boxShadow: "0 1px 2px rgba(0,0,0,0.3)",
+    display: "inline-block",
+    textAlign: "center",
+    letterSpacing: "0.3px",
+    userSelect: "none",
+  },
   messageBubble: {
     maxWidth: "68%",
     minWidth: 160,
@@ -473,6 +493,7 @@ const Audit = () => {
   // Modal Exportação
   const [exportModalOpen, setExportModalOpen] = useState(false);
 
+  const messagesContainerRef = useRef(null);
   const messagesEndRef = useRef(null);
   const chatSearchTimeout = useRef(null);
   const searchTermTimeout = useRef(null);
@@ -720,12 +741,25 @@ const Audit = () => {
     }
   }, [selectedChat?.ticketId, selectedChat?.whatsappId, searchTerm, startDate, endDate, onlyDeleted, mediaType]);
 
-  // Scroll suave para última mensagem somente ao trocar de conversa
-  useEffect(() => {
-    if (messages.length > 0) {
-      messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  // Scroll para última mensagem ao carregar ou trocar conversa
+  const scrollToBottom = (behavior = "auto") => {
+    if (messagesContainerRef.current) {
+      messagesContainerRef.current.scrollTop = messagesContainerRef.current.scrollHeight;
     }
-  }, [selectedChat?.ticketId]);
+    if (messagesEndRef.current) {
+      messagesEndRef.current.scrollIntoView({ behavior });
+    }
+  };
+
+  useEffect(() => {
+    if (messages && messages.length > 0) {
+      scrollToBottom("auto");
+      const timer = setTimeout(() => {
+        scrollToBottom("auto");
+      }, 60);
+      return () => clearTimeout(timer);
+    }
+  }, [messages, selectedChat?.ticketId]);
 
   const clearFilters = () => {
     setSearchTermInput("");
@@ -1215,7 +1249,7 @@ const Audit = () => {
           </div>
 
           {/* Área de Mensagens (Timeline) */}
-          <div className={classes.messagesScrollArea}>
+          <div ref={messagesContainerRef} className={classes.messagesScrollArea}>
             {loadingMessages ? (
               <Box display="flex" justifyContent="center" alignItems="center" height="100%">
                 <CircularProgress />
@@ -1235,7 +1269,7 @@ const Audit = () => {
                 </Typography>
               </Box>
             ) : (
-              messages.map((message) => {
+              messages.map((message, index) => {
                 const isOp = message.fromMe;
                 const isGroup = selectedChat?.contact?.isGroup;
                 const senderName = isOp
@@ -1243,117 +1277,129 @@ const Audit = () => {
                   : (message.contact ? getContactDisplayName(message.contact) : "Participante");
                 const senderColor = isOp ? "#0284c7" : getParticipantColor(senderName);
 
+                const currentDate = message.createdAt ? format(parseISO(message.createdAt), "dd/MM/yyyy") : null;
+                const prevDate = index > 0 && messages[index - 1]?.createdAt ? format(parseISO(messages[index - 1].createdAt), "dd/MM/yyyy") : null;
+                const showDateSeparator = currentDate && currentDate !== prevDate;
+
                 return (
-                  <div
-                    key={message.id}
-                    className={`${classes.messageBubble} ${
-                      isOp ? classes.messageOperator : classes.messageClient
-                    }`}
-                  >
-                    {/* Header do Remetente em Grupo */}
-                    {isGroup && (
-                      <Typography
-                        variant="caption"
-                        style={{
-                          fontWeight: 700,
-                          color: senderColor,
-                          display: "block",
-                          marginBottom: 3,
-                          fontSize: "0.76rem",
-                        }}
-                      >
-                        {senderName}
-                      </Typography>
-                    )}
-
-                    {/* Banner de Mensagem Apagada */}
-                    {message.isDeleted && (
-                      <div className={classes.deletedBanner}>
-                        <BlockIcon style={{ fontSize: 14 }} />
-                        <span>MENSAGEM APAGADA NO WHATSAPP</span>
-                      </div>
-                    )}
-
-                    {/* Mensagem Respondida (Quoted) */}
-                    {message.quotedMsg && (
-                      <div className={classes.quotedMsgBox}>
-                        <Typography variant="caption" style={{ fontWeight: 700, color: "#0284c7", display: "block" }}>
-                          {message.quotedMsg.fromMe
-                            ? `📱 ${selectedDevice?.name || "Operador"}`
-                            : (message.quotedMsg.contact ? getContactDisplayName(message.quotedMsg.contact) : "Participante")}
-                        </Typography>
-                        <Typography variant="caption" style={{ whiteSpace: "pre-wrap", display: "block" }}>
-                          {message.quotedMsg.body}
-                        </Typography>
-                      </div>
-                    )}
-
-                    {/* Mídia: Foto / Imagem */}
-                    {message.mediaUrl && (message.mediaType === "image" || message.mediaUrl.match(/\.(jpeg|jpg|gif|png)$/i)) && (
-                      <div>
-                        <img
-                          src={message.mediaUrl}
-                          alt="Arquivo"
-                          className={classes.mediaPreview}
-                          onClick={() => window.open(message.mediaUrl, "_blank")}
-                        />
-                      </div>
-                    )}
-
-                    {/* Mídia: Áudio */}
-                    {message.mediaUrl && (message.mediaType?.includes("audio") || message.mediaUrl.match(/\.(ogg|mp3|wav|m4a)$/i)) && (
-                      <div style={{ margin: "4px 0" }}>
-                        <audio controls style={{ width: "100%", maxWidth: 280, height: 38 }}>
-                          <source src={message.mediaUrl} type="audio/ogg" />
-                          <source src={message.mediaUrl} type="audio/mp4" />
-                          <source src={message.mediaUrl} type="audio/mpeg" />
-                          <source src={message.mediaUrl} type="audio/wav" />
-                          Seu navegador não suporta áudio.
-                        </audio>
-                      </div>
-                    )}
-
-                    {/* Mídia: Documento / Boleto / PDF */}
-                    {message.mediaUrl && (message.mediaType?.includes("document") || message.mediaUrl.match(/\.(pdf|doc|docx|xlsx|zip)$/i)) && (
-                      <div style={{ margin: "6px 0" }}>
-                        <Button
-                          variant="outlined"
-                          size="small"
-                          color="primary"
-                          startIcon={<DocumentIcon />}
-                          onClick={() => window.open(message.mediaUrl, "_blank")}
-                          style={{ textTransform: "none", borderRadius: 6 }}
-                        >
-                          {message.body && message.body !== message.mediaUrl ? message.body : "Abrir Documento"}
-                        </Button>
-                      </div>
-                    )}
-
-                    {/* Texto Principal */}
-                    {(!message.mediaUrl || message.mediaType === "chat" || (message.body && !message.body.includes(".pdf") && !message.body.includes(".ogg"))) && (
-                      <Typography variant="body2" style={{ whiteSpace: "pre-wrap", lineHeight: 1.4 }}>
-                        {message.body}
-                      </Typography>
-                    )}
-
-                    {/* Rodapé: Horário & Status */}
-                    <div className={classes.metaFooter}>
-                      <span>
-                        {message.createdAt ? format(parseISO(message.createdAt), "HH:mm") : ""}
-                      </span>
-                      {isOp && (
-                        <span>
-                          {message.ack === 3 ? (
-                            <DoneAllIcon style={{ fontSize: 14, color: "#38bdf8" }} />
-                          ) : message.ack === 2 ? (
-                            <DoneAllIcon style={{ fontSize: 14 }} />
-                          ) : (
-                            <DoneIcon style={{ fontSize: 14 }} />
-                          )}
+                  <React.Fragment key={message.id || index}>
+                    {showDateSeparator && (
+                      <div className={classes.dailyTimestampContainer}>
+                        <span className={classes.dailyTimestampBadge}>
+                          {currentDate}
                         </span>
+                      </div>
+                    )}
+                    <div
+                      className={`${classes.messageBubble} ${
+                        isOp ? classes.messageOperator : classes.messageClient
+                      }`}
+                    >
+                      {/* Header do Remetente em Grupo */}
+                      {isGroup && (
+                        <Typography
+                          variant="caption"
+                          style={{
+                            fontWeight: 700,
+                            color: senderColor,
+                            display: "block",
+                            marginBottom: 3,
+                            fontSize: "0.76rem",
+                          }}
+                        >
+                          {senderName}
+                        </Typography>
                       )}
+
+                      {/* Banner de Mensagem Apagada */}
+                      {message.isDeleted && (
+                        <div className={classes.deletedBanner}>
+                          <BlockIcon style={{ fontSize: 14 }} />
+                          <span>MENSAGEM APAGADA NO WHATSAPP</span>
+                        </div>
+                      )}
+
+                      {/* Mensagem Respondida (Quoted) */}
+                      {message.quotedMsg && (
+                        <div className={classes.quotedMsgBox}>
+                          <Typography variant="caption" style={{ fontWeight: 700, color: "#0284c7", display: "block" }}>
+                            {message.quotedMsg.fromMe
+                              ? `📱 ${selectedDevice?.name || "Operador"}`
+                              : (message.quotedMsg.contact ? getContactDisplayName(message.quotedMsg.contact) : "Participante")}
+                          </Typography>
+                          <Typography variant="caption" style={{ whiteSpace: "pre-wrap", display: "block" }}>
+                            {message.quotedMsg.body}
+                          </Typography>
+                        </div>
+                      )}
+
+                      {/* Mídia: Foto / Imagem */}
+                      {message.mediaUrl && (message.mediaType === "image" || message.mediaUrl.match(/\.(jpeg|jpg|gif|png)$/i)) && (
+                        <div>
+                          <img
+                            src={message.mediaUrl}
+                            alt="Arquivo"
+                            className={classes.mediaPreview}
+                            onClick={() => window.open(message.mediaUrl, "_blank")}
+                          />
+                        </div>
+                      )}
+
+                      {/* Mídia: Áudio */}
+                      {message.mediaUrl && (message.mediaType?.includes("audio") || message.mediaUrl.match(/\.(ogg|mp3|wav|m4a)$/i)) && (
+                        <div style={{ margin: "4px 0" }}>
+                          <audio controls style={{ width: "100%", maxWidth: 280, height: 38 }}>
+                            <source src={message.mediaUrl} type="audio/ogg" />
+                            <source src={message.mediaUrl} type="audio/mp4" />
+                            <source src={message.mediaUrl} type="audio/mpeg" />
+                            <source src={message.mediaUrl} type="audio/wav" />
+                            Seu navegador não suporta áudio.
+                          </audio>
+                        </div>
+                      )}
+
+                      {/* Mídia: Documento / Boleto / PDF */}
+                      {message.mediaUrl && (message.mediaType?.includes("document") || message.mediaUrl.match(/\.(pdf|doc|docx|xlsx|zip)$/i)) && (
+                        <div style={{ margin: "6px 0" }}>
+                          <Button
+                            variant="outlined"
+                            size="small"
+                            color="primary"
+                            startIcon={<DocumentIcon />}
+                            onClick={() => window.open(message.mediaUrl, "_blank")}
+                            style={{ textTransform: "none", borderRadius: 6 }}
+                          >
+                            {message.body && message.body !== message.mediaUrl ? message.body : "Abrir Documento"}
+                          </Button>
+                        </div>
+                      )}
+
+                      {/* Texto Principal */}
+                      {(!message.mediaUrl || message.mediaType === "chat" || (message.body && !message.body.includes(".pdf") && !message.body.includes(".ogg"))) && (
+                        <Typography variant="body2" style={{ whiteSpace: "pre-wrap", lineHeight: 1.4 }}>
+                          {message.body}
+                        </Typography>
+                      )}
+
+                      {/* Rodapé: Horário & Status */}
+                      <div className={classes.metaFooter}>
+                        <span>
+                          {message.createdAt ? format(parseISO(message.createdAt), "dd/MM/yyyy HH:mm") : ""}
+                        </span>
+                        {isOp && (
+                          <span>
+                            {message.ack === 3 ? (
+                              <DoneAllIcon style={{ fontSize: 14, color: "#38bdf8" }} />
+                            ) : message.ack === 2 ? (
+                              <DoneAllIcon style={{ fontSize: 14 }} />
+                            ) : (
+                              <DoneIcon style={{ fontSize: 14 }} />
+                            )}
+                          </span>
+                        )}
+                      </div>
                     </div>
-                  </div>
+                  </React.Fragment>
                 );
               })
             )}

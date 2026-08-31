@@ -59,73 +59,52 @@ const server = http.createServer((req, res) => {
         return fs.createReadStream(filePath).pipe(res);
     }
 
-    // 2. Chamadas de API / Backend
-    const isApiRequest = req.method !== "GET" || 
-                         req.headers.authorization || 
-                         req.headers.accept?.includes("application/json") ||
-                         parsedUrl.startsWith("/auth") ||
-                         parsedUrl.startsWith("/whatsapp") ||
-                         parsedUrl.startsWith("/tickets") ||
-                         parsedUrl.startsWith("/messages") ||
-                         parsedUrl.startsWith("/contacts") ||
-                         parsedUrl.startsWith("/users") ||
-                         parsedUrl.startsWith("/queue") ||
-                         parsedUrl.startsWith("/settings") ||
-                         parsedUrl.startsWith("/quick") ||
-                         parsedUrl.startsWith("/audit/") ||
-                         parsedUrl.startsWith("/audit?") ||
-                         parsedUrl === "/audit/devices" ||
-                         parsedUrl === "/audit/messages" ||
-                         parsedUrl === "/audit/export" ||
-                         parsedUrl === "/audit/search-all" ||
-                         parsedUrl === "/audit/search-global" ||
-                         parsedUrl === "/audit/search" ||
-                         parsedUrl.startsWith("/public/") ||
-                         parsedUrl.startsWith("/socket.io");
+    // 2. Se for navegação direta de página no navegador (HTML / SPA), serve index.html
+    const isHtmlNavigation = req.method === "GET" && 
+                             (req.headers.accept?.includes("text/html") || !req.headers.accept) &&
+                             !parsedUrl.startsWith("/socket.io") &&
+                             !parsedUrl.startsWith("/public/");
 
-    if (isApiRequest) {
-        const proxyHeaders = { ...req.headers };
-        proxyHeaders.host = `127.0.0.1:${BACKEND_PORT}`;
-
-        const proxyReq = http.request({
-            hostname: "127.0.0.1",
-            port: BACKEND_PORT,
-            path: req.url,
-            method: req.method,
-            headers: proxyHeaders
-        }, (proxyRes) => {
-            res.writeHead(proxyRes.statusCode, proxyRes.headers);
-            proxyRes.pipe(res, { end: true });
-        });
-
-        proxyReq.on("error", (err) => {
-            console.error("Erro no Proxy:", err.message);
-            res.writeHead(502, { "Content-Type": "application/json" });
-            res.end(JSON.stringify({ error: "Backend indisponível" }));
-        });
-
-        if (req.method === "GET" || req.method === "HEAD") {
-            proxyReq.end();
-        } else {
-            req.pipe(proxyReq, { end: true });
+    if (isHtmlNavigation) {
+        const indexPath = path.join(BUILD_DIR, "index.html");
+        if (fs.existsSync(indexPath)) {
+            res.writeHead(200, {
+                "Content-Type": "text/html",
+                "Cache-Control": "no-cache, no-store, must-revalidate",
+                "Pragma": "no-cache",
+                "Expires": "0"
+            });
+            return fs.createReadStream(indexPath).pipe(res);
         }
-        return;
     }
 
-    // 3. SPA Fallback (index.html) para rotas de navegação (/login, /tickets, /connections, etc.)
-    const indexPath = path.join(BUILD_DIR, "index.html");
-    if (fs.existsSync(indexPath)) {
-        res.writeHead(200, {
-            "Content-Type": "text/html",
-            "Cache-Control": "no-cache, no-store, must-revalidate",
-            "Pragma": "no-cache",
-            "Expires": "0"
-        });
-        return fs.createReadStream(indexPath).pipe(res);
-    }
+    // 3. Chamadas de API / Backend (REST, AJAX Fetch, WebSocket, Arquivos Públicos)
+    const proxyHeaders = { ...req.headers };
+    proxyHeaders.host = `127.0.0.1:${BACKEND_PORT}`;
 
-    res.writeHead(404, { "Content-Type": "text/plain" });
-    res.end("404 Not Found");
+    const proxyReq = http.request({
+        hostname: "127.0.0.1",
+        port: BACKEND_PORT,
+        path: req.url,
+        method: req.method,
+        headers: proxyHeaders
+    }, (proxyRes) => {
+        res.writeHead(proxyRes.statusCode, proxyRes.headers);
+        proxyRes.pipe(res, { end: true });
+    });
+
+    proxyReq.on("error", (err) => {
+        console.error("Erro no Proxy:", err.message);
+        res.writeHead(502, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ error: "Backend indisponível" }));
+    });
+
+    if (req.method === "GET" || req.method === "HEAD") {
+        proxyReq.end();
+    } else {
+        req.pipe(proxyReq, { end: true });
+    }
+    return;
 });
 
 // Proxy WebSocket (Socket.io)
