@@ -232,7 +232,7 @@ const LoggedInLayout = ({ children }) => {
             noWrap
             className={classes.title}
           >
-            Gisaio
+            VERITAS
           </Typography>
 
           <div className={classes.themeSwitchContainer}>

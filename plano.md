@@ -1,4 +1,4 @@
-# 📋 PLANO COMPLETO DE ENGENHARIA — GISAIO
+# 📋 PLANO COMPLETO DE ENGENHARIA — VERITAS
 ## Cofre & Auditoria WhatsApp — Substituto Enterprise do Digisac (Economia de R$ 36.000/ano)
 
 ---

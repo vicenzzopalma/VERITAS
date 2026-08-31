@@ -1,4 +1,4 @@
-# 📜 REGRAS CRÍTICAS E IMUTÁVEIS DO SISTEMA — GISAIO
+# 📜 REGRAS CRÍTICAS E IMUTÁVEIS DO SISTEMA — VERITAS
 
 ## 1. REGRA SUPREMA DE EXIBIÇÃO DE CONTATOS (NÚMERO DE TELEFONE SEMPRE)
 - **REGRA ABSOLUTA:** Todo contato individual (pessoa física / jurídica), **tenha nome salvo na agenda ou NÃO tenha nome**, terá como exibição **SEMPRE E EXCLUSIVAMENTE O NÚMERO DE TELEFONE FORMATADO** (ex: `+55 (41) 99118-9892`, `+55 (62) 8264-3034`, `(41) 99118-9892`).
