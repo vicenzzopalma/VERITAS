@@ -64,6 +64,8 @@ const WhatsAppModal = ({ open, onClose, whatsAppId }) => {
 		greetingMessage: "",
 		farewellMessage: "",
 		isDefault: false,
+		proxyUrl: "",
+		humanDelay: true,
 	};
 	const [whatsApp, setWhatsApp] = useState(initialState);
 	const [selectedQueueIds, setSelectedQueueIds] = useState([]);
@@ -74,7 +76,11 @@ const WhatsAppModal = ({ open, onClose, whatsAppId }) => {
 
 			try {
 				const { data } = await api.get(`whatsapp/${whatsAppId}`);
-				setWhatsApp(data);
+				setWhatsApp({
+					...data,
+					proxyUrl: data.proxyUrl || "",
+					humanDelay: data.humanDelay !== false,
+				});
 
 				const whatsQueueIds = data.queues?.map(queue => queue.id);
 				setSelectedQueueIds(whatsQueueIds);
@@ -156,6 +162,31 @@ const WhatsAppModal = ({ open, onClose, whatsAppId }) => {
 											/>
 										}
 										label={i18n.t("whatsappModal.form.default")}
+									/>
+								</div>
+								<div style={{ marginTop: 8, marginBottom: 8 }}>
+									<Field
+										as={TextField}
+										label="Proxy Dedicado (HTTP / SOCKS5)"
+										name="proxyUrl"
+										placeholder="http://usuario:senha@ip:porta ou http://ip:porta"
+										fullWidth
+										variant="outlined"
+										margin="dense"
+										helperText="Opcional: Isola o IP desta conexão para proteção anti-ban"
+									/>
+								</div>
+								<div style={{ marginBottom: 8 }}>
+									<FormControlLabel
+										control={
+											<Field
+												as={Switch}
+												color="primary"
+												name="humanDelay"
+												checked={values.humanDelay !== false}
+											/>
+										}
+										label="Simulação de Digitação Humana (Human Flow Anti-Ban)"
 									/>
 								</div>
 								<div>

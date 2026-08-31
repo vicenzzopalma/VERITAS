@@ -353,7 +353,33 @@ const Connections = () => {
 								{whatsApps?.length > 0 &&
 									whatsApps.map(whatsApp => (
 										<TableRow key={whatsApp.id}>
-											<TableCell align="center">{whatsApp.name}</TableCell>
+											<TableCell align="center">
+												<div>{whatsApp.name}</div>
+												{whatsApp.proxyUrl ? (
+													<Typography
+														variant="caption"
+														style={{
+															color: "#16a34a",
+															fontWeight: 600,
+															display: "block",
+															fontSize: "0.72rem"
+														}}
+													>
+														🔒 Proxy Ativo
+													</Typography>
+												) : (
+													<Typography
+														variant="caption"
+														style={{
+															color: "#0284c7",
+															display: "block",
+															fontSize: "0.72rem"
+														}}
+													>
+														🌐 Rota Direta
+													</Typography>
+												)}
+											</TableCell>
 											<TableCell align="center">
 												{renderStatusToolTips(whatsApp)}
 											</TableCell>

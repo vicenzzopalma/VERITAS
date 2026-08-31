@@ -58,6 +58,15 @@ class Whatsapp extends Model<Whatsapp> {
   @Column
   isDefault: boolean;
 
+  @AllowNull
+  @Column(DataType.TEXT)
+  proxyUrl: string;
+
+  @Default(true)
+  @AllowNull
+  @Column
+  humanDelay: boolean;
+
   @CreatedAt
   createdAt: Date;
 

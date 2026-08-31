@@ -1001,9 +1001,32 @@ const init = async (whatsapp: Whatsapp): Promise<void> => {
     }
   }
 
+  const proxyUrl = whatsapp.proxyUrl || process.env.PROXY_ADDRESS;
+  let agent: any = undefined;
+  let fetchAgent: any = undefined;
+  if (proxyUrl && typeof proxyUrl === "string" && proxyUrl.trim() !== "") {
+    try {
+      agent = new HttpsProxyAgent(proxyUrl.trim());
+      fetchAgent = new HttpsProxyAgent(proxyUrl.trim());
+      logger.info({
+        info: "Using dedicated proxy for session",
+        sessionId,
+        proxy: proxyUrl.replace(/:[^:]*@/, ":***@")
+      });
+    } catch (err) {
+      logger.error({
+        info: "Invalid proxy URL configured, falling back to direct connection",
+        sessionId,
+        err
+      });
+    }
+  }
+
   const connOptions: UserFacingSocketConfig = {
     logger: whaileyLogger,
     browser: Browsers.ubuntu(process.env.WHATSAPP_BROWSER_NAME || "Chrome"),
+    agent,
+    fetchAgent,
     emitOwnEvents: true,
     auth: {
       creds: state.creds,
@@ -1695,6 +1718,35 @@ const logout = async (sessionId: number): Promise<void> => {
   await clearSessionKeys(sessionId);
 };
 
+const simulateHumanTyping = async (
+  sessionId: number,
+  toJid: string,
+  textLength: number,
+  isMedia: boolean = false
+): Promise<void> => {
+  try {
+    const whatsapp = await Whatsapp.findByPk(sessionId, {
+      attributes: ["humanDelay"]
+    });
+    if (whatsapp && (whatsapp as any).humanDelay === false) {
+      return;
+    }
+    const wbot = sessions.get(sessionId);
+    if (!wbot) return;
+
+    const presenceType = isMedia ? "recording" : "composing";
+    await wbot.sendPresenceUpdate(presenceType, toJid).catch(() => {});
+
+    const baseDelay = Math.min(Math.max(textLength * 35, 750), 3000);
+    const jitter = Math.floor(Math.random() * 400);
+    await sleep(baseDelay + jitter);
+
+    await wbot.sendPresenceUpdate("paused", toJid).catch(() => {});
+  } catch (err) {
+    logger.debug({ info: "Presence simulation skipped", sessionId, err });
+  }
+};
+
 const sendMessage = async (
   sessionId: number,
   to: string,
@@ -1703,6 +1755,8 @@ const sendMessage = async (
 ): Promise<ProviderMessage> => {
   const wbot = getWbot(sessionId);
   const toJid = normalizeJid(to);
+
+  await simulateHumanTyping(sessionId, toJid, body.length, false);
 
   const messageContent: AnyMessageContent = options?.quotedMessageId
     ? {
@@ -1755,6 +1809,8 @@ const sendMedia = async (
 ): Promise<ProviderMessage> => {
   const wbot = getWbot(sessionId);
   const toJid = normalizeJid(to);
+
+  await simulateHumanTyping(sessionId, toJid, 50, true);
 
   const mediaBuffer = media.path ? readFileSync(media.path) : media.data;
   if (!mediaBuffer) throw new AppError("ERR_NO_MEDIA_DATA");
