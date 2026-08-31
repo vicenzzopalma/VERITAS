@@ -12,10 +12,12 @@ import queueRoutes from "./queueRoutes";
 import quickAnswerRoutes from "./quickAnswerRoutes";
 import apiRoutes from "./apiRoutes";
 import auditRoutes from "./auditRoutes";
+import dashboardRoutes from "./dashboardRoutes";
 
 const routes = Router();
 
 routes.use(auditRoutes);
+routes.use(dashboardRoutes);
 routes.use(userRoutes);
 routes.use("/auth", authRoutes);
 routes.use(settingRoutes);
