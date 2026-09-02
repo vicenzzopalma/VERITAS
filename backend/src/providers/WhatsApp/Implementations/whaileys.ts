@@ -37,6 +37,7 @@ import Whatsapp from "../../../models/Whatsapp";
 import Contact from "../../../models/Contact";
 import Message from "../../../models/Message";
 import Ticket from "../../../models/Ticket";
+import { Op } from "sequelize";
 import CreateOrUpdateContactService from "../../../services/ContactServices/CreateOrUpdateContactService";
 import { getIO } from "../../../libs/socket";
 import { logger } from "../../../utils/logger";
@@ -63,6 +64,11 @@ import {
   MediaPayload,
   WhatsappContextPayload
 } from "../../../handlers/handleWhatsappEvents";
+import {
+  saveLidMapping,
+  resolveLidToPhoneNumber,
+  resolvePendingLidTickets
+} from "../../../services/WbotServices/LidResolutionService";
 
 type WALogger = NonNullable<Parameters<typeof makeInMemoryStore>[0]["logger"]>;
 
@@ -85,6 +91,14 @@ export const getSessionStatus = (whatsappId: number): string | undefined => {
   if (!session) return undefined;
   if (session.user) return "CONNECTED";
   return undefined;
+};
+
+export const getSession = (whatsappId: number | string): Session | undefined => {
+  return sessions.get(Number(whatsappId));
+};
+
+export const getAllSessions = (): Map<number, Session> => {
+  return sessions;
 };
 
 const msgRetryCounterLRU = new LRUCache<string, number>({
@@ -601,18 +615,25 @@ const convertToContactPayload = async (
     cand => typeof cand === "string" && cand.includes("@lid")
   );
 
+  const kAny = keyExt as any;
+  const cAny = ctx as any;
+
   const pnCandidates: (string | undefined)[] = [
-    keyExt.senderPn || keyExt.sender_pn,
-    keyExt.participantPn || keyExt.participant_pn,
-    keyExt.recipientPn || keyExt.recipient_pn || keyExt.peerRecipientPn || keyExt.peer_recipient_pn,
-    ctx?.senderPn || ctx?.sender_pn,
-    ctx?.participantPn || ctx?.participant_pn,
-    ctx?.recipientPn || ctx?.recipient_pn || ctx?.peerRecipientPn || ctx?.peer_recipient_pn
+    kAny?.senderPn || kAny?.sender_pn,
+    kAny?.participantPn || kAny?.participant_pn,
+    kAny?.recipientPn || kAny?.recipient_pn || kAny?.peerRecipientPn || kAny?.peer_recipient_pn,
+    cAny?.senderPn || cAny?.sender_pn,
+    cAny?.participantPn || cAny?.participant_pn,
+    cAny?.recipientPn || cAny?.recipient_pn || cAny?.peerRecipientPn || cAny?.peer_recipient_pn
   ];
 
   const preferPn = pnCandidates.find(
     v => typeof v === "string" && /@s\.whatsapp\.net$/i.test(v)
   );
+
+  if (lid && preferPn) {
+    saveLidMapping(lid, preferPn, wbot.id);
+  }
 
   if (resolvedJid.endsWith("@lid") && preferPn) {
     resolvedJid = preferPn;
@@ -623,6 +644,11 @@ const convertToContactPayload = async (
     preferPn
   ) {
     resolvedJid = preferPn;
+  } else if (resolvedJid.endsWith("@lid") && !preferPn) {
+    const resolved = await resolveLidToPhoneNumber(resolvedJid, wbot);
+    if (resolved) {
+      resolvedJid = `${resolved}@s.whatsapp.net`;
+    }
   }
 
   const safeNormalized = (value?: string) => {
@@ -656,6 +682,9 @@ const convertToContactPayload = async (
   // Se o contato da store tem ID no formato telefone (@s.whatsapp.net), usar como PN
   if (contactInfo?.id && /@s\.whatsapp\.net$/i.test(contactInfo.id)) {
     resolvedJid = contactInfo.id;
+    if (contactInfo?.lid) {
+      saveLidMapping(contactInfo.lid, contactInfo.id, wbot.id);
+    }
   }
 
   const chatInfo =
@@ -733,23 +762,49 @@ const convertToContactPayload = async (
       : lid || `${number}@lid`
     : lid;
 
-  // Se o number for um LID de 14+ dígitos, tentar checar no banco de dados se já conhecemos o número real
+  // IMPORTANTE: declarar 'name' ANTES do bloco LID que pode atribuí-la
+  let name =
+    contactInfo?.name ||
+    contactInfo?.notify ||
+    (contactInfo as any)?.verifiedName ||
+    pushName ||
+    "";
+
+  // Se o number for um LID de 14+ dígitos, tentar checar no banco de dados e via USync se já conhecemos o número real
   if (isLid && lidValue) {
     try {
       const baseLid = lidValue.split("@")[0].split(":")[0].replace(/\D/g, "");
       if (baseLid) {
-        const dbContact = await Contact.findOne({
-          where: {
-            [Op.or]: [
-              { lid: { [Op.like]: `${baseLid}%` } },
-              { number: baseLid }
-            ]
-          }
-        });
-        if (dbContact && dbContact.number && dbContact.number.length <= 13) {
-          number = dbContact.number;
-          if (dbContact.name && !/^\d{10,}$/.test(dbContact.name)) {
-            name = dbContact.name;
+        const resolved = await resolveLidToPhoneNumber(baseLid, wbot);
+        if (resolved) {
+          number = resolved;
+        } else {
+          // Buscar contato que tenha o mesmo LID mas com número real (<=13 dígitos)
+          const dbContact = await Contact.findOne({
+            where: {
+              [Op.and]: [
+                {
+                  [Op.or]: [
+                    { lid: { [Op.like]: `${baseLid}%` } },
+                    { number: baseLid }
+                  ]
+                },
+                {
+                  number: {
+                    [Op.and]: [
+                      { [Op.ne]: baseLid },
+                      { [Op.not]: null }
+                    ]
+                  }
+                }
+              ]
+            }
+          });
+          if (dbContact && dbContact.number && dbContact.number.replace(/\D/g, "").length <= 13) {
+            number = dbContact.number;
+            if (dbContact.name && !/^\d{10,}$/.test(dbContact.name)) {
+              name = dbContact.name;
+            }
           }
         }
       }
@@ -757,13 +812,6 @@ const convertToContactPayload = async (
       /* ignore */
     }
   }
-
-  let name =
-    contactInfo?.name ||
-    contactInfo?.notify ||
-    (contactInfo as any)?.verifiedName ||
-    pushName ||
-    "";
 
   // Se o nome ainda for apenas números ou o próprio LID, preferir pushName ou número real
   if (!name || name === number || /^\d{10,}$/.test(name)) {
@@ -1336,14 +1384,21 @@ const init = async (whatsapp: Whatsapp): Promise<void> => {
       try {
         const jid = c.id || "";
         const lid = (c as any).lid || (jid.endsWith("@lid") ? jid : undefined);
-        const pn = jid.endsWith("@s.whatsapp.net") ? jid.split("@")[0] : (c as any).phoneNumber?.split("@")[0];
+        let pn = jid.endsWith("@s.whatsapp.net") ? jid.split("@")[0] : (c as any).phoneNumber?.split("@")[0];
         const name = c.name || c.notify || (c as any).verifiedName;
+
+        if (lid && pn) {
+          await saveLidMapping(lid, pn, sessionId, name);
+        } else if (lid && !pn) {
+          const resolved = await resolveLidToPhoneNumber(lid, wbot);
+          if (resolved) pn = resolved;
+        }
 
         if (pn || lid) {
           await CreateOrUpdateContactService({
-            name: name || pn || lid?.split("@")[0] || "",
-            number: pn || lid?.split("@")[0] || "",
-            lid,
+            name: name || pn || "",
+            number: pn || "",
+            lid: lid ? (lid.endsWith("@lid") ? lid : `${lid}@lid`) : undefined,
             isGroup: isJidGroup(jid)
           });
         }
@@ -1358,14 +1413,21 @@ const init = async (whatsapp: Whatsapp): Promise<void> => {
       try {
         const jid = c.id || "";
         const lid = (c as any).lid || (jid.endsWith("@lid") ? jid : undefined);
-        const pn = jid.endsWith("@s.whatsapp.net") ? jid.split("@")[0] : (c as any).phoneNumber?.split("@")[0];
+        let pn = jid.endsWith("@s.whatsapp.net") ? jid.split("@")[0] : (c as any).phoneNumber?.split("@")[0];
         const name = c.name || c.notify || (c as any).verifiedName;
+
+        if (lid && pn) {
+          await saveLidMapping(lid, pn, sessionId, name);
+        } else if (lid && !pn) {
+          const resolved = await resolveLidToPhoneNumber(lid, wbot);
+          if (resolved) pn = resolved;
+        }
 
         if (pn || lid) {
           await CreateOrUpdateContactService({
-            name: name || pn || lid?.split("@")[0] || "",
-            number: pn || lid?.split("@")[0] || "",
-            lid,
+            name: name || pn || "",
+            number: pn || "",
+            lid: lid ? (lid.endsWith("@lid") ? lid : `${lid}@lid`) : undefined,
             isGroup: isJidGroup(jid)
           });
         }
@@ -1488,17 +1550,30 @@ const init = async (whatsapp: Whatsapp): Promise<void> => {
           logger.debug({ info: "Could not fetch participating groups on open", sessionId, err });
         }
 
-        // Varredura de resolução de LIDs contra o store.contacts
+        // Varredura AGRESSIVA de resolução de LIDs contra o store.contacts
         try {
-          const allStoreContacts = Object.values(wbot.store?.contacts || {});
-          for (const c of allStoreContacts as any[]) {
-            if (!c?.id) continue;
-            const jid = c.id;
-            const lid = c.lid || (jid.endsWith("@lid") ? jid : undefined);
+          const allStoreContacts = Object.entries(wbot.store?.contacts || {});
+          
+          // 1. Construir mapa reverso LID → número real a partir do store
+          const lidToPhoneMap = new Map<string, { pn: string; name: string }>();
+          
+          for (const [key, c] of allStoreContacts) {
+            const contact = c as any;
+            if (!contact) continue;
+            
+            const jid = contact.id || key || "";
+            const lid = contact.lid || (jid.endsWith("@lid") ? jid : undefined);
             const pn = jid.endsWith("@s.whatsapp.net") ? jid.split("@")[0] : undefined;
-            const name = c.name || c.notify || c.verifiedName;
-
+            const name = contact.name || contact.notify || contact.verifiedName || "";
+            
+            // Se tem PN real (telefone@s.whatsapp.net) e LID, mapear
             if (pn && lid) {
+              const baseLid = lid.split("@")[0].split(":")[0].replace(/\D/g, "");
+              if (baseLid) {
+                lidToPhoneMap.set(baseLid, { pn, name });
+              }
+              
+              // Atualizar contato no banco com o número real
               await CreateOrUpdateContactService({
                 name: name || pn,
                 number: pn,
@@ -1507,11 +1582,58 @@ const init = async (whatsapp: Whatsapp): Promise<void> => {
               });
             }
           }
-          logger.info({ info: "Synced contacts from store", count: allStoreContacts.length, sessionId });
+          
+          logger.info({
+            info: "Store contacts LID→PN map built",
+            totalStoreContacts: allStoreContacts.length,
+            lidMappingsFound: lidToPhoneMap.size,
+            sessionId
+          });
+          
+          // 2. Buscar contatos no banco que TEM LID como número (>13 dígitos) e resolver
+          if (lidToPhoneMap.size > 0) {
+            const { Op } = require("sequelize");
+            const dbLidContacts = await Contact.findAll({
+              where: {
+                isGroup: false,
+                lid: { [Op.ne]: null, [Op.ne]: "" }
+              },
+              attributes: ["id", "name", "number", "lid"]
+            });
+            
+            let resolved = 0;
+            for (const dbContact of dbLidContacts) {
+              const currentNumber = (dbContact.number || "").replace(/\D/g, "");
+              // Se o número atual é real (<=13 dígitos), pular
+              if (currentNumber.length >= 10 && currentNumber.length <= 13) continue;
+              
+              // Extrair baseLid
+              const baseLid = (dbContact.lid || "").split("@")[0].split(":")[0].replace(/\D/g, "");
+              if (!baseLid) continue;
+              
+              const mapping = lidToPhoneMap.get(baseLid);
+              if (mapping && mapping.pn) {
+                await dbContact.update({
+                  number: mapping.pn,
+                  ...(mapping.name && !/^\d{10,}$/.test(mapping.name) ? { name: mapping.name } : {})
+                });
+                resolved++;
+              }
+            }
+            
+            logger.info({
+              info: "LID→PN resolution pass completed",
+              totalLidContacts: dbLidContacts.length,
+              resolved,
+              sessionId
+            });
+
+            resolvePendingLidTickets(wbot);
+          }
         } catch (err) {
           logger.debug({ info: "Error in store contacts resolution pass", sessionId, err });
         }
-      }, 2000);
+      }, 5000);
     }
 
     if (qr !== undefined) {
@@ -1529,49 +1651,7 @@ const init = async (whatsapp: Whatsapp): Promise<void> => {
     }
   });
 
-  wbot.ev.on("contacts.upsert", async contacts => {
-    for (const c of contacts) {
-      try {
-        const jid = c.id || "";
-        const lid = (c as any).lid || (jid.endsWith("@lid") ? jid : undefined);
-        const pn = jid.endsWith("@s.whatsapp.net") ? jid.split("@")[0] : undefined;
-        const name = c.name || c.notify || (c as any).verifiedName;
 
-        if (pn || lid) {
-          await CreateOrUpdateContactService({
-            name: name || pn || lid?.split("@")[0] || "",
-            number: pn || lid?.split("@")[0] || "",
-            lid,
-            isGroup: false
-          });
-        }
-      } catch (err) {
-        logger.debug({ info: "Error in contacts.upsert", err });
-      }
-    }
-  });
-
-  wbot.ev.on("contacts.update", async updates => {
-    for (const c of updates) {
-      try {
-        const jid = c.id || "";
-        const lid = (c as any).lid || (jid.endsWith("@lid") ? jid : undefined);
-        const pn = jid.endsWith("@s.whatsapp.net") ? jid.split("@")[0] : undefined;
-        const name = c.name || c.notify || (c as any).verifiedName;
-
-        if (name && (pn || lid)) {
-          await CreateOrUpdateContactService({
-            name,
-            number: pn || lid?.split("@")[0] || "",
-            lid,
-            isGroup: false
-          });
-        }
-      } catch (err) {
-        logger.debug({ info: "Error in contacts.update", err });
-      }
-    }
-  });
 
   wbot.ev.on("groups.upsert", async groups => {
     for (const g of groups) {
@@ -1931,6 +2011,25 @@ const checkNumber = async (
 
   if (!result?.exists) {
     throw new AppError("ERR_NUMBER_NOT_ON_WHATSAPP", 404);
+  }
+
+  // REGRA CRÍTICA: Se o WhatsApp retornou um JID LID, PRESERVAR o número original
+  // e salvar o mapeamento LID→telefone real para resolução futura.
+  const returnedJid = result.jid || "";
+  if (returnedJid.endsWith("@lid") || isLidUser(returnedJid)) {
+    const lidClean = returnedJid.split("@")[0].replace(/\D/g, "");
+    if (lidClean && cleanNumber.length >= 10 && cleanNumber.length <= 13) {
+      // Salvar mapeamento LID → telefone real
+      saveLidMapping(returnedJid, `${cleanNumber}@s.whatsapp.net`, wbot.id || sessionId);
+      logger.info({
+        info: "[checkNumber] WhatsApp retornou LID, preservando número real original",
+        originalNumber: cleanNumber,
+        returnedLid: returnedJid,
+        sessionId
+      });
+    }
+    // Retorna o número real original ao invés do LID
+    return cleanNumber;
   }
 
   return result.jid;

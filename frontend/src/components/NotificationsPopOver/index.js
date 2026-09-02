@@ -72,7 +72,7 @@ const NotificationsPopOver = () => {
 	}, [play]);
 
 	useEffect(() => {
-		setNotifications(tickets);
+		setNotifications(Array.isArray(tickets) ? tickets : []);
 	}, [tickets]);
 
 	useEffect(() => {
@@ -87,24 +87,26 @@ const NotificationsPopOver = () => {
 		socket.on("ticket", data => {
 			if (data.action === "updateUnread" || data.action === "delete") {
 				setNotifications(prevState => {
-					const ticketIndex = prevState.findIndex(t => t.id === data.ticketId);
+					const list = Array.isArray(prevState) ? prevState : [];
+					const ticketIndex = list.findIndex(t => t.id === data.ticketId);
 					if (ticketIndex !== -1) {
-						prevState.splice(ticketIndex, 1);
-						return [...prevState];
+						list.splice(ticketIndex, 1);
+						return [...list];
 					}
-					return prevState;
+					return list;
 				});
 
 				setDesktopNotifications(prevState => {
-					const notfiticationIndex = prevState.findIndex(
+					const list = Array.isArray(prevState) ? prevState : [];
+					const notfiticationIndex = list.findIndex(
 						n => n.tag === String(data.ticketId)
 					);
 					if (notfiticationIndex !== -1) {
-						prevState[notfiticationIndex].close();
-						prevState.splice(notfiticationIndex, 1);
-						return [...prevState];
+						list[notfiticationIndex].close();
+						list.splice(notfiticationIndex, 1);
+						return [...list];
 					}
-					return prevState;
+					return list;
 				});
 			}
 		});
@@ -116,12 +118,13 @@ const NotificationsPopOver = () => {
 				(data.ticket.userId === user?.id || !data.ticket.userId)
 			) {
 				setNotifications(prevState => {
-					const ticketIndex = prevState.findIndex(t => t.id === data.ticket.id);
+					const list = Array.isArray(prevState) ? prevState : [];
+					const ticketIndex = list.findIndex(t => t.id === data.ticket.id);
 					if (ticketIndex !== -1) {
-						prevState[ticketIndex] = data.ticket;
-						return [...prevState];
+						list[ticketIndex] = data.ticket;
+						return [...list];
 					}
-					return [data.ticket, ...prevState];
+					return [data.ticket, ...list];
 				});
 
 				const shouldNotNotificate =
@@ -163,14 +166,16 @@ const NotificationsPopOver = () => {
 		};
 
 		setDesktopNotifications(prevState => {
-			const notfiticationIndex = prevState.findIndex(
-				n => n.tag === notification.tag
+			const list = Array.isArray(prevState) ? prevState : [];
+			const notfiticationIndex = list.findIndex(
+				n => n.tag === String(ticket.id)
 			);
 			if (notfiticationIndex !== -1) {
-				prevState[notfiticationIndex] = notification;
-				return [...prevState];
+				list[notfiticationIndex].close();
+				list.splice(notfiticationIndex, 1);
+				return [...list, notification];
 			}
-			return [notification, ...prevState];
+			return [...list, notification];
 		});
 
 		soundAlertRef.current();
@@ -188,6 +193,8 @@ const NotificationsPopOver = () => {
 		return <div onClick={handleClickAway}>{children}</div>;
 	};
 
+	const notifList = Array.isArray(notifications) ? notifications : [];
+
 	return (
 		<>
 			<IconButton
@@ -196,7 +203,7 @@ const NotificationsPopOver = () => {
 				aria-label="Open Notifications"
 				className={classes.iconButton}
 			>
-				<Badge badgeContent={notifications.length} color="secondary">
+				<Badge badgeContent={notifList.length} color="secondary">
 					<ChatIcon />
 				</Badge>
 			</IconButton>
@@ -216,12 +223,12 @@ const NotificationsPopOver = () => {
 				onClose={handleClickAway}
 			>
 				<List dense className={classes.tabContainer}>
-					{notifications.length === 0 ? (
+					{notifList.length === 0 ? (
 						<ListItem>
 							<ListItemText>{i18n.t("notifications.noTickets")}</ListItemText>
 						</ListItem>
 					) : (
-						notifications.map(ticket => (
+						notifList.map(ticket => (
 							<NotificationTicket key={ticket.id}>
 								<TicketListItem ticket={ticket} />
 							</NotificationTicket>

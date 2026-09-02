@@ -177,6 +177,7 @@ const Ticket = () => {
         handleDrawerClose={handleDrawerClose}
         contact={contact}
         loading={loading}
+        deviceName={ticket?.whatsapp?.name}
       />
     </div>
   );

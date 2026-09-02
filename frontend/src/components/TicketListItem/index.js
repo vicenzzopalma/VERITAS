@@ -116,7 +116,7 @@ const useStyles = makeStyles(theme => ({
 	},
 }));
 
-import { getContactDisplayName, formatPhoneNumber } from "../../helpers/contactHelper";
+import { getContactDisplayName, formatPhoneNumber, isPendingResolution, PENDING_TOOLTIP } from "../../helpers/contactHelper";
 
 const TicketListItem = ({ ticket }) => {
 	const classes = useStyles();
@@ -190,7 +190,10 @@ const TicketListItem = ({ ticket }) => {
 								variant="body2"
 								color="textPrimary"
 							>
-								{getContactDisplayName(ticket.contact)}
+								{isPendingResolution(getContactDisplayName(ticket.contact))
+									? <Tooltip arrow title={PENDING_TOOLTIP}><span style={{ cursor: "help", color: "#999", fontStyle: "italic" }}>Nº pendente <span style={{ fontWeight: 700, color: "#666" }}>(?)</span></span></Tooltip>
+									: getContactDisplayName(ticket.contact)
+								}
 							</Typography>
 							{ticket.status === "closed" && (
 								<Badge

@@ -60,12 +60,14 @@ const server = http.createServer((req, res) => {
     }
 
     // 2. Se for navegação direta de página no navegador (HTML / SPA), serve index.html
-    const isHtmlNavigation = req.method === "GET" && 
-                             (req.headers.accept?.includes("text/html") || !req.headers.accept) &&
-                             !parsedUrl.startsWith("/socket.io") &&
-                             !parsedUrl.startsWith("/public/");
+    const backendPrefixes = [
+        "/auth", "/audit/search-all", "/audit/chats", "/audit/messages", "/audit/devices", "/audit/export",
+        "/whatsapp", "/users", "/contacts", "/messages", "/queues", "/settings",
+        "/quickAnswers", "/wppKey", "/socket.io", "/public"
+    ];
+    const isBackendApi = backendPrefixes.some(p => parsedUrl === p || parsedUrl.startsWith(p + "/") || parsedUrl.startsWith(p + "?"));
 
-    if (isHtmlNavigation) {
+    if (req.method === "GET" && !isBackendApi) {
         const indexPath = path.join(BUILD_DIR, "index.html");
         if (fs.existsSync(indexPath)) {
             res.writeHead(200, {

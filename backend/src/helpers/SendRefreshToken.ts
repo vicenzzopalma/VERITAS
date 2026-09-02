@@ -7,6 +7,7 @@ export const SendRefreshToken = (res: Response, token: string): void => {
     httpOnly: true,
     sameSite: "lax",
     secure: isProduction,
-    maxAge: 24 * 60 * 60 * 1000 // 24h
+    path: "/",
+    maxAge: 30 * 24 * 60 * 60 * 1000 // 30 dias
   });
 };

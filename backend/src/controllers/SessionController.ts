@@ -17,6 +17,7 @@ export const store = async (req: Request, res: Response): Promise<Response> => {
 
   return res.status(200).json({
     token,
+    refreshToken,
     user: serializedUser
   });
 };
@@ -25,7 +26,7 @@ export const update = async (
   req: Request,
   res: Response
 ): Promise<Response> => {
-  const token: string = req.cookies.jrt;
+  const token: string = req.cookies.jrt || req.body?.refreshToken;
 
   if (!token) {
     throw new AppError("ERR_SESSION_EXPIRED", 401);
@@ -38,7 +39,7 @@ export const update = async (
 
   SendRefreshToken(res, refreshToken);
 
-  return res.json({ token: newToken, user });
+  return res.json({ token: newToken, refreshToken, user });
 };
 
 export const remove = async (

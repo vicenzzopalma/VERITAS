@@ -11,6 +11,7 @@ import {
   Divider,
   IconButton,
   makeStyles,
+  Tooltip,
 } from "@material-ui/core";
 import {
   AccessTime,
@@ -33,7 +34,7 @@ import toastError from "../../errors/toastError";
 import Audio from "../Audio";
 import MediaViewerModal from "../MediaViewerModal";
 import PictureAsPdfIcon from "@material-ui/icons/PictureAsPdf";
-import { getContactDisplayName, formatPhoneNumber } from "../../helpers/contactHelper";
+import { getContactDisplayName, formatPhoneNumber, isPendingResolution, PENDING_TOOLTIP } from "../../helpers/contactHelper";
 
 const useStyles = makeStyles((theme) => ({
   messagesListWrapper: {
@@ -713,7 +714,10 @@ const MessagesList = ({ ticketId, isGroup }) => {
                 </IconButton>
                 {isGroup && (
                   <span className={classes.messageContactName}>
-                    {getContactDisplayName(message.contact)}
+                    {isPendingResolution(getContactDisplayName(message.contact))
+                      ? <Tooltip arrow title={PENDING_TOOLTIP}><span style={{ cursor: "help", color: "#999", fontStyle: "italic" }}>Nº pendente <span style={{ fontWeight: 700, color: "#666" }}>(?)</span></span></Tooltip>
+                      : getContactDisplayName(message.contact)
+                    }
                   </span>
                 )}
                 {(message.mediaUrl || message.mediaType === "location" || message.mediaType === "vcard"

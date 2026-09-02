@@ -2,7 +2,14 @@ import { Op } from "sequelize";
 import { getIO } from "../../libs/socket";
 import Contact from "../../models/Contact";
 import Ticket from "../../models/Ticket";
+import Message from "../../models/Message";
 import { logger } from "../../utils/logger";
+import {
+  saveLidMapping,
+  resolveLidToPhoneNumber,
+  extractCleanLid,
+  extractCleanPhone
+} from "../WbotServices/LidResolutionService";
 
 interface ExtraInfo {
   name: string;
@@ -66,69 +73,91 @@ const CreateOrUpdateContactService = async ({
     rawNumber.replace(/\D/g, "").length >= 16
   );
 
-  const number = isActuallyGroup ? rawNumber.replace(/[^0-9]/g, "") : rawNumber.replace(/[^0-9]/g, "");
+  let number = isActuallyGroup ? rawNumber.replace(/[^0-9]/g, "") : rawNumber.replace(/[^0-9]/g, "");
   if (!number && !lid) throw new Error("Either number or lid must be provided");
 
   const baseLid = isActuallyGroup ? "" : (extractBaseLid(lid) || (rawNumber && rawNumber.length >= 14 ? rawNumber : ""));
 
+  // Se o número recebido for um LID (>= 14 dígitos e não é grupo), tenta resolver para telefone real
+  if (!isActuallyGroup && number && number.length >= 14) {
+    const resolvedPhone = await resolveLidToPhoneNumber(baseLid || number);
+    if (resolvedPhone) {
+      number = resolvedPhone;
+    }
+  }
+
+  // Se temos LID e telefone real, armazena no mapeamento persistente
+  if (!isActuallyGroup && baseLid && isRealPhoneNumber(number)) {
+    await saveLidMapping(baseLid, number, 0, name);
+  }
+
   // 1. Busca defensiva por número
-  let contactByNumber = number
+  let contactByNumber = isRealPhoneNumber(number)
     ? await Contact.findOne({
         where: {
-          [Op.or]: [
-            { number },
-            ...(lid ? [{ lid }] : [])
-          ]
+          number,
+          isGroup: isActuallyGroup
         }
       })
     : null;
 
   // 2. Busca defensiva por LID
-  let contactByLid = baseLid && (!contactByNumber || contactByNumber.lid !== lid)
+  let contactByLid = baseLid
     ? await Contact.findOne({
         where: {
           [Op.or]: [
             { lid: { [Op.like]: `${baseLid}%` } },
             { number: baseLid }
-          ]
+          ],
+          isGroup: isActuallyGroup
         }
       })
     : null;
 
-  const shouldMerge =
-    contactByNumber && contactByLid && contactByNumber.id !== contactByLid.id;
+  if (contactByNumber && contactByLid && contactByNumber.id !== contactByLid.id) {
+    const targetContact = contactByNumber;
+    const sourceContact = contactByLid;
 
-  if (shouldMerge) {
     await Ticket.update(
-      { contactId: contactByNumber.id },
-      { where: { contactId: contactByLid.id } }
+      { contactId: targetContact.id },
+      { where: { contactId: sourceContact.id } }
+    );
+
+    await Message.update(
+      { contactId: targetContact.id },
+      { where: { contactId: sourceContact.id } }
     );
 
     const bestName = isRealName(name, number, lid)
       ? name
-      : isRealName(contactByNumber.name, contactByNumber.number, contactByNumber.lid)
-      ? contactByNumber.name
-      : isRealName(contactByLid.name, contactByLid.number, contactByLid.lid)
-      ? contactByLid.name
-      : contactByNumber.name || contactByLid.name;
+      : isRealName(targetContact.name, targetContact.number, targetContact.lid)
+      ? targetContact.name
+      : isRealName(sourceContact.name, sourceContact.number, sourceContact.lid)
+      ? sourceContact.name
+      : targetContact.name || sourceContact.name;
 
-    await contactByLid.destroy();
+    await sourceContact.destroy();
 
-    await contactByNumber.update({
+    await targetContact.update({
       name: bestName,
-      lid: contactByLid.lid || lid,
-      profilePicUrl: profilePicUrl || contactByNumber.profilePicUrl || contactByLid.profilePicUrl
+      lid: sourceContact.lid || (baseLid ? `${baseLid}@lid` : targetContact.lid),
+      profilePicUrl: profilePicUrl || targetContact.profilePicUrl || sourceContact.profilePicUrl
     });
 
-    emitContact("update", contactByNumber);
-    return contactByNumber;
+    emitContact("update", targetContact);
+    return targetContact;
   }
 
   if (contactByNumber) {
     const updateData: any = {
-      lid: lid || contactByNumber.lid,
+      lid: (baseLid ? `${baseLid}@lid` : contactByNumber.lid) || contactByNumber.lid,
       profilePicUrl: profilePicUrl || contactByNumber.profilePicUrl
     };
+
+    // Atualiza o number se o existente era um LID e agora temos o número real
+    if (isRealPhoneNumber(number) && (!isRealPhoneNumber(contactByNumber.number) || contactByNumber.number.length >= 14)) {
+      updateData.number = number;
+    }
 
     if (
       isRealName(name, number, lid) &&
@@ -147,7 +176,11 @@ const CreateOrUpdateContactService = async ({
       profilePicUrl: profilePicUrl || contactByLid.profilePicUrl
     };
 
-    if (isRealPhoneNumber(number) && (!isRealPhoneNumber(contactByLid.number) || contactByLid.number.length > 13)) {
+    if (baseLid && !contactByLid.lid) {
+      updateData.lid = `${baseLid}@lid`;
+    }
+
+    if (isRealPhoneNumber(number) && (!isRealPhoneNumber(contactByLid.number) || contactByLid.number.length >= 14)) {
       updateData.number = number;
     }
 

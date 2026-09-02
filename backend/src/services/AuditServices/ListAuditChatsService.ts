@@ -49,7 +49,7 @@ const ListAuditChatsService = async ({
     contactOrConditions.push({
       [Op.and]: [
         where(fn("LOWER", col("contact.name")), "LIKE", `%${cleanSearch}%`),
-        where(fn("LENGTH", col("contact.name")), "<=", 13)
+        where(fn("LENGTH", col("contact.name")), { [Op.lte]: 13 })
       ]
     });
 
@@ -58,7 +58,7 @@ const ListAuditChatsService = async ({
       contactOrConditions.push({
         [Op.and]: [
           { "$contact.number$": { [Op.like]: `%${variant}%` } },
-          where(fn("LENGTH", col("contact.number")), "<=", 13)
+          where(fn("LENGTH", col("contact.number")), { [Op.lte]: 13 })
         ]
       });
     }
@@ -116,6 +116,29 @@ const ListAuditChatsService = async ({
       };
     })
   );
+
+  // Resolução ativa sob demanda de contatos com LID no Cofre de Auditoria
+  for (const chat of chats) {
+    if (!chat.contact?.isGroup && chat.contact) {
+      const cleanNum = (chat.contact.number || "").replace(/\D/g, "");
+      if (cleanNum.length >= 14) {
+        try {
+          const { getSession } = require("../../providers/WhatsApp/Implementations/whaileys");
+          const { resolveLidToPhoneNumber, resolveAndAutoMerge } = require("../WbotServices/LidResolutionService");
+          const wbot = getSession(chat.whatsappId);
+          const lid = chat.contact.lid || `${cleanNum}@lid`;
+          const resolved = await resolveLidToPhoneNumber(lid, wbot);
+          if (resolved) {
+            await resolveAndAutoMerge(lid, resolved);
+            chat.contact.number = resolved;
+            chat.contact.name = resolved;
+          }
+        } catch {
+          /* ignore */
+        }
+      }
+    }
+  }
 
   const hasMore = count > offset + tickets.length;
 

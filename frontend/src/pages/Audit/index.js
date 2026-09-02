@@ -51,6 +51,7 @@ import {
   Smartphone as PhoneAndroidIcon,
   ArrowForward as ArrowForwardIcon,
   CropFree as QrCodeIcon,
+  Person as PersonIcon,
 } from "@material-ui/icons";
 import { format, parseISO } from "date-fns";
 import { useHistory } from "react-router-dom";
@@ -61,7 +62,8 @@ import openSocket from "../../services/socket-io";
 import toastError from "../../errors/toastError";
 import ExportAuditModal from "../../components/ExportAuditModal";
 import MediaViewerModal from "../../components/MediaViewerModal";
-import { getContactDisplayName, formatPhoneNumber } from "../../helpers/contactHelper";
+import ContactDrawer from "../../components/ContactDrawer";
+import { getContactDisplayName, formatPhoneNumber, isPendingResolution, PENDING_TOOLTIP } from "../../helpers/contactHelper";
 import whatsBackground from "../../assets/wa-background.png";
 
 const useStyles = makeStyles((theme) => ({
@@ -564,6 +566,31 @@ const Audit = () => {
     setActiveMedia({ url: "", type: "", title: "" });
   };
 
+  // Drawer Lateral de Perfil do Contato (Estilo Digisac)
+  const [contactDrawerOpen, setContactDrawerOpen] = useState(false);
+
+  // Filtro dinâmico da barra de smartphones por nome ou número (ex: 1827, Arthur, etc.)
+  const filteredDevices = devices.filter((device) => {
+    if (!globalSearchInput || !globalSearchInput.trim()) return true;
+    const term = globalSearchInput.trim().toLowerCase();
+    const nameMatch = device.name?.toLowerCase().includes(term);
+    const idMatch = String(device.id).includes(term);
+    return nameMatch || idMatch;
+  });
+
+  // Auto-seleciona o smartphone se a busca filtrar exatamente 1 aparelho correspondente
+  useEffect(() => {
+    if (globalSearchInput && globalSearchInput.trim()) {
+      const term = globalSearchInput.trim().toLowerCase();
+      const matched = devices.filter(
+        (d) => d.name?.toLowerCase().includes(term) || String(d.id).includes(term)
+      );
+      if (matched.length === 1 && selectedDevice?.id !== matched[0].id) {
+        setSelectedDevice(matched[0]);
+      }
+    }
+  }, [globalSearchInput, devices]);
+
   const messagesContainerRef = useRef(null);
   const messagesEndRef = useRef(null);
   const chatSearchTimeout = useRef(null);
@@ -948,7 +975,10 @@ const Audit = () => {
                           primary={
                             <Box display="flex" justifyContent="space-between" alignItems="center">
                               <Typography variant="subtitle2" style={{ fontWeight: 700, color: "#0f172a" }}>
-                                {getContactDisplayName(res.contact)}
+                                {isPendingResolution(getContactDisplayName(res.contact))
+                                  ? <Tooltip arrow title={PENDING_TOOLTIP}><span style={{ cursor: "help", color: "#999", fontStyle: "italic" }}>Nº pendente <span style={{ fontWeight: 700, color: "#666" }}>(?)</span></span></Tooltip>
+                                  : getContactDisplayName(res.contact)
+                                }
                               </Typography>
                               <span className={classes.deviceBadge}>
                                 📱 {res.deviceName}
@@ -1033,8 +1063,12 @@ const Audit = () => {
       <div className={classes.deviceRibbon}>
         {loadingDevices ? (
           <CircularProgress size={20} style={{ margin: "auto" }} />
+        ) : filteredDevices.length === 0 ? (
+          <Typography variant="body2" style={{ color: "#64748b", margin: "auto", padding: "10px" }}>
+            Nenhum celular encontrado com "{globalSearchInput}"
+          </Typography>
         ) : (
-          devices.map((device) => {
+          filteredDevices.map((device) => {
             const isSelected = selectedDevice?.id === device.id;
             const isConnected = device.status === "CONNECTED";
             const isOpening = device.status === "OPENING";
@@ -1096,7 +1130,11 @@ const Audit = () => {
       </div>
 
       {/* 3. Área Principal: Divisão em 2 Painéis */}
-      <div className={classes.mainContent}>
+      <div
+        className={classes.mainContent}
+        id="audit-drawer-container"
+        style={{ position: "relative", overflow: "hidden" }}
+      >
         {/* Painel Esquerdo: Lista de Conversas do Celular */}
         <div className={classes.chatsPanel}>
           <div className={classes.chatSearchBox}>
@@ -1154,7 +1192,10 @@ const Audit = () => {
                     <div className={classes.chatInfo}>
                       <Box display="flex" justifyContent="space-between" alignItems="center">
                         <Typography className={classes.chatName}>
-                          {getContactDisplayName(chat.contact)}
+                          {isPendingResolution(getContactDisplayName(chat.contact))
+                            ? <Tooltip arrow title={PENDING_TOOLTIP}><span style={{ cursor: "help", color: "#999", fontStyle: "italic" }}>Nº pendente <span style={{ fontWeight: 700, color: "#666" }}>(?)</span></span></Tooltip>
+                            : getContactDisplayName(chat.contact)
+                          }
                         </Typography>
                         <Typography className={classes.chatDate}>
                           {chat.updatedAt ? format(parseISO(chat.updatedAt), "dd/MM HH:mm") : ""}
@@ -1194,13 +1235,22 @@ const Audit = () => {
           {/* Cabeçalho da Conversa Selecionada */}
           {selectedChat && (
             <div className={classes.activeChatHeader}>
-              <Box display="flex" alignItems="center" gap={1.5}>
+              <Box
+                display="flex"
+                alignItems="center"
+                gap={1.5}
+                onClick={() => setContactDrawerOpen(true)}
+                style={{ cursor: "pointer" }}
+              >
                 <Avatar className={classes.activeChatAvatar} src={selectedChat.contact?.profilePicUrl}>
                   {getContactDisplayName(selectedChat.contact).charAt(0).toUpperCase()}
                 </Avatar>
                 <Box>
                   <Typography variant="subtitle1" style={{ fontWeight: 700, color: "#0f172a", lineHeight: 1.2 }}>
-                    {getContactDisplayName(selectedChat.contact)}
+                    {isPendingResolution(getContactDisplayName(selectedChat.contact))
+                      ? <Tooltip arrow title={PENDING_TOOLTIP}><span style={{ cursor: "help", color: "#999", fontStyle: "italic" }}>Nº pendente <span style={{ fontWeight: 700, color: "#666" }}>(?)</span></span></Tooltip>
+                      : getContactDisplayName(selectedChat.contact)
+                    }
                   </Typography>
                   <Box display="flex" alignItems="center" gap={1} mt={0.3}>
                     <Typography variant="caption" style={{ color: "#64748b" }}>
@@ -1218,10 +1268,27 @@ const Audit = () => {
               </Box>
 
               <Box display="flex" alignItems="center" gap={1}>
+                <Button
+                  size="small"
+                  variant="outlined"
+                  style={{
+                    borderColor: "#52658C",
+                    color: "#52658C",
+                    textTransform: "none",
+                    fontWeight: 700,
+                    borderRadius: 8,
+                    height: 28,
+                    fontSize: "0.78rem",
+                  }}
+                  startIcon={<PersonIcon style={{ fontSize: 16 }} />}
+                  onClick={() => setContactDrawerOpen(true)}
+                >
+                  Ver Perfil
+                </Button>
                 <Chip
                   label={`${messages.length} mensagens`}
                   size="small"
-                  style={{ backgroundColor: "#e0f2fe", color: "#0369a1", fontWeight: 700, height: 24 }}
+                  style={{ backgroundColor: "#e0f2fe", color: "#0369a1", fontWeight: 700, height: 28 }}
                 />
               </Box>
             </div>
@@ -1508,6 +1575,16 @@ const Audit = () => {
             <div ref={messagesEndRef} />
           </div>
         </div>
+
+        {/* Drawer Lateral de Perfil do Contato (Estilo Digisac no Cofre) */}
+        <ContactDrawer
+          open={contactDrawerOpen}
+          handleDrawerClose={() => setContactDrawerOpen(false)}
+          contact={selectedChat?.contact}
+          loading={false}
+          deviceName={selectedDevice?.name}
+          containerId="audit-drawer-container"
+        />
       </div>
 
       {/* Modal de Exportação */}

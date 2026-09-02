@@ -136,11 +136,13 @@ const ListTicketsService = async ({
 
   if (withUnreadMessages === "true") {
     const user = await ShowUserService(userId);
-    const userQueueIds = user.queues.map(queue => queue.id);
+    const userQueueIds = (user.queues || []).map((queue: any) => queue.id);
 
     whereCondition = {
       [Op.or]: [{ userId }, { status: "pending" }],
-      queueId: { [Op.or]: [userQueueIds, null] },
+      ...(userQueueIds.length > 0
+        ? { queueId: { [Op.or]: [userQueueIds, null] } }
+        : {}),
       unreadMessages: { [Op.gt]: 0 }
     };
   }
@@ -158,6 +160,29 @@ const ListTicketsService = async ({
   });
 
   const hasMore = count > offset + tickets.length;
+
+  // Resolução ativa sob demanda de contatos com LID via USync
+  for (const ticket of tickets) {
+    if (!ticket.isGroup && ticket.contact) {
+      const cleanNum = (ticket.contact.number || "").replace(/\D/g, "");
+      if (cleanNum.length >= 14) {
+        try {
+          const { getSession } = require("../../providers/WhatsApp/Implementations/whaileys");
+          const { resolveLidToPhoneNumber, resolveAndAutoMerge } = require("../WbotServices/LidResolutionService");
+          const wbot = getSession(ticket.whatsappId);
+          const lid = ticket.contact.lid || `${cleanNum}@lid`;
+          const resolved = await resolveLidToPhoneNumber(lid, wbot);
+          if (resolved) {
+            await resolveAndAutoMerge(lid, resolved);
+            ticket.contact.number = resolved;
+            ticket.contact.name = resolved;
+          }
+        } catch {
+          /* ignore */
+        }
+      }
+    }
+  }
 
   return {
     tickets,

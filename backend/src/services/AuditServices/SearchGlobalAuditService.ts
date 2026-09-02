@@ -38,9 +38,10 @@ const SearchGlobalAuditService = async ({
     {
       [Op.and]: [
         where(fn("LOWER", col("contact.name")), "LIKE", `%${cleanSearch}%`),
-        where(fn("LENGTH", col("contact.name")), "<=", 13)
+        where(fn("LENGTH", col("contact.name")), { [Op.lte]: 13 })
       ]
-    }
+    },
+    where(fn("LOWER", col("whatsapp.name")), "LIKE", `%${cleanSearch}%`)
   ];
 
   if (!isShortDigits) {
@@ -54,7 +55,7 @@ const SearchGlobalAuditService = async ({
     orConditions.push({
       [Op.and]: [
         { "$contact.number$": { [Op.like]: `%${variant}%` } },
-        where(fn("LENGTH", col("contact.number")), "<=", 13)
+        where(fn("LENGTH", col("contact.number")), { [Op.lte]: 13 })
       ]
     });
   }

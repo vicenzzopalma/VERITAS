@@ -5,161 +5,400 @@ import Typography from "@material-ui/core/Typography";
 import IconButton from "@material-ui/core/IconButton";
 import CloseIcon from "@material-ui/icons/Close";
 import Drawer from "@material-ui/core/Drawer";
-import Link from "@material-ui/core/Link";
-import InputLabel from "@material-ui/core/InputLabel";
 import Avatar from "@material-ui/core/Avatar";
 import Button from "@material-ui/core/Button";
 import Paper from "@material-ui/core/Paper";
+import Box from "@material-ui/core/Box";
+import Chip from "@material-ui/core/Chip";
+import Tooltip from "@material-ui/core/Tooltip";
+import Divider from "@material-ui/core/Divider";
+
+import WhatsAppIcon from "@material-ui/icons/WhatsApp";
+import FileCopyIcon from "@material-ui/icons/FileCopy";
+import CheckIcon from "@material-ui/icons/Check";
+import EditIcon from "@material-ui/icons/Edit";
+import FingerprintIcon from "@material-ui/icons/Fingerprint";
+import SmartphoneIcon from "@material-ui/icons/Smartphone";
+import EmailIcon from "@material-ui/icons/Email";
 
 import { i18n } from "../../translate/i18n";
-
 import ContactModal from "../ContactModal";
 import ContactDrawerSkeleton from "../ContactDrawerSkeleton";
 import MarkdownWrapper from "../MarkdownWrapper";
+import { formatPhoneNumber } from "../../helpers/contactHelper";
 
-const drawerWidth = 320;
+const drawerWidth = 360;
 
 const useStyles = makeStyles(theme => ({
-	drawer: {
-		width: drawerWidth,
-		flexShrink: 0,
-	},
-	drawerPaper: {
-		width: drawerWidth,
-		display: "flex",
-		borderTop: "1px solid rgba(0, 0, 0, 0.12)",
-		borderRight: "1px solid rgba(0, 0, 0, 0.12)",
-		borderBottom: "1px solid rgba(0, 0, 0, 0.12)",
-		borderTopRightRadius: 4,
-		borderBottomRightRadius: 4,
-	},
-	header: {
-		display: "flex",
-		borderBottom: "1px solid rgba(0, 0, 0, 0.12)",
-		backgroundColor: "#eee",
-		alignItems: "center",
-		padding: theme.spacing(0, 1),
-		minHeight: "73px",
-		justifyContent: "flex-start",
-	},
-	content: {
-		display: "flex",
-		backgroundColor: "#eee",
-		flexDirection: "column",
-		padding: "8px 0px 8px 8px",
-		height: "100%",
-		overflowY: "scroll",
-		...theme.scrollbarStyles,
-	},
-
-	contactAvatar: {
-		margin: 15,
-		width: 160,
-		height: 160,
-	},
-
-	contactHeader: {
-		display: "flex",
-		padding: 8,
-		flexDirection: "column",
-		alignItems: "center",
-		justifyContent: "center",
-		"& > *": {
-			margin: 4,
-		},
-	},
-
-	contactDetails: {
-		marginTop: 8,
-		padding: 8,
-		display: "flex",
-		flexDirection: "column",
-	},
-	contactExtraInfo: {
-		marginTop: 4,
-		padding: 6,
-	},
+  drawer: {
+    width: drawerWidth,
+    flexShrink: 0,
+    zIndex: 7,
+  },
+  drawerPaper: {
+    width: drawerWidth,
+    display: "flex",
+    flexDirection: "column",
+    backgroundColor: "#f8fafc",
+    borderLeft: "1px solid #e2e8f0",
+    boxShadow: "-4px 0 16px rgba(0, 0, 0, 0.04)",
+  },
+  header: {
+    display: "flex",
+    backgroundColor: "#52658C",
+    color: "#ffffff",
+    alignItems: "center",
+    justifyContent: "space-between",
+    padding: theme.spacing(1.5, 2),
+    minHeight: 56,
+  },
+  headerTitle: {
+    fontWeight: 700,
+    fontSize: "0.95rem",
+    letterSpacing: "0.3px",
+  },
+  content: {
+    display: "flex",
+    flexDirection: "column",
+    gap: theme.spacing(1.5),
+    padding: theme.spacing(2),
+    height: "100%",
+    overflowY: "auto",
+    ...theme.scrollbarStyles,
+  },
+  profileCard: {
+    padding: theme.spacing(2.5, 2),
+    display: "flex",
+    flexDirection: "column",
+    alignItems: "center",
+    textAlign: "center",
+    borderRadius: 12,
+    border: "1px solid #e2e8f0",
+    backgroundColor: "#ffffff",
+    boxShadow: "0 1px 3px rgba(0,0,0,0.02)",
+  },
+  avatar: {
+    width: 90,
+    height: 90,
+    marginBottom: theme.spacing(1.5),
+    border: "3px solid #52658C",
+    boxShadow: "0 4px 10px rgba(82, 101, 140, 0.2)",
+    fontSize: "2rem",
+    fontWeight: 700,
+    backgroundColor: "#52658C",
+  },
+  contactName: {
+    fontWeight: 800,
+    fontSize: "1.15rem",
+    color: "#0f172a",
+    marginBottom: 4,
+    lineHeight: 1.3,
+  },
+  phoneCard: {
+    width: "100%",
+    marginTop: theme.spacing(1.5),
+    padding: theme.spacing(1.5),
+    backgroundColor: "#f1f5f9",
+    borderRadius: 8,
+    border: "1px solid #e2e8f0",
+  },
+  phoneLabel: {
+    fontSize: "0.72rem",
+    fontWeight: 700,
+    textTransform: "uppercase",
+    color: "#64748b",
+    letterSpacing: "0.5px",
+    marginBottom: 2,
+  },
+  phoneNumberText: {
+    fontSize: "1.05rem",
+    fontWeight: 800,
+    color: "#1e293b",
+    letterSpacing: "0.5px",
+    fontFamily: "'Inter', monospace",
+  },
+  actionsRow: {
+    display: "flex",
+    gap: theme.spacing(1),
+    marginTop: theme.spacing(1.5),
+    width: "100%",
+  },
+  actionButton: {
+    flexGrow: 1,
+    borderRadius: 8,
+    textTransform: "none",
+    fontWeight: 600,
+    fontSize: "0.8rem",
+    padding: "6px 10px",
+  },
+  infoSection: {
+    padding: theme.spacing(2),
+    borderRadius: 12,
+    border: "1px solid #e2e8f0",
+    backgroundColor: "#ffffff",
+    display: "flex",
+    flexDirection: "column",
+    gap: theme.spacing(1.5),
+  },
+  sectionHeader: {
+    display: "flex",
+    alignItems: "center",
+    gap: theme.spacing(1),
+    fontWeight: 700,
+    fontSize: "0.85rem",
+    color: "#334155",
+    textTransform: "uppercase",
+    letterSpacing: "0.5px",
+    paddingBottom: theme.spacing(0.5),
+    borderBottom: "1px solid #f1f5f9",
+  },
+  metaItem: {
+    display: "flex",
+    flexDirection: "column",
+    gap: 2,
+  },
+  metaLabel: {
+    fontSize: "0.72rem",
+    color: "#64748b",
+    fontWeight: 600,
+  },
+  metaValue: {
+    fontSize: "0.85rem",
+    fontWeight: 600,
+    color: "#1e293b",
+    wordBreak: "break-all",
+  },
+  extraInfoBox: {
+    padding: theme.spacing(1),
+    borderRadius: 6,
+    backgroundColor: "#f8fafc",
+    border: "1px solid #f1f5f9",
+  },
 }));
 
-const ContactDrawer = ({ open, handleDrawerClose, contact, loading }) => {
-	const classes = useStyles();
+const ContactDrawer = ({
+  open,
+  handleDrawerClose,
+  contact,
+  loading,
+  deviceName,
+  containerId = "drawer-container"
+}) => {
+  const classes = useStyles();
+  const [modalOpen, setModalOpen] = useState(false);
+  const [copied, setCopied] = useState(false);
+  const [copiedLid, setCopiedLid] = useState(false);
 
-	const [modalOpen, setModalOpen] = useState(false);
+  if (!contact && !loading) return null;
 
-	return (
-		<Drawer
-			className={classes.drawer}
-			variant="persistent"
-			anchor="right"
-			open={open}
-			PaperProps={{ style: { position: "absolute" } }}
-			BackdropProps={{ style: { position: "absolute" } }}
-			ModalProps={{
-				container: document.getElementById("drawer-container"),
-				style: { position: "absolute" },
-			}}
-			classes={{
-				paper: classes.drawerPaper,
-			}}
-		>
-			<div className={classes.header}>
-				<IconButton onClick={handleDrawerClose}>
-					<CloseIcon />
-				</IconButton>
-				<Typography style={{ justifySelf: "center" }}>
-					{i18n.t("contactDrawer.header")}
-				</Typography>
-			</div>
-			{loading ? (
-				<ContactDrawerSkeleton classes={classes} />
-			) : (
-				<div className={classes.content}>
-					<Paper square variant="outlined" className={classes.contactHeader}>
-						<Avatar
-							alt={contact.name}
-							src={contact.profilePicUrl}
-							className={classes.contactAvatar}
-						></Avatar>
+  const rawNumber = String(contact?.number || "").trim();
+  const cleanNumber = rawNumber.replace(/\D/g, "");
+  const formattedPhone = formatPhoneNumber(rawNumber);
 
-						<Typography>{contact.name}</Typography>
-						<Typography>
-							<Link href={`tel:${contact.number}`}>{contact.number}</Link>
-						</Typography>
-						<Button
-							variant="outlined"
-							color="primary"
-							onClick={() => setModalOpen(true)}
-						>
-							{i18n.t("contactDrawer.buttons.edit")}
-						</Button>
-					</Paper>
-					<Paper square variant="outlined" className={classes.contactDetails}>
-						<ContactModal
-							open={modalOpen}
-							onClose={() => setModalOpen(false)}
-							contactId={contact.id}
-						></ContactModal>
-						<Typography variant="subtitle1">
-							{i18n.t("contactDrawer.extraInfo")}
-						</Typography>
-						{contact?.extraInfo?.map(info => (
-							<Paper
-								key={info.id}
-								square
-								variant="outlined"
-								className={classes.contactExtraInfo}
-							>
-								<InputLabel>{info.name}</InputLabel>
-								<Typography component="div" noWrap style={{ paddingTop: 2 }}>
-									<MarkdownWrapper>{info.value}</MarkdownWrapper>
-								</Typography>
-							</Paper>
-						))}
-					</Paper>
-				</div>
-			)}
-		</Drawer>
-	);
+  const cleanLid = contact?.lid
+    ? contact.lid.split("@")[0].replace(/\D/g, "")
+    : rawNumber.length >= 14
+    ? rawNumber
+    : "";
+
+  const handleCopyPhone = () => {
+    if (formattedPhone) {
+      navigator.clipboard.writeText(cleanNumber || formattedPhone);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    }
+  };
+
+  const handleCopyLid = () => {
+    if (cleanLid) {
+      navigator.clipboard.writeText(cleanLid);
+      setCopiedLid(true);
+      setTimeout(() => setCopiedLid(false), 2000);
+    }
+  };
+
+  const handleOpenWhatsApp = () => {
+    if (cleanNumber) {
+      window.open(`https://wa.me/${cleanNumber}`, "_blank");
+    }
+  };
+
+  const containerElem = typeof document !== "undefined" ? document.getElementById(containerId) : null;
+
+  return (
+    <Drawer
+      className={classes.drawer}
+      variant="persistent"
+      anchor="right"
+      open={open}
+      PaperProps={{ style: { position: "absolute" } }}
+      BackdropProps={{ style: { position: "absolute" } }}
+      ModalProps={{
+        container: containerElem,
+        style: { position: "absolute" },
+      }}
+      classes={{
+        paper: classes.drawerPaper,
+      }}
+    >
+      {/* 1. Cabeçalho Superior Estilo Digisac */}
+      <div className={classes.header}>
+        <Typography className={classes.headerTitle}>
+          📋 Detalhes do Contato
+        </Typography>
+        <IconButton size="small" onClick={handleDrawerClose} style={{ color: "#ffffff" }}>
+          <CloseIcon fontSize="small" />
+        </IconButton>
+      </div>
+
+      {loading ? (
+        <ContactDrawerSkeleton classes={classes} />
+      ) : (
+        <div className={classes.content}>
+          {/* 2. Card Principal de Identificação */}
+          <Paper elevation={0} className={classes.profileCard}>
+            <Avatar
+              alt={contact?.name}
+              src={contact?.profilePicUrl}
+              className={classes.avatar}
+            >
+              {(contact?.name || formattedPhone || "C").charAt(0).toUpperCase()}
+            </Avatar>
+
+            <Typography className={classes.contactName}>
+              {contact?.isGroup ? (contact?.name || "Grupo WhatsApp") : (formattedPhone || contact?.name || "Sem Nome")}
+            </Typography>
+
+            {contact?.name && contact?.name !== formattedPhone && !contact?.isGroup && (
+              <Typography variant="body2" style={{ color: "#64748b", fontWeight: 500, marginBottom: 6 }}>
+                Salvo como: <em>{contact.name}</em>
+              </Typography>
+            )}
+
+            {contact?.isGroup && (
+              <Chip
+                label="👥 Grupo WhatsApp"
+                size="small"
+                style={{ backgroundColor: "#e2e8f0", fontWeight: 700, height: 22, fontSize: "0.7rem" }}
+              />
+            )}
+
+            {/* 3. Destaque Visual do Número de Telefone (Padrão Digisac) */}
+            <div className={classes.phoneCard}>
+              <div className={classes.phoneLabel}>
+                Número de Telefone
+              </div>
+              <Box display="flex" alignItems="center" justifyContent="space-between">
+                <Typography className={classes.phoneNumberText}>
+                  {formattedPhone || "Não identificado"}
+                </Typography>
+                <Tooltip title={copied ? "Copiado!" : "Copiar número"}>
+                  <IconButton size="small" onClick={handleCopyPhone} style={{ color: copied ? "#10b981" : "#52658C" }}>
+                    {copied ? <CheckIcon fontSize="small" /> : <FileCopyIcon fontSize="small" />}
+                  </IconButton>
+                </Tooltip>
+              </Box>
+            </div>
+
+            {/* Ações Rápidas do Telefone */}
+            <div className={classes.actionsRow}>
+              {cleanNumber && (
+                <Button
+                  variant="contained"
+                  style={{ backgroundColor: "#10b981", color: "#fff" }}
+                  className={classes.actionButton}
+                  startIcon={<WhatsAppIcon />}
+                  onClick={handleOpenWhatsApp}
+                >
+                  WhatsApp
+                </Button>
+              )}
+            </div>
+          </Paper>
+
+          {/* 4. Metadados de Auditoria & Conexão */}
+          <Paper elevation={0} className={classes.infoSection}>
+            <div className={classes.sectionHeader}>
+              <SmartphoneIcon fontSize="small" style={{ color: "#52658C" }} />
+              Informações do Canal & Auditoria
+            </div>
+
+            {deviceName && (
+              <div className={classes.metaItem}>
+                <span className={classes.metaLabel}>Dispositivo / Smartphone:</span>
+                <span className={classes.metaValue}>📱 {deviceName}</span>
+              </div>
+            )}
+
+            {contact?.email && (
+              <div className={classes.metaItem}>
+                <span className={classes.metaLabel}>E-mail:</span>
+                <Box display="flex" alignItems="center" gap={0.5}>
+                  <EmailIcon fontSize="small" style={{ color: "#94a3b8", fontSize: 16 }} />
+                  <span className={classes.metaValue}>{contact.email}</span>
+                </Box>
+              </div>
+            )}
+
+            {cleanLid && (
+              <div className={classes.metaItem}>
+                <span className={classes.metaLabel}>LID WhatsApp (Identificador Interno):</span>
+                <Box display="flex" alignItems="center" justifyContent="space-between" mt={0.2}>
+                  <Chip
+                    size="small"
+                    icon={<FingerprintIcon style={{ fontSize: 14, color: "#52658C" }} />}
+                    label={cleanLid}
+                    style={{ backgroundColor: "#e2e8f0", fontFamily: "monospace", fontSize: "0.72rem", height: 22 }}
+                  />
+                  <Tooltip title={copiedLid ? "LID Copiado!" : "Copiar LID"}>
+                    <IconButton size="small" onClick={handleCopyLid}>
+                      {copiedLid ? <CheckIcon style={{ fontSize: 14, color: "#10b981" }} /> : <FileCopyIcon style={{ fontSize: 14 }} />}
+                    </IconButton>
+                  </Tooltip>
+                </Box>
+              </div>
+            )}
+
+            <Box mt={1}>
+              <Button
+                fullWidth
+                variant="outlined"
+                style={{ borderColor: "#cbd5e1", color: "#334155", textTransform: "none", fontWeight: 600 }}
+                startIcon={<EditIcon />}
+                onClick={() => setModalOpen(true)}
+              >
+                Editar Informações do Contato
+              </Button>
+            </Box>
+          </Paper>
+
+          {/* 5. Campos Personalizados (ExtraInfo) */}
+          {contact?.extraInfo && contact.extraInfo.length > 0 && (
+            <Paper elevation={0} className={classes.infoSection}>
+              <div className={classes.sectionHeader}>
+                Campos Personalizados
+              </div>
+              {contact.extraInfo.map(info => (
+                <div key={info.id} className={classes.extraInfoBox}>
+                  <div className={classes.metaLabel}>{info.name}</div>
+                  <div className={classes.metaValue}>
+                    <MarkdownWrapper>{info.value}</MarkdownWrapper>
+                  </div>
+                </div>
+              ))}
+            </Paper>
+          )}
+        </div>
+      )}
+
+      {/* Modal de Edição */}
+      <ContactModal
+        open={modalOpen}
+        onClose={() => setModalOpen(false)}
+        contactId={contact?.id}
+      />
+    </Drawer>
+  );
 };
 
 export default ContactDrawer;

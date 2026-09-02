@@ -16,7 +16,7 @@ import WhatsAppIcon from "@material-ui/icons/WhatsApp";
 import SearchIcon from "@material-ui/icons/Search";
 import TextField from "@material-ui/core/TextField";
 import InputAdornment from "@material-ui/core/InputAdornment";
-
+import Tooltip from "@material-ui/core/Tooltip";
 import IconButton from "@material-ui/core/IconButton";
 import DeleteOutlineIcon from "@material-ui/icons/DeleteOutline";
 import EditIcon from "@material-ui/icons/Edit";
@@ -34,7 +34,7 @@ import MainContainer from "../../components/MainContainer";
 import toastError from "../../errors/toastError";
 import { AuthContext } from "../../context/Auth/AuthContext";
 import { Can } from "../../components/Can";
-import { getContactDisplayName, formatPhoneNumber } from "../../helpers/contactHelper";
+import { getContactDisplayName, formatPhoneNumber, isPendingResolution, PENDING_TOOLTIP } from "../../helpers/contactHelper";
 
 const reducer = (state, action) => {
   if (action.type === "LOAD_CONTACTS") {
@@ -304,7 +304,12 @@ const Contacts = () => {
                   <TableCell style={{ paddingRight: 0 }}>
                     {<Avatar src={contact.profilePicUrl}>{getContactDisplayName(contact).charAt(0).toUpperCase()}</Avatar>}
                   </TableCell>
-                  <TableCell style={{ fontWeight: 600 }}>{getContactDisplayName(contact)}</TableCell>
+                  <TableCell style={{ fontWeight: 600 }}>
+                    {isPendingResolution(getContactDisplayName(contact))
+                      ? <Tooltip arrow title={PENDING_TOOLTIP}><span style={{ cursor: "help", color: "#999", fontStyle: "italic" }}>Nº pendente <span style={{ fontWeight: 700, color: "#666" }}>(?)</span></span></Tooltip>
+                      : getContactDisplayName(contact)
+                    }
+                  </TableCell>
                   <TableCell align="center">
                     {formatPhoneNumber(contact.number) || "-"}
                   </TableCell>
