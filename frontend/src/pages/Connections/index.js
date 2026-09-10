@@ -16,6 +16,7 @@ import {
 	Tooltip,
 	Typography,
 	CircularProgress,
+	Chip,
 } from "@material-ui/core";
 import {
 	Edit,
@@ -26,6 +27,27 @@ import {
 	CropFree,
 	DeleteOutline,
 } from "@material-ui/icons";
+
+const getSectorColor = sector => {
+	switch (sector) {
+		case "Senior":
+			return "#7c3aed";
+		case "Junior":
+			return "#0284c7";
+		case "Pesquisa":
+			return "#059669";
+		case "Comercial":
+			return "#d97706";
+		case "Juridico":
+			return "#dc2626";
+		case "PA FIXA 1":
+			return "#4b5563";
+		case "PA FIXA 2":
+			return "#374151";
+		default:
+			return "#6366f1";
+	}
+};
 
 import MainContainer from "../../components/MainContainer";
 import MainHeader from "../../components/MainHeader";
@@ -110,6 +132,65 @@ const Connections = () => {
 	const [confirmModalInfo, setConfirmModalInfo] = useState(
 		confirmationModalInitialState
 	);
+
+	const [selectedSector, setSelectedSector] = useState("TODOS");
+
+	const sectorsList = React.useMemo(() => {
+		const defaultOrder = [
+			"Junior",
+			"Senior",
+			"Pesquisa",
+			"Comercial",
+			"Juridico",
+			"PA FIXA 1",
+			"PA FIXA 2",
+		];
+		const presentSectors = new Set();
+		whatsApps?.forEach(w => {
+			if (w.sector) presentSectors.add(w.sector);
+		});
+		return Array.from(new Set([...defaultOrder, ...presentSectors]));
+	}, [whatsApps]);
+
+	const sectorCounts = React.useMemo(() => {
+		const counts = { TODOS: whatsApps?.length || 0 };
+		whatsApps?.forEach(w => {
+			const sec = w.sector || "Junior";
+			counts[sec] = (counts[sec] || 0) + 1;
+		});
+		return counts;
+	}, [whatsApps]);
+
+	const qrNeededCount = React.useMemo(() => {
+		return whatsApps?.filter(w => w.status === "qrcode" || w.status === "DISCONNECTED")?.length || 0;
+	}, [whatsApps]);
+
+	const getStatusPriority = status => {
+		if (status === "qrcode") return 1; // Prioridade Máxima: QR pronto na tela
+		if (status === "DISCONNECTED") return 2; // Desconectado (precisa gerar QR/conectar)
+		if (status === "OPENING") return 3; // Em abertura
+		if (status === "CONNECTED") return 4; // Conectado
+		return 5;
+	};
+
+	const filteredWhatsApps = React.useMemo(() => {
+		let list = whatsApps || [];
+		if (selectedSector === "QR_CODE_NEEDED") {
+			list = list.filter(w => w.status === "qrcode" || w.status === "DISCONNECTED");
+		} else if (selectedSector !== "TODOS") {
+			list = list.filter(w => (w.sector || "Junior") === selectedSector);
+		}
+
+		// Prioridade absoluta: quem necessita de QR Code fica no topo!
+		return [...list].sort((a, b) => {
+			const pA = getStatusPriority(a.status);
+			const pB = getStatusPriority(b.status);
+			if (pA !== pB) {
+				return pA - pB;
+			}
+			return (a.name || "").localeCompare(b.name || "");
+		});
+	}, [whatsApps, selectedSector]);
 
 	const handleStartWhatsAppSession = async whatsAppId => {
 		try {
@@ -347,12 +428,103 @@ const Connections = () => {
 					</Button>
 				</MainHeaderButtonsWrapper>
 			</MainHeader>
+
+			{/* Mini Filtro por Setores (Tema VERITAS) */}
+			<div
+				style={{
+					display: "flex",
+					alignItems: "center",
+					gap: 8,
+					flexWrap: "wrap",
+					marginBottom: 12,
+					padding: "10px 16px",
+					backgroundColor: "#fff",
+					borderRadius: 8,
+					border: "1px solid rgba(0, 0, 0, 0.08)",
+					boxShadow: "0 1px 3px rgba(0,0,0,0.04)",
+				}}
+			>
+				<Typography
+					variant="body2"
+					style={{
+						fontWeight: 800,
+						color: "#334155",
+						marginRight: 6,
+						textTransform: "uppercase",
+						fontSize: "0.72rem",
+						letterSpacing: "0.6px",
+					}}
+				>
+					Filtrar Setor:
+				</Typography>
+				<Chip
+					label={`TODOS (${sectorCounts.TODOS || 0})`}
+					size="small"
+					color={selectedSector === "TODOS" ? "primary" : "default"}
+					variant={selectedSector === "TODOS" ? "default" : "outlined"}
+					onClick={() => setSelectedSector("TODOS")}
+					style={{
+						fontWeight: 700,
+						cursor: "pointer",
+						borderRadius: 6,
+						height: 28,
+						fontSize: "0.75rem",
+					}}
+				/>
+				{qrNeededCount > 0 && (
+					<Chip
+						icon={<CropFree style={{ fontSize: 16, color: selectedSector === "QR_CODE_NEEDED" ? "#fff" : "#dc2626" }} />}
+						label={`LER QR CODE (${qrNeededCount})`}
+						size="small"
+						onClick={() => setSelectedSector("QR_CODE_NEEDED")}
+						variant={selectedSector === "QR_CODE_NEEDED" ? "default" : "outlined"}
+						style={{
+							fontWeight: 800,
+							cursor: "pointer",
+							borderRadius: 6,
+							height: 28,
+							fontSize: "0.75rem",
+							backgroundColor: selectedSector === "QR_CODE_NEEDED" ? "#dc2626" : "rgba(220, 38, 38, 0.08)",
+							borderColor: "#dc2626",
+							color: selectedSector === "QR_CODE_NEEDED" ? "#fff" : "#dc2626",
+						}}
+					/>
+				)}
+				{sectorsList.map(sector => {
+					const count = sectorCounts[sector] || 0;
+					const isSelected = selectedSector === sector;
+					const sectorColor = getSectorColor(sector);
+					return (
+						<Chip
+							key={sector}
+							label={`${sector} (${count})`}
+							size="small"
+							onClick={() => setSelectedSector(sector)}
+							variant={isSelected ? "default" : "outlined"}
+							style={{
+								fontWeight: 700,
+								cursor: "pointer",
+								borderRadius: 6,
+								height: 28,
+								fontSize: "0.75rem",
+								backgroundColor: isSelected ? sectorColor : "transparent",
+								borderColor: sectorColor,
+								color: isSelected ? "#fff" : sectorColor,
+							}}
+						/>
+					);
+				})}
+			</div>
+
 			<Paper className={classes.mainPaper} variant="outlined">
 				<Table size="small">
 					<TableHead>
 						<TableRow>
 							<TableCell align="center">
 								{i18n.t("connections.table.name")}
+							</TableCell>
+							<TableCell align="center">
+								Setor
 							</TableCell>
 							<TableCell align="center">
 								{i18n.t("connections.table.status")}
@@ -376,11 +548,11 @@ const Connections = () => {
 							<TableRowSkeleton />
 						) : (
 							<>
-								{whatsApps?.length > 0 &&
-									whatsApps.map(whatsApp => (
+								{filteredWhatsApps?.length > 0 &&
+									filteredWhatsApps.map(whatsApp => (
 										<TableRow key={whatsApp.id}>
 											<TableCell align="center">
-												<div>{whatsApp.name}</div>
+												<div style={{ fontWeight: 600 }}>{whatsApp.name}</div>
 												{whatsApp.proxyUrl && (
 													<Typography
 														variant="caption"
@@ -394,6 +566,20 @@ const Connections = () => {
 														🔒 Proxy Ativo
 													</Typography>
 												)}
+											</TableCell>
+											<TableCell align="center">
+												<Chip
+													label={whatsApp.sector || "Junior"}
+													size="small"
+													style={{
+														backgroundColor: getSectorColor(whatsApp.sector || "Junior"),
+														color: "#fff",
+														fontWeight: 700,
+														fontSize: "0.72rem",
+														borderRadius: 4,
+														height: 22,
+													}}
+												/>
 											</TableCell>
 											<TableCell align="center">
 												{renderStatusToolTips(whatsApp)}
@@ -430,6 +616,15 @@ const Connections = () => {
 											</TableCell>
 										</TableRow>
 									))}
+								{filteredWhatsApps?.length === 0 && (
+									<TableRow>
+										<TableCell colSpan={7} align="center">
+											<Typography variant="body2" style={{ padding: "24px 0", color: "#64748b", fontWeight: 500 }}>
+												Nenhum WhatsApp cadastrado no setor <strong>{selectedSector}</strong>.
+											</Typography>
+										</TableCell>
+									</TableRow>
+								)}
 							</>
 						)}
 					</TableBody>

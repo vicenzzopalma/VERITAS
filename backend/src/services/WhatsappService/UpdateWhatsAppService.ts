@@ -16,6 +16,7 @@ interface WhatsappData {
   queueIds?: number[];
   proxyUrl?: string;
   humanDelay?: boolean;
+  sector?: string;
 }
 
 interface Request {
@@ -35,7 +36,8 @@ const UpdateWhatsAppService = async ({
   const schema = Yup.object().shape({
     name: Yup.string().min(2),
     status: Yup.string(),
-    isDefault: Yup.boolean()
+    isDefault: Yup.boolean(),
+    sector: Yup.string()
   });
 
   const {
@@ -47,11 +49,12 @@ const UpdateWhatsAppService = async ({
     farewellMessage,
     queueIds = [],
     proxyUrl,
-    humanDelay
+    humanDelay,
+    sector
   } = whatsappData;
 
   try {
-    await schema.validate({ name, status, isDefault });
+    await schema.validate({ name, status, isDefault, sector });
   } catch (err) {
     throw new AppError(err.message);
   }
@@ -81,7 +84,8 @@ const UpdateWhatsAppService = async ({
     farewellMessage,
     isDefault,
     proxyUrl,
-    humanDelay
+    humanDelay,
+    sector
   });
 
   await AssociateWhatsappQueue(whatsapp, queueIds);

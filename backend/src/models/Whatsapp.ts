@@ -67,6 +67,11 @@ class Whatsapp extends Model<Whatsapp> {
   @Column
   humanDelay: boolean;
 
+  @Default("Junior")
+  @AllowNull
+  @Column(DataType.TEXT)
+  sector: string;
+
   @CreatedAt
   createdAt: Date;
 

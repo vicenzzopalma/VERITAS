@@ -16,12 +16,27 @@ import {
 	TextField,
 	Switch,
 	FormControlLabel,
+	Select,
+	MenuItem,
+	FormControl,
+	InputLabel,
+	FormHelperText,
 } from "@material-ui/core";
 
 import api from "../../services/api";
 import { i18n } from "../../translate/i18n";
 import toastError from "../../errors/toastError";
 import QueueSelect from "../QueueSelect";
+
+const OFFICIAL_SECTORS = [
+	"Junior",
+	"Senior",
+	"Pesquisa",
+	"Comercial",
+	"Juridico",
+	"PA FIXA 1",
+	"PA FIXA 2",
+];
 
 const useStyles = makeStyles(theme => ({
 	root: {
@@ -52,9 +67,11 @@ const useStyles = makeStyles(theme => ({
 
 const SessionSchema = Yup.object().shape({
 	name: Yup.string()
-		.min(2, "Too Short!")
-		.max(50, "Too Long!")
-		.required("Required"),
+		.min(2, "Muito curto!")
+		.max(50, "Muito longo!")
+		.required("O nome é obrigatório"),
+	sector: Yup.string()
+		.required("O setor é obrigatório"),
 });
 
 const WhatsAppModal = ({ open, onClose, whatsAppId }) => {
@@ -66,9 +83,11 @@ const WhatsAppModal = ({ open, onClose, whatsAppId }) => {
 		isDefault: false,
 		proxyUrl: "",
 		humanDelay: true,
+		sector: "Junior",
 	};
 	const [whatsApp, setWhatsApp] = useState(initialState);
 	const [selectedQueueIds, setSelectedQueueIds] = useState([]);
+	const [customSector, setCustomSector] = useState(false);
 
 	useEffect(() => {
 		const fetchSession = async () => {
@@ -80,6 +99,7 @@ const WhatsAppModal = ({ open, onClose, whatsAppId }) => {
 					...data,
 					proxyUrl: data.proxyUrl || "",
 					humanDelay: data.humanDelay !== false,
+					sector: data.sector || "Junior",
 				});
 
 				const whatsQueueIds = Array.isArray(data.queues)
@@ -167,6 +187,73 @@ const WhatsAppModal = ({ open, onClose, whatsAppId }) => {
 										}
 										label={i18n.t("whatsappModal.form.default")}
 									/>
+								</div>
+								<div style={{ marginTop: 8, marginBottom: 8 }}>
+									{!customSector ? (
+										<div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+											<FormControl
+												variant="outlined"
+												margin="dense"
+												fullWidth
+												error={touched.sector && Boolean(errors.sector)}
+											>
+												<InputLabel id="sector-select-label">Setor do Aparelho *</InputLabel>
+												<Field
+													as={Select}
+													labelId="sector-select-label"
+													id="sector"
+													name="sector"
+													label="Setor do Aparelho *"
+													value={values.sector || "Junior"}
+												>
+													{OFFICIAL_SECTORS.map(s => (
+														<MenuItem key={s} value={s}>
+															{s}
+														</MenuItem>
+													))}
+													{!OFFICIAL_SECTORS.includes(values.sector) && values.sector && (
+														<MenuItem key={values.sector} value={values.sector}>
+															{values.sector} (Personalizado)
+														</MenuItem>
+													)}
+												</Field>
+												{touched.sector && errors.sector && (
+													<FormHelperText>{errors.sector}</FormHelperText>
+												)}
+											</FormControl>
+											<Button
+												variant="outlined"
+												size="small"
+												color="primary"
+												style={{ height: 40, whiteSpace: "nowrap" }}
+												onClick={() => setCustomSector(true)}
+											>
+												+ Novo
+											</Button>
+										</div>
+									) : (
+										<div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+											<Field
+												as={TextField}
+												label="Digite o Nome do Novo Setor *"
+												name="sector"
+												variant="outlined"
+												margin="dense"
+												fullWidth
+												autoFocus
+												error={touched.sector && Boolean(errors.sector)}
+												helperText={touched.sector && errors.sector}
+											/>
+											<Button
+												variant="outlined"
+												size="small"
+												style={{ height: 40, whiteSpace: "nowrap" }}
+												onClick={() => setCustomSector(false)}
+											>
+												Lista
+											</Button>
+										</div>
+									)}
 								</div>
 								<div style={{ marginTop: 8, marginBottom: 8 }}>
 									<Field

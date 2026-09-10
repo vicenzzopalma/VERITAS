@@ -13,6 +13,7 @@ interface Request {
   isDefault?: boolean;
   proxyUrl?: string;
   humanDelay?: boolean;
+  sector?: string;
 }
 
 interface Response {
@@ -28,7 +29,8 @@ const CreateWhatsAppService = async ({
   farewellMessage,
   isDefault = false,
   proxyUrl,
-  humanDelay = true
+  humanDelay = true,
+  sector = "Junior"
 }: Request): Promise<Response> => {
   const schema = Yup.object().shape({
     name: Yup.string()
@@ -45,11 +47,12 @@ const CreateWhatsAppService = async ({
           return !nameExists;
         }
       ),
-    isDefault: Yup.boolean().required()
+    isDefault: Yup.boolean().required(),
+    sector: Yup.string().required("O setor é obrigatório")
   });
 
   try {
-    await schema.validate({ name, status, isDefault });
+    await schema.validate({ name, status, isDefault, sector });
   } catch (err) {
     throw new AppError(err.message);
   }
@@ -81,7 +84,8 @@ const CreateWhatsAppService = async ({
       farewellMessage,
       isDefault,
       proxyUrl,
-      humanDelay
+      humanDelay,
+      sector
     },
     { include: ["queues"] }
   );

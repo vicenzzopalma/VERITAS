@@ -16,6 +16,9 @@ interface WhatsappData {
   farewellMessage?: string;
   status?: string;
   isDefault?: boolean;
+  sector?: string;
+  proxyUrl?: string;
+  humanDelay?: boolean;
 }
 
 export const index = async (req: Request, res: Response): Promise<Response> => {
@@ -31,7 +34,10 @@ export const store = async (req: Request, res: Response): Promise<Response> => {
     isDefault,
     greetingMessage,
     farewellMessage,
-    queueIds
+    queueIds,
+    sector,
+    proxyUrl,
+    humanDelay
   }: WhatsappData = req.body;
 
   const { whatsapp, oldDefaultWhatsapp } = await CreateWhatsAppService({
@@ -40,7 +46,10 @@ export const store = async (req: Request, res: Response): Promise<Response> => {
     isDefault,
     greetingMessage,
     farewellMessage,
-    queueIds
+    queueIds,
+    sector,
+    proxyUrl,
+    humanDelay
   });
 
   StartWhatsAppSession(whatsapp);
