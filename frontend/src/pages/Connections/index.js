@@ -161,10 +161,6 @@ const Connections = () => {
 		return counts;
 	}, [whatsApps]);
 
-	const qrNeededCount = React.useMemo(() => {
-		return whatsApps?.filter(w => w.status === "qrcode" || w.status === "DISCONNECTED")?.length || 0;
-	}, [whatsApps]);
-
 	const getStatusPriority = status => {
 		if (status === "qrcode") return 1; // Prioridade Máxima: QR pronto na tela
 		if (status === "DISCONNECTED") return 2; // Desconectado (precisa gerar QR/conectar)
@@ -175,9 +171,7 @@ const Connections = () => {
 
 	const filteredWhatsApps = React.useMemo(() => {
 		let list = whatsApps || [];
-		if (selectedSector === "QR_CODE_NEEDED") {
-			list = list.filter(w => w.status === "qrcode" || w.status === "DISCONNECTED");
-		} else if (selectedSector !== "TODOS") {
+		if (selectedSector !== "TODOS") {
 			list = list.filter(w => (w.sector || "Junior") === selectedSector);
 		}
 
@@ -471,25 +465,6 @@ const Connections = () => {
 						fontSize: "0.75rem",
 					}}
 				/>
-				{qrNeededCount > 0 && (
-					<Chip
-						icon={<CropFree style={{ fontSize: 16, color: selectedSector === "QR_CODE_NEEDED" ? "#fff" : "#dc2626" }} />}
-						label={`LER QR CODE (${qrNeededCount})`}
-						size="small"
-						onClick={() => setSelectedSector("QR_CODE_NEEDED")}
-						variant={selectedSector === "QR_CODE_NEEDED" ? "default" : "outlined"}
-						style={{
-							fontWeight: 800,
-							cursor: "pointer",
-							borderRadius: 6,
-							height: 28,
-							fontSize: "0.75rem",
-							backgroundColor: selectedSector === "QR_CODE_NEEDED" ? "#dc2626" : "rgba(220, 38, 38, 0.08)",
-							borderColor: "#dc2626",
-							color: selectedSector === "QR_CODE_NEEDED" ? "#fff" : "#dc2626",
-						}}
-					/>
-				)}
 				{sectorsList.map(sector => {
 					const count = sectorCounts[sector] || 0;
 					const isSelected = selectedSector === sector;

@@ -83,7 +83,7 @@ const WhatsAppModal = ({ open, onClose, whatsAppId }) => {
 		isDefault: false,
 		proxyUrl: "",
 		humanDelay: true,
-		sector: "Junior",
+		sector: "",
 	};
 	const [whatsApp, setWhatsApp] = useState(initialState);
 	const [selectedQueueIds, setSelectedQueueIds] = useState([]);
@@ -99,7 +99,7 @@ const WhatsAppModal = ({ open, onClose, whatsAppId }) => {
 					...data,
 					proxyUrl: data.proxyUrl || "",
 					humanDelay: data.humanDelay !== false,
-					sector: data.sector || "Junior",
+					sector: data.sector || "",
 				});
 
 				const whatsQueueIds = Array.isArray(data.queues)
@@ -134,6 +134,7 @@ const WhatsAppModal = ({ open, onClose, whatsAppId }) => {
 		onClose();
 		setWhatsApp(initialState);
 		setSelectedQueueIds([]);
+		setCustomSector(false);
 	};
 
 	return (
@@ -197,15 +198,25 @@ const WhatsAppModal = ({ open, onClose, whatsAppId }) => {
 												fullWidth
 												error={touched.sector && Boolean(errors.sector)}
 											>
-												<InputLabel id="sector-select-label">Setor do Aparelho *</InputLabel>
+												<InputLabel id="sector-select-label" shrink>Setor do Aparelho *</InputLabel>
 												<Field
 													as={Select}
 													labelId="sector-select-label"
 													id="sector"
 													name="sector"
 													label="Setor do Aparelho *"
-													value={values.sector || "Junior"}
+													displayEmpty
+													value={values.sector || ""}
+													renderValue={selected => {
+														if (!selected) {
+															return <span style={{ color: "#94a3b8" }}>Selecione o setor...</span>;
+														}
+														return selected;
+													}}
 												>
+													<MenuItem value="" disabled>
+														<em>Selecione o setor...</em>
+													</MenuItem>
 													{OFFICIAL_SECTORS.map(s => (
 														<MenuItem key={s} value={s}>
 															{s}
