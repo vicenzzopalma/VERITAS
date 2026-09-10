@@ -1,24 +1,48 @@
 import React from "react";
 
+import { makeStyles } from "@material-ui/core/styles";
 import MenuItem from "@material-ui/core/MenuItem";
 import FormControl from "@material-ui/core/FormControl";
 import Select from "@material-ui/core/Select";
 import { Checkbox, ListItemText } from "@material-ui/core";
 import { i18n } from "../../translate/i18n";
 
+const useStyles = makeStyles(theme => ({
+	container: {
+		width: 120,
+	},
+	formControl: {
+		margin: 0,
+		width: "100%",
+	},
+	select: {
+		borderRadius: 6,
+		fontSize: "0.82rem",
+		"& .MuiSelect-outlined": {
+			padding: "6px 28px 6px 10px",
+		},
+		"& .MuiOutlinedInput-notchedOutline": {
+			borderColor: "rgba(0, 0, 0, 0.18)",
+		},
+	},
+}));
+
 const TicketsQueueSelect = ({
 	userQueues,
 	selectedQueueIds = [],
 	onChange,
 }) => {
+	const classes = useStyles();
+
 	const handleChange = e => {
 		onChange(e.target.value);
 	};
 
 	return (
-		<div style={{ width: 120, marginTop: -4 }}>
-			<FormControl fullWidth margin="dense">
+		<div className={classes.container}>
+			<FormControl fullWidth margin="none" className={classes.formControl}>
 				<Select
+					className={classes.select}
 					multiple
 					displayEmpty
 					variant="outlined"

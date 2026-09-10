@@ -48,18 +48,20 @@ const useStyles = makeStyles((theme) => ({
   },
   ticketOptionsBox: {
     display: "flex",
-    justifyContent: "space-between",
-    alignItems: "center",
+    flexDirection: "column",
+    gap: 8,
     background: theme.palette.background.paper,
-    padding: theme.spacing(1),
+    padding: "8px 10px",
+    borderBottom: "1px solid rgba(0, 0, 0, 0.08)",
   },
   serachInputWrapper: {
-    flex: 1,
+    width: "100%",
     background: theme.palette.background.default,
     display: "flex",
+    alignItems: "center",
     borderRadius: 40,
-    padding: 4,
-    marginRight: theme.spacing(1),
+    padding: "4px 8px",
+    boxSizing: "border-box",
   },
   searchIcon: {
     color: "grey",
@@ -73,6 +75,43 @@ const useStyles = makeStyles((theme) => ({
     borderRadius: 30,
     color: theme.palette.text.primary, 
     backgroundColor: theme.palette.background.default,
+  },
+  ticketSubOptionsBox: {
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "space-between",
+    width: "100%",
+    boxSizing: "border-box",
+  },
+  showAllLabel: {
+    margin: 0,
+    "& .MuiTypography-root": {
+      fontSize: "0.82rem",
+      fontWeight: 500,
+      color: theme.palette.text.secondary,
+    },
+  },
+  tabLabelBadgeWrapper: {
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 6,
+  },
+  tabBadge: {
+    borderRadius: 10,
+    padding: "1px 6px",
+    fontSize: "0.72rem",
+    fontWeight: 700,
+    minWidth: 18,
+    textAlign: "center",
+    color: "#fff",
+    lineHeight: 1.2,
+  },
+  tabBadgePrimary: {
+    backgroundColor: theme.palette.primary.main,
+  },
+  tabBadgeSecondary: {
+    backgroundColor: theme.palette.secondary.main,
   },
   badge: {
     right: "-10px",
@@ -185,35 +224,39 @@ const TicketsManager = () => {
             onChange={handleSearch}
           />
         </div>
-        {tab === "open" && (
-          <Can
-            role={user.profile}
-            perform="tickets-manager:showall"
-            yes={() => (
-              <FormControlLabel
-                label={i18n.t("tickets.buttons.showAll")}
-                labelPlacement="start"
-                control={
-                  <Switch
-                    size="small"
-                    checked={showAllTickets}
-                    onChange={() =>
-                      setShowAllTickets((prevState) => !prevState)
-                    }
-                    name="showAllTickets"
-                    color="primary"
-                  />
-                }
-              />
-            )}
+        <div className={classes.ticketSubOptionsBox}>
+          {tab === "open" ? (
+            <Can
+              role={user.profile}
+              perform="tickets-manager:showall"
+              yes={() => (
+                <FormControlLabel
+                  className={classes.showAllLabel}
+                  label={i18n.t("tickets.buttons.showAll")}
+                  labelPlacement="start"
+                  control={
+                    <Switch
+                      size="small"
+                      checked={showAllTickets}
+                      onChange={() =>
+                        setShowAllTickets((prevState) => !prevState)
+                      }
+                      name="showAllTickets"
+                      color="primary"
+                    />
+                  }
+                />
+              )}
+            />
+          ) : (
+            <div />
+          )}
+          <TicketsQueueSelect
+            selectedQueueIds={selectedQueueIds}
+            userQueues={user?.queues}
+            onChange={(values) => setSelectedQueueIds(values)}
           />
-        )}
-        <TicketsQueueSelect
-          style={{ marginLeft: 6 }}
-          selectedQueueIds={selectedQueueIds}
-          userQueues={user?.queues}
-          onChange={(values) => setSelectedQueueIds(values)}
-        />
+        </div>
       </Paper>
       <TabPanel value={tab} name="open" className={classes.ticketsWrapper}>
         <Tabs
@@ -225,25 +268,27 @@ const TicketsManager = () => {
         >
           <Tab
             label={
-              <Badge
-                className={classes.badge}
-                badgeContent={openCount}
-                color="primary"
-              >
-                {i18n.t("ticketsList.assignedHeader")}
-              </Badge>
+              <div className={classes.tabLabelBadgeWrapper}>
+                <span>{i18n.t("ticketsList.assignedHeader")}</span>
+                {openCount > 0 && (
+                  <span className={`${classes.tabBadge} ${classes.tabBadgePrimary}`}>
+                    {openCount}
+                  </span>
+                )}
+              </div>
             }
             value={"open"}
           />
           <Tab
             label={
-              <Badge
-                className={classes.badge}
-                badgeContent={pendingCount}
-                color="secondary"
-              >
-                {i18n.t("ticketsList.pendingHeader")}
-              </Badge>
+              <div className={classes.tabLabelBadgeWrapper}>
+                <span>{i18n.t("ticketsList.pendingHeader")}</span>
+                {pendingCount > 0 && (
+                  <span className={`${classes.tabBadge} ${classes.tabBadgeSecondary}`}>
+                    {pendingCount}
+                  </span>
+                )}
+              </div>
             }
             value={"pending"}
           />
