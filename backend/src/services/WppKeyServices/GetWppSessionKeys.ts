@@ -1,7 +1,7 @@
 import { BufferJSON } from "whaileys";
 
 import WppKey from "../../models/WppKey";
-import { getFromRedis } from "../../libs/redisStore";
+import { getRedisClient, getFromRedis } from "../../libs/redisStore";
 import { logger } from "../../utils/logger";
 
 interface GetKeysRequest {
@@ -11,8 +11,6 @@ interface GetKeysRequest {
   ids: string[];
 }
 
-const REDIS_KEY_TYPES = ["session", "sender-keys", "sender-key-memory"];
-
 const GetWppSessionKeys = async ({
   connectionId,
   deviceId,
@@ -20,45 +18,55 @@ const GetWppSessionKeys = async ({
   ids
 }: GetKeysRequest): Promise<any> => {
   const data: any = {};
+  const missingIds: string[] = [];
 
-  if (REDIS_KEY_TYPES.includes(type)) {
+  const redis = getRedisClient();
+  if (redis) {
     await Promise.all(
       ids.map(async id => {
         const key = `wpp:${connectionId}:${deviceId}:${type}:${id}`;
         const stored = await getFromRedis(key);
 
         if (stored) {
-          data[id] = JSON.parse(stored, BufferJSON.reviver);
+          try {
+            data[id] = JSON.parse(stored, BufferJSON.reviver);
+          } catch {
+            missingIds.push(id);
+          }
+        } else {
+          missingIds.push(id);
         }
       })
     );
-
-    return data;
+  } else {
+    missingIds.push(...ids);
   }
 
-  try {
-    await Promise.all(
-      ids.map(async id => {
-        const keyRecord = await WppKey.findOne({
-          where: {
-            connectionId,
-            type,
-            keyId: id
-          }
-        });
-
-        if (keyRecord) {
-          data[id] = JSON.parse(keyRecord.value, BufferJSON.reviver);
+  if (missingIds.length > 0) {
+    try {
+      const records = await WppKey.findAll({
+        where: {
+          connectionId,
+          type,
+          keyId: missingIds
         }
-      })
-    );
-  } catch (err) {
-    logger.error({
-      info: "Error getting keys from database",
-      connectionId,
-      type,
-      err
-    });
+      });
+
+      for (const record of records) {
+        try {
+          data[record.keyId] = JSON.parse(record.value, BufferJSON.reviver);
+        } catch {
+          /* ignore */
+        }
+      }
+    } catch (err) {
+      logger.error({
+        info: "Error getting keys from database",
+        connectionId,
+        type,
+        err
+      });
+    }
   }
 
   return data;

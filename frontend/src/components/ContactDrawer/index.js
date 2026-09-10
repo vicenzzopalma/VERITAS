@@ -26,6 +26,7 @@ import ContactModal from "../ContactModal";
 import ContactDrawerSkeleton from "../ContactDrawerSkeleton";
 import MarkdownWrapper from "../MarkdownWrapper";
 import { formatPhoneNumber } from "../../helpers/contactHelper";
+import clsx from "clsx";
 
 const drawerWidth = 360;
 
@@ -34,6 +35,11 @@ const useStyles = makeStyles(theme => ({
     width: drawerWidth,
     flexShrink: 0,
     zIndex: 7,
+  },
+  drawerClosed: {
+    display: "none !important",
+    width: "0px !important",
+    pointerEvents: "none !important",
   },
   drawerPaper: {
     width: drawerWidth,
@@ -225,9 +231,13 @@ const ContactDrawer = ({
 
   const containerElem = typeof document !== "undefined" ? document.getElementById(containerId) : null;
 
+  if (!open) return null;
+
   return (
     <Drawer
-      className={classes.drawer}
+      className={clsx(classes.drawer, {
+        [classes.drawerClosed]: !open,
+      })}
       variant="persistent"
       anchor="right"
       open={open}

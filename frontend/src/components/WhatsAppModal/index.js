@@ -82,10 +82,13 @@ const WhatsAppModal = ({ open, onClose, whatsAppId }) => {
 					humanDelay: data.humanDelay !== false,
 				});
 
-				const whatsQueueIds = data.queues?.map(queue => queue.id);
+				const whatsQueueIds = Array.isArray(data.queues)
+					? data.queues.map(queue => queue.id)
+					: [];
 				setSelectedQueueIds(whatsQueueIds);
 			} catch (err) {
 				toastError(err);
+				setSelectedQueueIds([]);
 			}
 		};
 		fetchSession();
@@ -110,6 +113,7 @@ const WhatsAppModal = ({ open, onClose, whatsAppId }) => {
 	const handleClose = () => {
 		onClose();
 		setWhatsApp(initialState);
+		setSelectedQueueIds([]);
 	};
 
 	return (

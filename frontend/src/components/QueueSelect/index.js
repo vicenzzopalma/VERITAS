@@ -27,9 +27,10 @@ const QueueSelect = ({ selectedQueueIds, onChange }) => {
 		(async () => {
 			try {
 				const { data } = await api.get("/queue");
-				setQueues(data);
+				setQueues(Array.isArray(data) ? data : []);
 			} catch (err) {
 				toastError(err);
+				setQueues([]);
 			}
 		})();
 	}, []);
@@ -45,7 +46,7 @@ const QueueSelect = ({ selectedQueueIds, onChange }) => {
 				<Select
 					multiple
 					labelWidth={60}
-					value={selectedQueueIds}
+					value={Array.isArray(selectedQueueIds) ? selectedQueueIds : []}
 					onChange={handleChange}
 					MenuProps={{
 						anchorOrigin: {
@@ -60,9 +61,10 @@ const QueueSelect = ({ selectedQueueIds, onChange }) => {
 					}}
 					renderValue={selected => (
 						<div className={classes.chips}>
-							{selected?.length > 0 &&
+							{Array.isArray(selected) &&
+								selected.length > 0 &&
 								selected.map(id => {
-									const queue = queues.find(q => q.id === id);
+									const queue = Array.isArray(queues) ? queues.find(q => q.id === id) : null;
 									return queue ? (
 										<Chip
 											key={id}
@@ -76,11 +78,12 @@ const QueueSelect = ({ selectedQueueIds, onChange }) => {
 						</div>
 					)}
 				>
-					{queues.map(queue => (
-						<MenuItem key={queue.id} value={queue.id}>
-							{queue.name}
-						</MenuItem>
-					))}
+					{Array.isArray(queues) &&
+						queues.map(queue => (
+							<MenuItem key={queue.id} value={queue.id}>
+								{queue.name}
+							</MenuItem>
+						))}
 				</Select>
 			</FormControl>
 		</div>

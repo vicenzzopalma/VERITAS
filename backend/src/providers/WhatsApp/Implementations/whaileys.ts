@@ -44,6 +44,7 @@ import { logger } from "../../../utils/logger";
 import AppError from "../../../errors/AppError";
 import StoreWppSessionKeys from "../../../services/WppKeyServices/StoreWppSessionKeys";
 import GetWppSessionKeys from "../../../services/WppKeyServices/GetWppSessionKeys";
+import ClearWppSessionKeys from "../../../services/WppKeyServices/ClearWppSessionKeys";
 import { getRedisClient } from "../../../libs/redisStore";
 import {
   SendMessageOptions,
@@ -195,36 +196,7 @@ const msgCache = {
 };
 
 const clearSessionKeys = async (sessionId: number): Promise<void> => {
-  const client = getRedisClient();
-  if (!client) return;
-
-  try {
-    const match = `wpp:${sessionId}:*`;
-
-    const scanAndDelete = async (cursor: string): Promise<void> => {
-      const [nextCursor, keys] = await client.scan(
-        cursor,
-        "MATCH",
-        match,
-        "COUNT",
-        100
-      );
-
-      if (keys.length > 0) {
-        await client.del(keys);
-      }
-
-      if (nextCursor !== "0") {
-        await scanAndDelete(nextCursor);
-      }
-    };
-
-    await scanAndDelete("0");
-
-    logger.info({ info: "Cleared Redis session keys", sessionId });
-  } catch (err) {
-    logger.error({ info: "Error clearing Redis session keys", sessionId, err });
-  }
+  await ClearWppSessionKeys(sessionId);
 };
 
 const assertUnique = (sessionId: number) => {
@@ -1007,6 +979,10 @@ const removeSession = async (whatsappId: number): Promise<void> => {
   stores.delete(whatsappId);
 };
 
+let cachedWaVersion: WAVersion | undefined;
+let cachedWaVersionTime = 0;
+const WA_VERSION_CACHE_TTL = 24 * 60 * 60 * 1000;
+
 const init = async (whatsapp: Whatsapp): Promise<void> => {
   const sessionId = whatsapp.id;
   const io = getIO();
@@ -1035,17 +1011,23 @@ const init = async (whatsapp: Whatsapp): Promise<void> => {
   }
 
   if (!waVersionToUse) {
-    try {
-      const fetchedVersionData = await fetchLatestWaWebVersion({});
-      if (fetchedVersionData?.version) {
-        waVersionToUse = fetchedVersionData.version;
-        logger.info({
-          info: "Using latest WA Web version",
-          version: waVersionToUse.join(".")
-        });
+    if (cachedWaVersion && Date.now() - cachedWaVersionTime < WA_VERSION_CACHE_TTL) {
+      waVersionToUse = cachedWaVersion;
+    } else {
+      try {
+        const fetchedVersionData = await fetchLatestWaWebVersion({});
+        if (fetchedVersionData?.version) {
+          waVersionToUse = fetchedVersionData.version;
+          cachedWaVersion = waVersionToUse;
+          cachedWaVersionTime = Date.now();
+          logger.info({
+            info: "Using latest WA Web version",
+            version: waVersionToUse.join(".")
+          });
+        }
+      } catch (e) {
+        logger.warn({ info: "Failed to fetch latest WA version, using default" });
       }
-    } catch (e) {
-      logger.warn({ info: "Failed to fetch latest WA version, using default" });
     }
   }
 
@@ -1107,8 +1089,10 @@ const init = async (whatsapp: Whatsapp): Promise<void> => {
     generateHighQualityLinkPreview: true,
     linkPreviewImageThumbnailWidth: 192,
     defaultQueryTimeoutMs: 60_000,
-    connectTimeoutMs: 25_000,
+    connectTimeoutMs: 60_000,
+    keepAliveIntervalMs: 25_000,
     retryRequestDelayMs: 500,
+    maxMsgRetryCount: 5,
     transactionOpts: { maxCommitRetries: 10, delayBetweenTriesMs: 3000 },
     sentMessagesCache,
     getMessage: async (key: WAMessageKey) => {
@@ -1447,6 +1431,12 @@ const init = async (whatsapp: Whatsapp): Promise<void> => {
         (lastDisconnect?.error as Error)?.message ||
         "";
 
+      try {
+        require("fs").appendFileSync("D:/whaticket/backend/disconnect_debug.log", `[${new Date().toISOString()}] Session ${sessionId} (${whatsapp.name}) CLOSED! statusCode=${statusCode}, error=${errorMessage}\n`);
+      } catch {}
+
+      console.error(`[WHAILEYS DISCONNECT] Session ${sessionId} (${whatsapp.name}) CLOSED! statusCode=${statusCode}, error=${errorMessage}`);
+
       if (errorMessage === "Intentional Logout") {
         await whatsapp.update({
           status: "DISCONNECTED",
@@ -1470,7 +1460,46 @@ const init = async (whatsapp: Whatsapp): Promise<void> => {
         return;
       }
 
-      if (statusCode === DisconnectReason.loggedOut) {
+      // 2. Deslogado (401) ou Conexao Rejeitada/Revogada (403 - Aparelho desconectado pelo celular)
+      if (
+        statusCode === DisconnectReason.loggedOut ||
+        statusCode === 401 ||
+        statusCode === 403
+      ) {
+        logger.warn({
+          info: "Session logged out or credentials revoked (401/403). Resetting session to avoid reconnection loop.",
+          sessionId,
+          statusCode
+        });
+
+        await whatsapp.update({
+          status: "DISCONNECTED",
+          session: "",
+          qrcode: "",
+          retries: 0
+        });
+
+        const updatedWhatsapp = await Whatsapp.findByPk(sessionId);
+        if (updatedWhatsapp) {
+          io.emit("whatsappSession", {
+            action: "update",
+            session: updatedWhatsapp
+          });
+        }
+
+        await clearSessionKeys(sessionId);
+        await removeSession(sessionId);
+        return;
+      }
+
+      // 3. Timeout de QR Code ou Conexao Expirada (408)
+      if (statusCode === DisconnectReason.timedOut || statusCode === 408) {
+        logger.warn({
+          info: "Connection timed out / QR expired (408). Stopping attempts.",
+          sessionId,
+          statusCode
+        });
+
         await whatsapp.update({
           status: "DISCONNECTED",
           qrcode: "",
@@ -1486,28 +1515,48 @@ const init = async (whatsapp: Whatsapp): Promise<void> => {
         }
 
         await removeSession(sessionId);
-
         return;
       }
 
-      const shouldReconnect = statusCode !== DisconnectReason.loggedOut; // TODO handle other cases
+      // 4. Erros transitorios de rede / Celular reiniciando / Oscilacao de sinal
+      const currentWhatsapp = await Whatsapp.findByPk(sessionId);
+      const currentRetries = ((currentWhatsapp?.retries || whatsapp.retries) || 0) + 1;
 
-      if (shouldReconnect) {
-        await flushPendingCredsSave(sessionId);
+      // Metodologia Resiliente de Alta Disponibilidade (Polite Progressive Backoff):
+      // - Tentativas 1 a 3: Rapidas (3s, 5s, 10s) para micro-oscilacoes de rede
+      // - Tentativas 4 a 6: Intermediarias (15s, 30s, 45s) durante o boot/reboot do Android
+      // - A partir da 7ª tentativa: Repouso a cada 60s (Zero overhead no SQLite/CPU, mas reconecta
+      //   automaticamente assim que o celular terminar de ligar e obter rede 4G/Wi-Fi)
+      let delay = 3000;
+      if (currentRetries === 2) delay = 5000;
+      else if (currentRetries === 3) delay = 10000;
+      else if (currentRetries === 4) delay = 15000;
+      else if (currentRetries === 5) delay = 30000;
+      else if (currentRetries === 6) delay = 45000;
+      else if (currentRetries >= 7) delay = 60000;
 
-        await whatsapp.update({ status: "OPENING" });
-        io.emit("whatsappSession", {
-          action: "update",
-          session: whatsapp
-        });
-        logger.info({
-          info: "Connection closed, reconnecting...",
-          sessionId,
-          statusCode
-        });
+      await flushPendingCredsSave(sessionId);
 
-        await sleep(3000);
-        init(whatsapp);
+      await whatsapp.update({
+        status: "OPENING",
+        retries: currentRetries
+      });
+
+      io.emit("whatsappSession", {
+        action: "update",
+        session: whatsapp
+      });
+
+      logger.info({
+        info: `Connection closed (transitória/reboot). Reconectando em ${delay / 1000}s (tentativa #${currentRetries})...`,
+        sessionId,
+        statusCode
+      });
+
+      await sleep(delay);
+      const freshWhatsapp = await Whatsapp.findByPk(sessionId);
+      if (freshWhatsapp && freshWhatsapp.status === "OPENING") {
+        init(freshWhatsapp);
       }
     }
 

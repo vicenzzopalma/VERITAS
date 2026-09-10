@@ -1,4 +1,5 @@
 import { Op, fn, where, col } from "sequelize";
+import sequelize from "../../database";
 import Ticket from "../../models/Ticket";
 import Contact from "../../models/Contact";
 import Message from "../../models/Message";
@@ -90,55 +91,69 @@ const ListAuditChatsService = async ({
     order: [["updatedAt", "DESC"]]
   });
 
-  const chats: AuditChatResponse[] = await Promise.all(
-    tickets.map(async (ticket) => {
-      const totalMessages = await Message.count({
-        where: { ticketId: ticket.id }
-      });
+  const ticketIds = tickets.map((t) => t.id);
+  const msgStatsMap = new Map<number, { total: number; deleted: number }>();
 
-      const deletedMessages = await Message.count({
-        where: {
-          ticketId: ticket.id,
-          isDeleted: true
-        }
-      });
+  if (ticketIds.length > 0) {
+    const [stats]: any = await sequelize.query(`
+      SELECT 
+        ticketId,
+        count(*) as totalMessages,
+        sum(case when isDeleted = 1 then 1 else 0 end) as deletedMessages
+      FROM Messages
+      WHERE ticketId IN (${ticketIds.join(",")})
+      GROUP BY ticketId;
+    `);
 
-      return {
-        ticketId: ticket.id,
-        whatsappId: ticket.whatsappId,
-        contact: ticket.contact,
-        lastMessage: ticket.lastMessage || "",
-        unreadMessages: ticket.unreadMessages || 0,
-        totalMessages,
-        deletedMessages,
-        updatedAt: ticket.updatedAt,
-        createdAt: ticket.createdAt
-      };
-    })
-  );
-
-  // Resolução ativa sob demanda de contatos com LID no Cofre de Auditoria
-  for (const chat of chats) {
-    if (!chat.contact?.isGroup && chat.contact) {
-      const cleanNum = (chat.contact.number || "").replace(/\D/g, "");
-      if (cleanNum.length >= 14) {
-        try {
-          const { getSession } = require("../../providers/WhatsApp/Implementations/whaileys");
-          const { resolveLidToPhoneNumber, resolveAndAutoMerge } = require("../WbotServices/LidResolutionService");
-          const wbot = getSession(chat.whatsappId);
-          const lid = chat.contact.lid || `${cleanNum}@lid`;
-          const resolved = await resolveLidToPhoneNumber(lid, wbot);
-          if (resolved) {
-            await resolveAndAutoMerge(lid, resolved);
-            chat.contact.number = resolved;
-            chat.contact.name = resolved;
-          }
-        } catch {
-          /* ignore */
-        }
+    if (Array.isArray(stats)) {
+      for (const s of stats) {
+        msgStatsMap.set(Number(s.ticketId), {
+          total: Number(s.totalMessages) || 0,
+          deleted: Number(s.deletedMessages) || 0
+        });
       }
     }
   }
+
+  const chats: AuditChatResponse[] = tickets.map((ticket) => {
+    const stats = msgStatsMap.get(ticket.id) || { total: 0, deleted: 0 };
+    return {
+      ticketId: ticket.id,
+      whatsappId: ticket.whatsappId,
+      contact: ticket.contact,
+      lastMessage: ticket.lastMessage || "",
+      unreadMessages: ticket.unreadMessages || 0,
+      totalMessages: stats.total,
+      deletedMessages: stats.deleted,
+      updatedAt: ticket.updatedAt,
+      createdAt: ticket.createdAt
+    };
+  });
+
+  // Resolução de LID em background sem travar o retorno das conversas
+  setImmediate(() => {
+    (async () => {
+      for (const chat of chats) {
+        if (!chat.contact?.isGroup && chat.contact) {
+          const cleanNum = (chat.contact.number || "").replace(/\D/g, "");
+          if (cleanNum.length >= 14) {
+            try {
+              const { getSession } = require("../../providers/WhatsApp/Implementations/whaileys");
+              const { resolveLidToPhoneNumber, resolveAndAutoMerge } = require("../WbotServices/LidResolutionService");
+              const wbot = getSession(chat.whatsappId);
+              const lid = chat.contact.lid || `${cleanNum}@lid`;
+              const resolved = await resolveLidToPhoneNumber(lid, wbot);
+              if (resolved) {
+                await resolveAndAutoMerge(lid, resolved);
+              }
+            } catch {
+              /* ignore */
+            }
+          }
+        }
+      }
+    })().catch(() => {});
+  });
 
   const hasMore = count > offset + tickets.length;
 

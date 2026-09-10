@@ -530,6 +530,9 @@ const Audit = () => {
   const [loadingDevices, setLoadingDevices] = useState(false);
   const [loadingChats, setLoadingChats] = useState(false);
   const [loadingMessages, setLoadingMessages] = useState(false);
+  const [chatsPage, setChatsPage] = useState(1);
+  const [hasMoreChats, setHasMoreChats] = useState(false);
+  const [loadingMoreChats, setLoadingMoreChats] = useState(false);
 
   // Busca Global no Topo (Todos os Aparelhos)
   const [globalSearchInput, setGlobalSearchInput] = useState("");
@@ -707,10 +710,10 @@ const Audit = () => {
   useEffect(() => {
     fetchDevices(true);
 
-    // 1. Polling de sincronização a cada 12s para garantir status real (silencioso, sem piscar UI)
+    // 1. Polling de sincronização a cada 45s para garantir status real (silencioso, sem sobrecarregar rede)
     const interval = setInterval(() => {
       fetchDevices(false);
-    }, 12000);
+    }, 45000);
 
     // 2. Conexão WebSocket em tempo real para atualizações instantâneas
     const socket = openSocket();
@@ -763,47 +766,58 @@ const Audit = () => {
     };
   }, []);
 
-  // 2. Carregar conversas do aparelho selecionado
-  const fetchChats = async (isInitial = false) => {
+  // 2. Carregar conversas do aparelho selecionado com paginação
+  const fetchChats = async (isInitial = false, page = 1) => {
     if (!selectedDevice) return;
     if (isInitial) setLoadingChats(true);
+    else setLoadingMoreChats(true);
+
     try {
       const { data } = await api.get(`/audit/devices/${selectedDevice.id}/chats`, {
-        params: { search: chatSearch },
+        params: { search: chatSearch, pageNumber: page, limit: 50 },
       });
       const newChats = data.chats || [];
+      setHasMoreChats(data.hasMore || false);
+      setChatsPage(page);
 
-      setSelectedChat((prevChat) => {
-        // Se já está selecionada uma conversa deste aparelho, preserva ela!
-        if (prevChat && prevChat.whatsappId === selectedDevice.id) {
-          const currentStillExists = newChats.find((c) => c.ticketId === prevChat.ticketId);
-          if (!currentStillExists) {
-            // Se o chat selecionado não veio nos 40 primeiros, fixa ele no topo da lista
-            setChats([prevChat, ...newChats]);
-            return prevChat;
+      if (page === 1) {
+        setSelectedChat((prevChat) => {
+          // Se já está selecionada uma conversa deste aparelho, preserva ela!
+          if (prevChat && prevChat.whatsappId === selectedDevice.id) {
+            const currentStillExists = newChats.find((c) => c.ticketId === prevChat.ticketId);
+            if (!currentStillExists) {
+              setChats([prevChat, ...newChats]);
+              return prevChat;
+            }
+            setChats(newChats);
+            return currentStillExists;
           }
+
           setChats(newChats);
-          return currentStillExists;
+          return newChats.length > 0 ? newChats[0] : null;
+        });
+
+        if (newChats.length === 0) {
+          setSelectedChat(null);
+          setMessages([]);
         }
-
-        // Se não havia chat ou trocou de aparelho, pega o primeiro
-        setChats(newChats);
-        return newChats.length > 0 ? newChats[0] : null;
-      });
-
-      if (newChats.length === 0) {
-        setSelectedChat(null);
-        setMessages([]);
+      } else {
+        setChats((prev) => {
+          const existingIds = new Set(prev.map((c) => c.ticketId));
+          const filtered = newChats.filter((c) => !existingIds.has(c.ticketId));
+          return [...prev, ...filtered];
+        });
       }
     } catch (err) {
       toastError(err);
     } finally {
       if (isInitial) setLoadingChats(false);
+      else setLoadingMoreChats(false);
     }
   };
 
   useEffect(() => {
-    fetchChats(true);
+    fetchChats(true, 1);
   }, [selectedDevice?.id, chatSearch]);
 
   // 3. Carregar mensagens da conversa ou filtros
@@ -821,7 +835,7 @@ const Audit = () => {
         endDate: endDate || undefined,
         onlyDeleted: onlyDeleted || undefined,
         mediaType: mediaType !== "all" ? mediaType : undefined,
-        limit: 100,
+        limit: 500,
       };
 
       const { data } = await api.get("/audit/messages", { params });
@@ -1162,7 +1176,20 @@ const Audit = () => {
             />
           </div>
 
-          <div className={classes.chatsList}>
+          <div
+            className={classes.chatsList}
+            onScroll={(e) => {
+              const { scrollTop, scrollHeight, clientHeight } = e.currentTarget;
+              if (
+                scrollHeight - scrollTop - clientHeight < 120 &&
+                hasMoreChats &&
+                !loadingMoreChats &&
+                !loadingChats
+              ) {
+                fetchChats(false, chatsPage + 1);
+              }
+            }}
+          >
             {loadingChats ? (
               <Box display="flex" justifyContent="center" p={4}>
                 <CircularProgress size={24} />
@@ -1177,55 +1204,77 @@ const Audit = () => {
                 )}
               </Box>
             ) : (
-              chats.map((chat) => {
-                const isSelected = selectedChat?.ticketId === chat.ticketId;
-                return (
-                  <div
-                    key={chat.ticketId}
-                    className={`${classes.chatItem} ${isSelected ? classes.chatItemSelected : ""}`}
-                    onClick={() => setSelectedChat(chat)}
-                  >
-                    <Avatar className={classes.chatAvatar} src={chat.contact?.profilePicUrl}>
-                      {getContactDisplayName(chat.contact).charAt(0).toUpperCase()}
-                    </Avatar>
+              <>
+                {chats.map((chat) => {
+                  const isSelected = selectedChat?.ticketId === chat.ticketId;
+                  return (
+                    <div
+                      key={chat.ticketId}
+                      className={`${classes.chatItem} ${isSelected ? classes.chatItemSelected : ""}`}
+                      onClick={() => setSelectedChat(chat)}
+                    >
+                      <Avatar className={classes.chatAvatar} src={chat.contact?.profilePicUrl}>
+                        {getContactDisplayName(chat.contact).charAt(0).toUpperCase()}
+                      </Avatar>
 
-                    <div className={classes.chatInfo}>
-                      <Box display="flex" justifyContent="space-between" alignItems="center">
-                        <Typography className={classes.chatName}>
-                          {isPendingResolution(getContactDisplayName(chat.contact))
-                            ? <Tooltip arrow title={PENDING_TOOLTIP}><span style={{ cursor: "help", color: "#999", fontStyle: "italic" }}>Nº pendente <span style={{ fontWeight: 700, color: "#666" }}>(?)</span></span></Tooltip>
-                            : getContactDisplayName(chat.contact)
-                          }
+                      <div className={classes.chatInfo}>
+                        <Box display="flex" justifyContent="space-between" alignItems="center">
+                          <Typography className={classes.chatName}>
+                            {isPendingResolution(getContactDisplayName(chat.contact))
+                              ? <Tooltip arrow title={PENDING_TOOLTIP}><span style={{ cursor: "help", color: "#999", fontStyle: "italic" }}>Nº pendente <span style={{ fontWeight: 700, color: "#666" }}>(?)</span></span></Tooltip>
+                              : getContactDisplayName(chat.contact)
+                            }
+                          </Typography>
+                          <Typography className={classes.chatDate}>
+                            {chat.updatedAt ? format(parseISO(chat.updatedAt), "dd/MM HH:mm") : ""}
+                          </Typography>
+                        </Box>
+
+                        <Typography className={classes.chatLastMsg}>
+                          {chat.lastMessage || "Conversa iniciada"}
                         </Typography>
-                        <Typography className={classes.chatDate}>
-                          {chat.updatedAt ? format(parseISO(chat.updatedAt), "dd/MM HH:mm") : ""}
-                        </Typography>
-                      </Box>
 
-                      <Typography className={classes.chatLastMsg}>
-                        {chat.lastMessage || "Conversa iniciada"}
-                      </Typography>
-
-                      <Box display="flex" gap={1} mt={0.3}>
-                        {chat.deletedMessages > 0 && (
-                          <span
-                            style={{
-                              backgroundColor: "#fee2e2",
-                              color: "#b91c1c",
-                              padding: "1px 5px",
-                              borderRadius: 6,
-                              fontSize: "0.65rem",
-                              fontWeight: 700,
-                            }}
-                          >
-                            🚫 {chat.deletedMessages} apagadas
-                          </span>
-                        )}
-                      </Box>
+                        <Box display="flex" gap={1} mt={0.3}>
+                          {chat.deletedMessages > 0 && (
+                            <span
+                              style={{
+                                backgroundColor: "#fee2e2",
+                                color: "#b91c1c",
+                                padding: "1px 5px",
+                                borderRadius: 6,
+                                fontSize: "0.65rem",
+                                fontWeight: 700,
+                              }}
+                            >
+                              🚫 {chat.deletedMessages} apagadas
+                            </span>
+                          )}
+                        </Box>
+                      </div>
                     </div>
-                  </div>
-                );
-              })
+                  );
+                })}
+
+                {loadingMoreChats && (
+                  <Box display="flex" justifyContent="center" p={2}>
+                    <CircularProgress size={20} />
+                  </Box>
+                )}
+
+                {hasMoreChats && !loadingMoreChats && (
+                  <Box textAlign="center" p={1.5}>
+                    <Button
+                      size="small"
+                      color="primary"
+                      variant="text"
+                      onClick={() => fetchChats(false, chatsPage + 1)}
+                      style={{ fontSize: "0.75rem", textTransform: "none", color: "#0284c7" }}
+                    >
+                      ▼ Carregar mais conversas anteriores...
+                    </Button>
+                  </Box>
+                )}
+              </>
             )}
           </div>
         </div>

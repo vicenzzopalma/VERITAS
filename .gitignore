@@ -8,7 +8,7 @@ ssl/
 *.crt
 
 # Databases & Backups
-*.sqlite
+*.sqlite*
 *.sqlite3
 *.db
 .docker/data/

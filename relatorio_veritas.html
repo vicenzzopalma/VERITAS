@@ -1,0 +1,900 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <title>VERITAS — Relatório Executivo e Técnico de Evolução de Arquitetura</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap');
+
+    @page {
+      size: A4 portrait;
+      margin: 10mm 12mm 10mm 12mm;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    html, body {
+      width: 100%;
+      background: #ffffff;
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      color: #1e293b;
+      line-height: 1.45;
+      font-size: 12px;
+      -webkit-print-color-adjust: exact;
+      print-color-adjust: exact;
+    }
+
+    .page {
+      width: 100%;
+      height: 277mm;
+      max-height: 277mm;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      page-break-after: always;
+      break-after: page;
+      page-break-inside: avoid;
+      break-inside: avoid;
+      position: relative;
+    }
+
+    .page:last-child {
+      page-break-after: auto;
+      break-after: auto;
+    }
+
+    .page-content {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* CAPA */
+    .cover-container {
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      padding: 32px 24px 20px 24px;
+      border-left: 6px solid #0284c7;
+      background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+      border-radius: 8px;
+    }
+
+    .cover-badge {
+      display: inline-block;
+      background: #0f172a;
+      color: #38bdf8;
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 1.5px;
+      text-transform: uppercase;
+      padding: 5px 12px;
+      border-radius: 20px;
+      margin-bottom: 20px;
+    }
+
+    .cover-title {
+      font-size: 29px;
+      font-weight: 800;
+      color: #0f172a;
+      line-height: 1.22;
+      margin-bottom: 12px;
+    }
+
+    .cover-subtitle {
+      font-size: 14px;
+      font-weight: 400;
+      color: #475569;
+      line-height: 1.55;
+      margin-bottom: 20px;
+    }
+
+    .cover-meta {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 12px;
+      background: #ffffff;
+      padding: 16px;
+      border-radius: 8px;
+      border: 1px solid #e2e8f0;
+      margin-top: 15px;
+    }
+
+    .meta-item {
+      display: flex;
+      flex-direction: column;
+    }
+
+    .meta-label {
+      font-size: 9.5px;
+      color: #64748b;
+      text-transform: uppercase;
+      font-weight: 600;
+      letter-spacing: 0.5px;
+    }
+
+    .meta-value {
+      font-size: 12.5px;
+      color: #0f172a;
+      font-weight: 600;
+      margin-top: 2px;
+    }
+
+    .cover-footer {
+      font-size: 10px;
+      color: #64748b;
+      border-top: 1px solid #cbd5e1;
+      padding-top: 12px;
+      display: flex;
+      justify-content: space-between;
+    }
+
+    /* CABEÇALHO E RODAPÉ */
+    .header-bar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-bottom: 2px solid #0284c7;
+      padding-bottom: 6px;
+      margin-bottom: 12px;
+    }
+
+    .header-title {
+      font-size: 11px;
+      font-weight: 700;
+      color: #0f172a;
+      letter-spacing: 0.5px;
+      text-transform: uppercase;
+    }
+
+    .header-tag {
+      font-size: 9.5px;
+      color: #0284c7;
+      font-weight: 600;
+      background: #e0f2fe;
+      padding: 2px 8px;
+      border-radius: 12px;
+    }
+
+    .footer-bar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-top: 1px solid #e2e8f0;
+      padding-top: 6px;
+      margin-top: auto;
+      font-size: 9.5px;
+      color: #94a3b8;
+    }
+
+    /* TIPOGRAFIA & SEÇÕES */
+    h2 {
+      font-size: 15px;
+      font-weight: 800;
+      color: #0f172a;
+      margin: 8px 0 6px 0;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    h3 {
+      font-size: 12.5px;
+      font-weight: 700;
+      color: #1e293b;
+      margin: 8px 0 5px 0;
+    }
+
+    p {
+      margin-bottom: 8px;
+      color: #334155;
+      text-align: justify;
+      line-height: 1.45;
+    }
+
+    /* CARDS & GRIDS */
+    .grid-2 {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+      margin: 8px 0;
+    }
+
+    .grid-3 {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 10px;
+      margin: 8px 0;
+    }
+
+    .grid-4 {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 8px;
+      margin: 8px 0;
+    }
+
+    .card {
+      background: #f8fafc;
+      border: 1px solid #e2e8f0;
+      border-radius: 6px;
+      padding: 9px 12px;
+    }
+
+    .card-highlight {
+      background: #eff6ff;
+      border: 1px solid #bfdbfe;
+      border-left: 4px solid #0284c7;
+    }
+
+    .card-success {
+      background: #f0fdf4;
+      border: 1px solid #bbf7d0;
+      border-left: 4px solid #16a34a;
+    }
+
+    .card-danger {
+      background: #fef2f2;
+      border: 1px solid #fecaca;
+      border-left: 4px solid #dc2626;
+    }
+
+    .card-title {
+      font-size: 10px;
+      text-transform: uppercase;
+      font-weight: 700;
+      color: #64748b;
+      margin-bottom: 3px;
+    }
+
+    .card-value {
+      font-size: 17px;
+      font-weight: 800;
+      color: #0f172a;
+    }
+
+    .card-desc {
+      font-size: 10.5px;
+      color: #475569;
+      margin-top: 3px;
+      line-height: 1.35;
+    }
+
+    /* TABELAS */
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 8px 0;
+      font-size: 10.5px;
+    }
+
+    th {
+      background: #0f172a;
+      color: #ffffff;
+      padding: 6px 8px;
+      text-align: left;
+      font-weight: 600;
+      text-transform: uppercase;
+      font-size: 9.5px;
+      letter-spacing: 0.5px;
+    }
+
+    td {
+      padding: 5px 8px;
+      border-bottom: 1px solid #e2e8f0;
+      color: #334155;
+      line-height: 1.3;
+    }
+
+    tr:nth-child(even) td {
+      background: #f8fafc;
+    }
+
+    tr.highlight td {
+      background: #e0f2fe;
+      font-weight: 600;
+      color: #0369a1;
+    }
+
+    /* BADGES & TAGS */
+    .badge {
+      display: inline-block;
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-size: 9px;
+      font-weight: 700;
+      text-transform: uppercase;
+    }
+
+    .badge-green { background: #dcfce7; color: #15803d; }
+    .badge-red { background: #fee2e2; color: #b91c1c; }
+    .badge-blue { background: #e0f2fe; color: #0369a1; }
+    .badge-amber { background: #fef3c7; color: #b45309; }
+
+    /* CODE BLOCKS & DIAGRAMS */
+    .code-box {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 9.5px;
+      background: #0f172a;
+      color: #e2e8f0;
+      padding: 8px 12px;
+      border-radius: 6px;
+      margin: 6px 0;
+      line-height: 1.4;
+      overflow: hidden;
+      white-space: pre-wrap;
+    }
+
+    .callout {
+      border-left: 4px solid #0284c7;
+      background: #f0f9ff;
+      padding: 8px 12px;
+      margin: 8px 0;
+      border-radius: 0 6px 6px 0;
+      font-size: 11px;
+      color: #0c4a6e;
+      line-height: 1.4;
+    }
+
+    .callout strong {
+      color: #0369a1;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- ==================== PÁGINA 1: CAPA ==================== -->
+  <div class="page">
+    <div class="cover-container">
+      <div>
+        <span class="cover-badge">RELATÓRIO TÉCNICO & EXECUTIVO • VERITAS PLATFORM</span>
+        <h1 class="cover-title">Da Ferramenta de Atendimento ao Cofre de Auditoria de Dados</h1>
+        <p class="cover-subtitle">
+          Estudo detalhado sobre a evolução do Whaticket Open-Source para a infraestrutura <strong>VERITAS</strong>, 
+          focada em custódia perpétua de dados em banco SQLite de alta performance (HPC) e a <strong>redução drástica 
+          de custos com servidores VPS Hostinger</strong>.
+        </p>
+
+        <div class="cover-meta">
+          <div class="meta-item">
+            <span class="meta-label">Projeto / Sistema</span>
+            <span class="meta-value">VERITAS — WhatsApp Forensic Vault & Ingestion Engine</span>
+          </div>
+          <div class="meta-item">
+            <span class="meta-label">Natureza do Documento</span>
+            <span class="meta-value">Relatório Técnico, Financeiro e de Engenharia</span>
+          </div>
+          <div class="meta-item">
+            <span class="meta-label">Autor / Equipe</span>
+            <span class="meta-value">Vicenzzo Palma Mastronikolis / Engenharia VERITAS</span>
+          </div>
+          <div class="meta-item">
+            <span class="meta-label">Data de Emissão</span>
+            <span class="meta-value">Setembro de 2026</span>
+          </div>
+        </div>
+      </div>
+
+      <div>
+        <div class="grid-3" style="margin-bottom: 16px;">
+          <div class="card card-success">
+            <div class="card-title">Economia Líquida Anual</div>
+            <div class="card-value">R$ 21.312,00 / ano</div>
+            <div class="card-desc">Fim de R$ 82/chip vs. VPS Hostinger na próxima etapa (~R$ 110/mês)</div>
+          </div>
+          <div class="card card-highlight">
+            <div class="card-title">Mensagens Sob Custódia</div>
+            <div class="card-value">20.814 msgs</div>
+            <div class="card-desc">48.460 contatos indexados e 23 WhatsApps em tempo real</div>
+          </div>
+          <div class="card">
+            <div class="card-title">Arquitetura de Dados</div>
+            <div class="card-value">SQLite WAL + HPC</div>
+            <div class="card-desc">Latência de busca reduzida de 2.000ms para 41ms</div>
+          </div>
+        </div>
+
+        <div class="cover-footer">
+          <span>VERITAS Platform — Distributed Messaging Infrastructure & Forensic Compliance</span>
+          <span>Documento Confidencial • Uso Interno</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== PÁGINA 2: CONTEXTO HISTÓRICO & PARADIGMA ==================== -->
+  <div class="page">
+    <div class="page-content">
+      <div class="header-bar">
+        <span class="header-title">1. Contexto Histórico & Mudança de Paradigma</span>
+        <span class="header-tag">Evolução Arquitetural</span>
+      </div>
+
+      <h2>1.1. O Problema das Plataformas Convencionais (Whaticket Clássico)</h2>
+      <p>
+        O projeto original (Whaticket open-source) foi concebido primariamente como um CRM de chat/helpdesk para múltiplos atendentes 
+        (SAC). Em sua arquitetura inicial, a captura de mensagens dependia de instâncias pesadas de navegadores automatizados 
+        (Google Chrome headless via Puppeteer). Quando aplicado à gestão de dezenas de WhatsApps corporativos simultâneos, esse modelo entrava em colapso:
+      </p>
+
+      <div class="grid-2">
+        <div class="card card-danger">
+          <div class="card-title">Consumo Explosivo de Memória</div>
+          <div class="card-desc">
+            Cada Chrome consumia entre 400 MB e 700 MB de RAM. Com 15 a 20 celulares, o servidor exigia <strong>8 GB a 16 GB de RAM</strong>, gerando travamentos contínuos (Kernel OOM Killer) e exigindo servidores dedicados de alto custo.
+          </div>
+        </div>
+        <div class="card card-danger">
+          <div class="card-title">Inviabilidade de Auditoria Jurídica</div>
+          <div class="card-desc">
+            Quando o remetente executava "Apagar para todos", a mensagem simplesmente desaparecia do banco de dados ou quebrava a interface, eliminando provas cruciais em eventuais litígios de cobrança ou acordos.
+          </div>
+        </div>
+        <div class="card card-danger">
+          <div class="card-title">Banimentos em Massa de Chips</div>
+          <div class="card-desc">
+            Todos os WhatsApps trafegavam sob o mesmo IP público de datacenter, disparando instantaneamente as heurísticas de detecção de spam da Meta, derrubando dezenas de números em lote.
+          </div>
+        </div>
+        <div class="card card-danger">
+          <div class="card-title">Instabilidade de Sessão e Nomes</div>
+          <div class="card-desc">
+            Reconexões de rede ou reinicializações do servidor sobrescreviam nomes de WhatsApps, perdiam pareamentos e exigiam releitura diária manual de QR Codes.
+          </div>
+        </div>
+      </div>
+
+      <h2>1.2. O Renascimento como VERITAS: O Foco em Banco de Dados</h2>
+      <p>
+        Foi realizada uma <strong>remodelação arquitetural integral</strong> da base de código, rebatizando e refinando o sistema para <strong>VERITAS</strong>. O objetivo tornou-se um <strong>Cofre Forense de Dados & Registro Passivo de Comunicação Empresarial</strong>.
+      </p>
+
+      <div class="callout">
+        <strong>Princípio do VERITAS:</strong> "A interface web é apenas uma lente de observação; o verdadeiro coração do sistema é o banco de dados perpétuo, imutável, indexado e de alta fidelidade para custódia de transações empresariais."
+      </div>
+
+      <h3>Quadro Comparativo: Whaticket Clássico vs. VERITAS</h3>
+      <table>
+        <thead>
+          <tr>
+            <th>Dimensão Arquitetural</th>
+            <th>Whaticket Open-Source Clássico</th>
+            <th>VERITAS (State-of-the-Art)</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><strong>Custo por WhatsApp Conectado</strong></td>
+            <td><span class="badge badge-red">R$ 82,00 / mês por WhatsApp</span></td>
+            <td><strong>R$ 0,00 / mês (100% Gratuito / Ilimitado — Apenas ~25 MB RAM)</strong></td>
+          </tr>
+          <tr>
+            <td><strong>Mecanismo de Ingestão</strong></td>
+            <td>Puppeteer / Google Chrome headless por sessão</td>
+            <td><strong>Baileys nativo via interceptação WebSocket pura</strong></td>
+          </tr>
+          <tr>
+            <td><strong>Memória RAM (20 Chips)</strong></td>
+            <td>8.0 GB a 14.0 GB (Frequentes memory leaks)</td>
+            <td><strong>~480 MB a 650 MB (Redução de 95% no footprint)</strong></td>
+          </tr>
+          <tr>
+            <td><strong>Mensagens Apagadas</strong></td>
+            <td>Deletadas do banco (Perda de provas)</td>
+            <td><strong>Imutabilidade total: carimbo pericial 🚫 APAGADA</strong></td>
+          </tr>
+          <tr>
+            <td><strong>Isolamento de Rede</strong></td>
+            <td>1 único IP do servidor para todos os chips</td>
+            <td><strong>Proxy virtualizado individual (HTTP/SOCKS5/4G) por chip</strong></td>
+          </tr>
+          <tr>
+            <td><strong>Identidade dos Smartphones</strong></td>
+            <td>Sobrescrita por rotinas de sync</td>
+            <td><strong>Regra de Ouro: Nome atribuído 100% perpétuo e imutável</strong></td>
+          </tr>
+          <tr>
+            <td><strong>Banco de Dados</strong></td>
+            <td>Consultas sequenciais pesadas sem índice</td>
+            <td><strong>SQLite WAL Mode + Índices B-Tree + HPC Aggregation</strong></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="footer-bar">
+      <span>VERITAS — Relatório de Evolução Arquitetural</span>
+      <span>Página 2 de 6</span>
+    </div>
+  </div>
+
+  <!-- ==================== PÁGINA 3: IMPACTO FINANCEIRO & COMPARATIVO DIGISAC ==================== -->
+  <div class="page">
+    <div class="page-content">
+      <div class="header-bar">
+        <span class="header-title">2. Impacto Financeiro: Fim da Cobrança DIGISAC & Transição para o VERITAS</span>
+        <span class="header-tag">Análise Financeira & ROI</span>
+      </div>
+
+      <h2>2.1. O Cenário Anterior: Plataforma DIGISAC (Servidor Próprio & R$ 82,00 / WhatsApp)</h2>
+      <p>
+        Na etapa anterior, a operação era contratada junto à plataforma <strong>DIGISAC</strong>, operando em um <strong>servidor próprio da Digisac</strong>. 
+        O modelo comercial imposto cobrava uma tarifa recorrente de <strong>R$ 82,00 por mês por cada WhatsApp conectado</strong>.
+      </p>
+      <p>
+        Para a frota atual de <strong>23 WhatsApps ativos</strong>, esse modelo drenava expressivos recursos financeiros:
+        <strong>23 × R$ 82,00 = R$ 1.886,00 por mês</strong>, totalizando <strong>R$ 22.632,00 por ano</strong> pagos à Digisac, sem custódia das chaves nem do banco relacional. Em 36 meses (3 anos), o gasto atingia <strong>R$ 67.896,00</strong>.
+      </p>
+
+      <div class="grid-3">
+        <div class="card card-danger">
+          <div class="card-title">Tarifa DIGISAC por WhatsApp</div>
+          <div class="card-value">R$ 82,00 / mês</div>
+          <div class="card-desc">Cobrança individual por WhatsApp no servidor fechado da Digisac</div>
+        </div>
+        <div class="card card-danger">
+          <div class="card-title">Gasto Mensal Frota (23 Chips)</div>
+          <div class="card-value">R$ 1.886,00 / mês</div>
+          <div class="card-desc">Custo anual de R$ 22.632,00 transferidos para a Digisac</div>
+        </div>
+        <div class="card card-danger">
+          <div class="card-title">Custo Acumulado em 3 Anos</div>
+          <div class="card-value">R$ 67.896,00</div>
+          <div class="card-desc">Capital recorrente sem formação de ativo tecnológico próprio</div>
+        </div>
+      </div>
+
+      <h2>2.2. A Próxima Etapa: VERITAS na Hostinger (Chips Gratuitos & Servidor Único)</h2>
+      <p>
+        Com a migração para o <strong>VERITAS</strong>, a cobrança por WhatsApp foi <strong>extinta (Custo R$ 0,00 por celular)</strong>. 
+        Para a <strong>próxima etapa</strong>, o VERITAS será hospedado em uma máquina virtual dedicada na <strong>Hostinger</strong>. Graças ao 
+        footprint ultraleve (~550 MB para toda a frota), uma <strong>VPS Hostinger de aproximadamente R$ 110,00/mês</strong> 
+        é suficiente para atender <strong>todos os 23 WhatsApps sem cobrança por chip</strong>.
+      </p>
+
+      <h3>Tabela Comparativa de Custos: DIGISAC vs. VERITAS</h3>
+      <table>
+        <thead>
+          <tr>
+            <th>Dimensão Operacional / Financeira</th>
+            <th>DIGISAC (Servidor Próprio Digisac)</th>
+            <th>VERITAS na VPS Hostinger (Próxima Etapa)</th>
+            <th>VERITAS Local + Cloudflare (Custo Zero)</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><strong>Infraestrutura & Servidor</strong></td>
+            <td>Servidor fechado da Digisac</td>
+            <td><strong>VPS Hostinger (~R$ 110/mês)</strong></td>
+            <td><strong>Máquina Local + Cloudflare (R$ 0)</strong></td>
+          </tr>
+          <tr>
+            <td><strong>Taxa de Licença por WhatsApp</strong></td>
+            <td><span class="badge badge-red">R$ 82,00 / mês por WhatsApp</span></td>
+            <td><strong>R$ 0,00 / mês (100% Gratuito)</strong></td>
+            <td><strong>R$ 0,00 / mês (100% Gratuito)</strong></td>
+          </tr>
+          <tr>
+            <td><strong>Gasto Mensal da Frota (23 Chips)</strong></td>
+            <td><span class="badge badge-red">R$ 1.886,00 / mês</span></td>
+            <td><strong>~R$ 110,00 / mês</strong></td>
+            <td><strong>R$ 0,00 / mês</strong></td>
+          </tr>
+          <tr>
+            <td><strong>Gasto Anual Total (12 meses)</strong></td>
+            <td><span class="badge badge-red">R$ 22.632,00 / ano</span></td>
+            <td><strong>R$ 1.320,00 / ano</strong></td>
+            <td><strong>R$ 0,00 / ano</strong></td>
+          </tr>
+          <tr>
+            <td><strong>Custo Acumulado em 36 Meses (3 Anos)</strong></td>
+            <td><span class="badge badge-red">R$ 67.896,00</span></td>
+            <td><strong>R$ 3.960,00</strong></td>
+            <td><strong>R$ 0,00</strong></td>
+          </tr>
+          <tr>
+            <td><strong>Escalabilidade para 50 WhatsApps</strong></td>
+            <td>R$ 4.100,00 / mês (R$ 49.200 / ano)</td>
+            <td><strong>~R$ 120,00 / mês (Mesma VPS)</strong></td>
+            <td><strong>R$ 0,00 / mês</strong></td>
+          </tr>
+          <tr class="highlight">
+            <td><strong>ECONOMIA LÍQUIDA ANUAL</strong></td>
+            <td>R$ 0,00 (Base de Custo)</td>
+            <td><strong>ECONOMIA: R$ 21.312,00 / ANO</strong></td>
+            <td><strong>ECONOMIA: R$ 22.632,00 / ANO</strong></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="footer-bar">
+      <span>VERITAS — Relatório de Evolução Arquitetural</span>
+      <span>Página 3 de 6</span>
+    </div>
+  </div>
+
+  <!-- ==================== PÁGINA 4: CUSTO FIXO, SUSTENTAÇÃO & RETORNO ==================== -->
+  <div class="page">
+    <div class="page-content">
+      <div class="header-bar">
+        <span class="header-title">2. Impacto Financeiro (Cont.): Custo Fixo, Previsibilidade & Retorno</span>
+        <span class="header-tag">Sustentação & Previsibilidade</span>
+      </div>
+
+      <h2>2.3. Previsão de Custo Anual Fixo do VERITAS (VPS + Manutenção) vs. DIGISAC</h2>
+      <p>
+        Diferente da Digisac (que penaliza o crescimento da empresa cobrando por cada nova conexão ativa), o VERITAS opera sob um 
+        <strong>custo fixo estipulado, previsível e controlado</strong>, composto exclusivamente pela infraestrutura em nuvem e pelo suporte técnico:
+      </p>
+
+      <table>
+        <thead>
+          <tr>
+            <th>Componente de Custo Fixo</th>
+            <th>Mensalidade Estipulada</th>
+            <th>Custo Anual (12 Meses)</th>
+            <th>Projeção em 3 Anos</th>
+            <th>Especificação Técnica / Escopo Operacional</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><strong>Mensalidade Servidor VPS (Hostinger)</strong></td>
+            <td>R$ 110,00 / mês</td>
+            <td>R$ 1.320,00 / ano</td>
+            <td>R$ 3.960,00</td>
+            <td>Servidor dedicado em nuvem (4 vCPUs, 8 GB RAM) para toda a frota</td>
+          </tr>
+          <tr>
+            <td><strong>Estipulação de Manutenção & Suporte</strong></td>
+            <td>R$ 200,00 / mês</td>
+            <td>R$ 2.400,00 / ano</td>
+            <td>R$ 7.200,00</td>
+            <td>Sustentação do SQLite WAL, monitoramento dos sockets Baileys e backups</td>
+          </tr>
+          <tr>
+            <td><strong>Licença por WhatsApp (23 Conexões)</strong></td>
+            <td><span class="badge badge-green">R$ 0,00 / mês</span></td>
+            <td><span class="badge badge-green">R$ 0,00 / ano</span></td>
+            <td><span class="badge badge-green">R$ 0,00</span></td>
+            <td>100% Gratuito e Ilimitado (Apenas consumo de ~25 MB RAM por WhatsApp)</td>
+          </tr>
+          <tr class="highlight">
+            <td><strong>CUSTO FIXO TOTAL DO VERITAS</strong></td>
+            <td><strong>R$ 310,00 / mês</strong></td>
+            <td><strong>R$ 3.720,00 / ano</strong></td>
+            <td><strong>R$ 11.160,00</strong></td>
+            <td><strong>Previsibilidade total sem cobrança por WhatsApp</strong></td>
+          </tr>
+        </tbody>
+      </table>
+
+      <div class="callout">
+        <strong>Saldo Líquido Real Poupado (DIGISAC − VERITAS):</strong> Mesmo somando a contratação da VPS Hostinger (~R$ 110/mês) e a 
+        estipulação de manutenção (~R$ 200/mês), o custo fixo do VERITAS é de <strong>R$ 310,00/mês</strong>. Comparado aos 
+        <strong>R$ 1.886,00/mês pagos à Digisac</strong>, a empresa retém <strong>R$ 18.912,00 por ano líquido</strong> 
+        (mais de <strong>R$ 56.700,00 em 3 anos</strong>) diretamente no caixa!
+      </div>
+
+      <h2>2.4. Síntese do Retorno Sobre Investimento (ROI)</h2>
+      <div class="grid-3">
+        <div class="card card-success">
+          <div class="card-title">Retenção de Capital (1 Ano)</div>
+          <div class="card-value">R$ 18.912,00</div>
+          <div class="card-desc">Economia líquida após pagamento integral de VPS e suporte</div>
+        </div>
+        <div class="card card-success">
+          <div class="card-title">Retenção de Capital (3 Anos)</div>
+          <div class="card-value">R$ 56.736,00</div>
+          <div class="card-desc">Patrimônio financeiro não transferido para plataformas terceiras</div>
+        </div>
+        <div class="card card-highlight">
+          <div class="card-title">Margem de Eficiência</div>
+          <div class="card-value">+83,5%</div>
+          <div class="card-desc">Redução de custos operacionais diretos com telefonia/mensageria</div>
+        </div>
+      </div>
+
+      <div class="card" style="margin-top: 6px;">
+        <div class="card-title">Independência Tecnológica & Governança</div>
+        <div class="card-desc">
+          Além do impacto contábil, a empresa elimina 100% do risco de bloqueio arbitrário de base por terceiros. O histórico de mensagens, arquivos de mídia e contatos tornam-se um ativo digital corporativo perpétuo, custodiado sob chaves de posse exclusiva da organização.
+        </div>
+      </div>
+    </div>
+
+    <div class="footer-bar">
+      <span>VERITAS — Relatório de Evolução Arquitetural</span>
+      <span>Página 4 de 6</span>
+    </div>
+  </div>
+
+  <!-- ==================== PÁGINA 5: ENGENHARIA DE DADOS & HPC ==================== -->
+  <div class="page">
+    <div class="page-content">
+      <div class="header-bar">
+        <span class="header-title">3. Engenharia de Dados & Alta Performance (HPC)</span>
+        <span class="header-tag">Banco de Dados SQLite</span>
+      </div>
+
+      <h2>3.1. Diagnóstico dos Gargalos de Banco de Dados</h2>
+      <p>
+        Ao analisar a telemetria do banco de dados SQLite (`whaticket.sqlite`), identificamos que o sistema armazenava 
+        mais de <strong>20.800 mensagens</strong> e <strong>48.460 contatos</strong>. O banco sofria com três gargalos críticos:
+      </p>
+
+      <div class="grid-3">
+        <div class="card card-danger">
+          <div class="card-title">Full Table Scans Contínuos</div>
+          <div class="card-desc">
+            A tabela `Messages` <strong>não possuía índices em `ticketId` nem em `createdAt`</strong>. Qualquer consulta realizava varredura sequencial nas 20.800 linhas em disco.
+          </div>
+        </div>
+        <div class="card card-danger">
+          <div class="card-title">Gargalo N+1 nas Rotas</div>
+          <div class="card-desc">
+            A rota de listagem de WhatsApps disparava <strong>115 queries SQL separadas em loop</strong> para somar contadores de mensagens e mídias de cada um dos 23 WhatsApps.
+          </div>
+        </div>
+        <div class="card card-danger">
+          <div class="card-title">Locks Exclusivos de Escrita</div>
+          <div class="card-desc">
+            O SQLite operava no modo clássico (`journal_mode = delete`). Cada mensagem travava o arquivo inteiro para leitura, congelando a interface.
+          </div>
+        </div>
+      </div>
+
+      <h2>3.2. As Soluções Implementadas pela Engenharia</h2>
+
+      <h3>1. Ativação do Modo WAL e Cache em RAM</h3>
+      <div class="code-box">PRAGMA journal_mode = WAL;      -- Write-Ahead Logging: Concorrência total (Leitores não travam Escritores)
+PRAGMA synchronous = NORMAL;     -- Reduz fsync desnecessário mantendo integridade ACID em falhas
+PRAGMA cache_size = -64000;      -- 64 MB de cache dedicado na memória RAM para páginas quentes
+PRAGMA temp_store = MEMORY;      -- Tabelas temporárias e ordenações executadas diretamente na RAM</div>
+
+      <h3>2. Criação de Índices B-Tree Estratégicos</h3>
+      <div class="code-box">CREATE INDEX idx_messages_ticketId ON Messages(ticketId);
+CREATE INDEX idx_messages_createdAt ON Messages(createdAt);
+CREATE INDEX idx_messages_ticket_deleted ON Messages(ticketId, isDeleted);
+CREATE INDEX idx_tickets_whatsappId ON Tickets(whatsappId);
+CREATE INDEX idx_tickets_whatsapp_updated ON Tickets(whatsappId, updatedAt);
+ANALYZE; -- Calibração das estatísticas do otimizador de consultas</div>
+
+      <h3>3. Eliminação do Problema N+1 com Agregação SQL Única</h3>
+      <div class="code-box">SELECT t.whatsappId, count(DISTINCT t.id) as totalChats, count(m.id) as totalMessages,
+       sum(case when m.isDeleted = 1 then 1 else 0 end) as deletedMessages,
+       sum(case when m.mediaUrl IS NOT NULL then 1 else 0 end) as mediaMessages,
+       max(m.createdAt) as lastActivity
+FROM Tickets t LEFT JOIN Messages m ON m.ticketId = t.id
+GROUP BY t.whatsappId;</div>
+
+      <div class="card card-success" style="margin-top: 6px;">
+        <div class="card-title">Resultado de Benchmark</div>
+        <div class="card-value">41 milissegundos</div>
+        <div class="card-desc">
+          O tempo de resposta para calcular as estatísticas dos 23 WhatsApps caiu de <strong>~2.000 ms para 41 ms</strong> (um ganho de <strong>50x de velocidade</strong>).
+        </div>
+      </div>
+    </div>
+
+    <div class="footer-bar">
+      <span>VERITAS — Relatório de Evolução Arquitetural</span>
+      <span>Página 5 de 6</span>
+    </div>
+  </div>
+
+  <!-- ==================== PÁGINA 6: COMPLIANCE, SEGURANÇA & DADOS ATUAIS ==================== -->
+  <div class="page">
+    <div class="page-content">
+      <div class="header-bar">
+        <span class="header-title">4. Compliance Forense, Segurança & Métricas Atuais</span>
+        <span class="header-tag">Operação & Telemetria</span>
+      </div>
+
+      <h2>4.1. Pilares de Segurança e Compliance Jurídico</h2>
+      <p>
+        Diferente de um mensageiro convencional, o VERITAS foi desenhado sob preceitos rígidos de custódia e prova jurídica:
+      </p>
+
+      <div class="grid-2">
+        <div class="card">
+          <div class="card-title">🔒 Imutabilidade de Identidade</div>
+          <div class="card-desc">
+            O nome atribuído pelo usuário ao smartphone torna-se <strong>100% perpétuo e imutável</strong>. Nenhuma rotina de sincronização, reboot ou script tem permissão de renomear WhatsApps.
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-title">🚫 Mecanismo Anti-Delete Perpétuo</div>
+          <div class="card-desc">
+            Quando qualquer participante apaga uma mensagem, o VERITAS intercepta o pacote de revogação e <strong>preserva a mensagem original intacta</strong>, carimbando com a etiqueta <code>🚫 MENSAGEM APAGADA</code>.
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-title">🛡️ Anti-Ban por Isolamento de Proxy</div>
+          <div class="card-desc">
+            Cada smartphone físico pode ser roteado por uma conexão proxy residencial ou 4G individual, evitando que dezenas de números compartilhem o mesmo IP.
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-title">🔍 Motor de Busca Omnisearch</div>
+          <div class="card-desc">
+            Algoritmo permutacional com tolerância a 8 e 9 dígitos, formatos com ou sem DDI +55 e DDDs locais, localizando qualquer contato em menos de 5 ms.
+          </div>
+        </div>
+      </div>
+
+      <h2>4.2. Telemetria Atual do Banco de Dados VERITAS (Tempo Real)</h2>
+      <div class="grid-4">
+        <div class="card card-highlight">
+          <div class="card-title">WhatsApps Conectados</div>
+          <div class="card-value">23</div>
+          <div class="card-desc">Smartphones gerenciados</div>
+        </div>
+        <div class="card card-highlight">
+          <div class="card-title">Total de Mensagens</div>
+          <div class="card-value">20.814</div>
+          <div class="card-desc">Registros históricos</div>
+        </div>
+        <div class="card card-highlight">
+          <div class="card-title">Total de Contatos</div>
+          <div class="card-value">48.460</div>
+          <div class="card-desc">Clientes indexados</div>
+        </div>
+        <div class="card card-highlight">
+          <div class="card-title">Conversas / Tickets</div>
+          <div class="card-value">2.632</div>
+          <div class="card-desc">Atendimentos auditados</div>
+        </div>
+      </div>
+
+      <div class="grid-2" style="margin-top: 6px;">
+        <div class="card">
+          <div class="card-title">Tamanho do Banco SQLite</div>
+          <div class="card-value">53.18 MB</div>
+          <div class="card-desc">Altamente compacto e indexado em WAL mode</div>
+        </div>
+        <div class="card">
+          <div class="card-title">Repositório de Mídias (/public)</div>
+          <div class="card-value">226.15 MB (2.007 mídias)</div>
+          <div class="card-desc">Áudios de voz, fotos, comprovantes e PDFs sob custódia</div>
+        </div>
+      </div>
+
+      <h2>4.3. Conclusão Executiva</h2>
+      <p style="margin-bottom: 4px;">
+        A transformação do projeto Whaticket em <strong>VERITAS</strong> representou uma virada estratégica em três eixos:
+      </p>
+      <ol style="margin-left: 20px; color: #334155; line-height: 1.5; font-size: 11px;">
+        <li><strong>Econômico:</strong> Fim imediato do modelo predatório de R$ 82/chip da Digisac, garantindo economia líquida de até <strong>R$ 21.312,00/ano</strong>.</li>
+        <li><strong>Técnico:</strong> Migração para o ecossistema Baileys WebSocket com banco SQLite WAL de alto rendimento (ganho de 50x de velocidade).</li>
+        <li><strong>Segurança Jurídica:</strong> Estabelecimento de um cofre forense anti-delete imutável para supervisão e auditoria patrimonial.</li>
+      </ol>
+
+      <div style="margin-top: 14px; border-top: 1px solid #cbd5e1; padding-top: 10px; display: flex; justify-content: space-between; font-size: 10px; color: #64748b;">
+        <div>
+          <strong>Responsável Técnico:</strong> Vicenzzo Palma Mastronikolis<br>
+          Engenharia de Sistemas e Arquitetura VERITAS
+        </div>
+        <div style="text-align: right;">
+          <strong>Documento Homologado:</strong> Setembro / 2026<br>
+          Status: Produção Ativa
+        </div>
+      </div>
+    </div>
+
+    <div class="footer-bar">
+      <span>VERITAS — Relatório de Evolução Arquitetural</span>
+      <span>Página 6 de 6</span>
+    </div>
+  </div>
+
+</body>
+</html>

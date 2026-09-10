@@ -17,7 +17,7 @@ import api from "../../services/api";
 import { ReplyMessageProvider } from "../../context/ReplyingMessage/ReplyingMessageContext";
 import toastError from "../../errors/toastError";
 
-const drawerWidth = 320;
+const drawerWidth = 360;
 
 const useStyles = makeStyles((theme) => ({
   root: {
@@ -39,6 +39,8 @@ const useStyles = makeStyles((theme) => ({
     maxWidth: "50%",
     flexBasis: "50%",
     display: "flex",
+    position: "relative",
+    zIndex: 10,
     [theme.breakpoints.down("sm")]: {
       maxWidth: "100%",
       flexBasis: "100%",
@@ -55,21 +57,12 @@ const useStyles = makeStyles((theme) => ({
     borderTopLeftRadius: 0,
     borderBottomLeftRadius: 0,
     borderLeft: "0",
-    marginRight: -drawerWidth,
-    transition: theme.transitions.create("margin", {
-      easing: theme.transitions.easing.sharp,
-      duration: theme.transitions.duration.leavingScreen,
-    }),
+    marginRight: 0,
   },
 
   mainWrapperShift: {
     borderTopRightRadius: 0,
     borderBottomRightRadius: 0,
-    transition: theme.transitions.create("margin", {
-      easing: theme.transitions.easing.easeOut,
-      duration: theme.transitions.duration.enteringScreen,
-    }),
-    marginRight: 0,
   },
 }));
 

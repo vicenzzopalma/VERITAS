@@ -1,5 +1,5 @@
 import React, { useContext, useState } from "react";
-import { useHistory } from "react-router-dom";
+import { useHistory, useParams } from "react-router-dom";
 
 import { makeStyles } from "@material-ui/core/styles";
 import { IconButton } from "@material-ui/core";
@@ -18,6 +18,9 @@ const useStyles = makeStyles(theme => ({
 		flex: "none",
 		alignSelf: "center",
 		marginLeft: "auto",
+		position: "relative",
+		zIndex: 10,
+		pointerEvents: "auto",
 		"& > *": {
 			margin: theme.spacing(1),
 		},
@@ -27,6 +30,7 @@ const useStyles = makeStyles(theme => ({
 const TicketActionButtons = ({ ticket }) => {
 	const classes = useStyles();
 	const history = useHistory();
+	const { ticketId } = useParams();
 	const [anchorEl, setAnchorEl] = useState(null);
 	const [loading, setLoading] = useState(false);
 	const ticketOptionsMenuOpen = Boolean(anchorEl);
@@ -41,16 +45,21 @@ const TicketActionButtons = ({ ticket }) => {
 	};
 
 	const handleUpdateTicketStatus = async (e, status, userId) => {
+		if (e && e.stopPropagation) e.stopPropagation();
+		if (e && e.preventDefault) e.preventDefault();
+		const targetId = ticket?.id || ticketId;
+		if (!targetId) return;
+
 		setLoading(true);
 		try {
-			await api.put(`/tickets/${ticket.id}`, {
+			await api.put(`/tickets/${targetId}`, {
 				status: status,
 				userId: userId || null,
 			});
 
 			setLoading(false);
 			if (status === "open") {
-				history.push(`/tickets/${ticket.id}`);
+				history.push(`/tickets/${targetId}`);
 			} else {
 				history.push("/tickets");
 			}
@@ -75,6 +84,7 @@ const TicketActionButtons = ({ ticket }) => {
 			{ticket.status === "open" && (
 				<>
 					<ButtonWithSpinner
+						id="ticket-action-return-button"
 						loading={loading}
 						startIcon={<Replay />}
 						size="small"
@@ -83,6 +93,7 @@ const TicketActionButtons = ({ ticket }) => {
 						{i18n.t("messagesList.header.buttons.return")}
 					</ButtonWithSpinner>
 					<ButtonWithSpinner
+						id="ticket-action-resolve-button"
 						loading={loading}
 						size="small"
 						variant="contained"

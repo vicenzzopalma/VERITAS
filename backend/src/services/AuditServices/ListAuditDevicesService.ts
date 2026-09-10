@@ -27,75 +27,54 @@ const ListAuditDevicesService = async (): Promise<AuditDeviceResponse[]> => {
     order: [["name", "ASC"]]
   });
 
-  const enrichedDevices: AuditDeviceResponse[] = await Promise.all(
-    whatsapps.map(async (w) => {
-      const tickets = await Ticket.findAll({
-        where: { whatsappId: w.id },
-        attributes: ["id", "updatedAt"]
-      });
+  const [stats]: any = await sequelize.query(`
+    SELECT 
+      t.whatsappId,
+      count(DISTINCT t.id) as totalChats,
+      count(m.id) as totalMessages,
+      sum(case when m.isDeleted = 1 then 1 else 0 end) as deletedMessages,
+      sum(case when m.mediaUrl IS NOT NULL then 1 else 0 end) as mediaMessages,
+      max(m.createdAt) as lastActivity
+    FROM Tickets t
+    LEFT JOIN Messages m ON m.ticketId = t.id
+    GROUP BY t.whatsappId;
+  `);
 
-      const ticketIds = tickets.map((t) => t.id);
-      let totalMessages = 0;
-      let deletedMessages = 0;
-      let mediaMessages = 0;
-      let lastActivity: Date | null = tickets.length > 0 ? tickets[0].updatedAt : null;
+  const statsMap = new Map<number, any>();
+  if (Array.isArray(stats)) {
+    for (const s of stats) {
+      statsMap.set(Number(s.whatsappId), s);
+    }
+  }
 
-      if (ticketIds.length > 0) {
-        totalMessages = await Message.count({
-          where: { ticketId: { [Op.in]: ticketIds } }
-        });
+  const enrichedDevices: AuditDeviceResponse[] = whatsapps.map((w) => {
+    const s = statsMap.get(w.id);
 
-        deletedMessages = await Message.count({
-          where: {
-            ticketId: { [Op.in]: ticketIds },
-            isDeleted: true
-          }
-        });
+    let liveStatus = w.status || "DISCONNECTED";
+    const runtimeStatus = getSessionStatus(w.id);
+    if (runtimeStatus) {
+      liveStatus = runtimeStatus;
+    } else if (w.status === "CONNECTED" && !runtimeStatus) {
+      liveStatus = "DISCONNECTED";
+    }
 
-        mediaMessages = await Message.count({
-          where: {
-            ticketId: { [Op.in]: ticketIds },
-            mediaUrl: { [Op.ne]: null as any }
-          }
-        });
-
-        const latestMessage = await Message.findOne({
-          where: { ticketId: { [Op.in]: ticketIds } },
-          order: [["createdAt", "DESC"]],
-          attributes: ["createdAt"]
-        });
-
-        if (latestMessage) {
-          lastActivity = latestMessage.createdAt;
-        }
-      }
-
-      let liveStatus = w.status || "DISCONNECTED";
-      const runtimeStatus = getSessionStatus(w.id);
-      if (runtimeStatus) {
-        liveStatus = runtimeStatus;
-      } else if (w.status === "CONNECTED" && !runtimeStatus) {
-        liveStatus = "DISCONNECTED";
-      }
-
-      return {
-        id: w.id,
-        name: w.name || `WhatsApp ${w.id}`,
-        status: liveStatus,
-        number: (w as any).number || "",
-        isDefault: w.isDefault || false,
-        battery: w.battery || "",
-        plugged: w.plugged || false,
-        totalMessages,
-        totalChats: tickets.length,
-        deletedMessages,
-        mediaMessages,
-        lastActivity,
-        createdAt: w.createdAt,
-        updatedAt: w.updatedAt
-      };
-    })
-  );
+    return {
+      id: w.id,
+      name: w.name || `WhatsApp ${w.id}`,
+      status: liveStatus,
+      number: (w as any).number || "",
+      isDefault: w.isDefault || false,
+      battery: w.battery || "",
+      plugged: w.plugged || false,
+      totalMessages: s ? Number(s.totalMessages) : 0,
+      totalChats: s ? Number(s.totalChats) : 0,
+      deletedMessages: s ? Number(s.deletedMessages) : 0,
+      mediaMessages: s ? Number(s.mediaMessages) : 0,
+      lastActivity: s && s.lastActivity ? new Date(s.lastActivity) : null,
+      createdAt: w.createdAt,
+      updatedAt: w.updatedAt
+    };
+  });
 
   return enrichedDevices;
 };

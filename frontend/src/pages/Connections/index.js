@@ -119,7 +119,13 @@ const Connections = () => {
 		}
 	};
 
-	const handleRequestNewQrCode = async whatsAppId => {
+	const handleRequestNewQrCode = async whatsApp => {
+		const whatsAppId = typeof whatsApp === "object" ? whatsApp.id : whatsApp;
+		const targetWhatsApp = typeof whatsApp === "object" ? whatsApp : whatsApps?.find(w => w.id === whatsAppId);
+		if (targetWhatsApp) {
+			setSelectedWhatsApp(targetWhatsApp);
+			setQrModalOpen(true);
+		}
 		try {
 			await api.put(`/whatsappsession/${whatsAppId}`);
 		} catch (err) {
@@ -197,12 +203,13 @@ const Connections = () => {
 	const renderActionButtons = whatsApp => {
 		return (
 			<>
-				{whatsApp.status === "qrcode" && (
+				{(whatsApp.status === "qrcode" || (whatsApp.status === "OPENING" && whatsApp.qrcode)) && (
 					<Button
 						size="small"
 						variant="contained"
 						color="primary"
 						onClick={() => handleOpenQrModal(whatsApp)}
+						style={{ marginRight: 6 }}
 					>
 						{i18n.t("connections.buttons.qrcode")}
 					</Button>
@@ -221,7 +228,7 @@ const Connections = () => {
 							size="small"
 							variant="outlined"
 							color="secondary"
-							onClick={() => handleRequestNewQrCode(whatsApp.id)}
+							onClick={() => handleRequestNewQrCode(whatsApp)}
 						>
 							{i18n.t("connections.buttons.newQr")}
 						</Button>
@@ -259,7 +266,7 @@ const Connections = () => {
 							size="small"
 							variant="outlined"
 							color="primary"
-							onClick={() => handleRequestNewQrCode(whatsApp.id)}
+							onClick={() => handleRequestNewQrCode(whatsApp)}
 						>
 							{i18n.t("connections.buttons.newQr")}
 						</Button>

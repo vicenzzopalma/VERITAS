@@ -30,8 +30,8 @@ const TicketHeader = ({ loading, children }) => {
       {loading ? (
         <TicketHeaderSkeleton />
       ) : (
-        <Card square className={classes.ticketHeader}>
-          <Button color="primary" onClick={handleBack}>
+        <Card square id="ticket-header" className={classes.ticketHeader}>
+          <Button id="ticket-header-back-button" color="primary" onClick={handleBack} aria-label="Voltar">
             <ArrowBackIos />
           </Button>
           {children}
