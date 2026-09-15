@@ -190,10 +190,7 @@ const TicketListItem = ({ ticket }) => {
 								variant="body2"
 								color="textPrimary"
 							>
-								{isPendingResolution(getContactDisplayName(ticket.contact))
-									? <Tooltip arrow title={PENDING_TOOLTIP}><span style={{ cursor: "help", color: "#999", fontStyle: "italic" }}>Nº pendente <span style={{ fontWeight: 700, color: "#666" }}>(?)</span></span></Tooltip>
-									: getContactDisplayName(ticket.contact)
-								}
+								{getContactDisplayName(ticket.contact)}
 							</Typography>
 							{ticket.status === "closed" && (
 								<Badge

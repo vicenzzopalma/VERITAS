@@ -1006,10 +1006,7 @@ const Audit = () => {
                           primary={
                             <Box display="flex" justifyContent="space-between" alignItems="center">
                               <Typography variant="subtitle2" style={{ fontWeight: 700, color: "#0f172a" }}>
-                                {isPendingResolution(getContactDisplayName(res.contact))
-                                  ? <Tooltip arrow title={PENDING_TOOLTIP}><span style={{ cursor: "help", color: "#999", fontStyle: "italic" }}>Nº pendente <span style={{ fontWeight: 700, color: "#666" }}>(?)</span></span></Tooltip>
-                                  : getContactDisplayName(res.contact)
-                                }
+                                {getContactDisplayName(res.contact)}
                               </Typography>
                               <span className={classes.deviceBadge}>
                                 📱 {res.deviceName}
@@ -1239,10 +1236,7 @@ const Audit = () => {
                       <div className={classes.chatInfo}>
                         <Box display="flex" justifyContent="space-between" alignItems="center">
                           <Typography className={classes.chatName}>
-                            {isPendingResolution(getContactDisplayName(chat.contact))
-                              ? <Tooltip arrow title={PENDING_TOOLTIP}><span style={{ cursor: "help", color: "#999", fontStyle: "italic" }}>Nº pendente <span style={{ fontWeight: 700, color: "#666" }}>(?)</span></span></Tooltip>
-                              : getContactDisplayName(chat.contact)
-                            }
+                            {getContactDisplayName(chat.contact)}
                           </Typography>
                           <Typography className={classes.chatDate}>
                             {chat.updatedAt ? format(parseISO(chat.updatedAt), "dd/MM HH:mm") : ""}
@@ -1315,10 +1309,7 @@ const Audit = () => {
                 </Avatar>
                 <Box>
                   <Typography variant="subtitle1" style={{ fontWeight: 700, color: "#0f172a", lineHeight: 1.2 }}>
-                    {isPendingResolution(getContactDisplayName(selectedChat.contact))
-                      ? <Tooltip arrow title={PENDING_TOOLTIP}><span style={{ cursor: "help", color: "#999", fontStyle: "italic" }}>Nº pendente <span style={{ fontWeight: 700, color: "#666" }}>(?)</span></span></Tooltip>
-                      : getContactDisplayName(selectedChat.contact)
-                    }
+                    {getContactDisplayName(selectedChat.contact)}
                   </Typography>
                   <Box display="flex" alignItems="center" gap={1} mt={0.3}>
                     <Typography variant="caption" style={{ color: "#64748b" }}>

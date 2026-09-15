@@ -650,24 +650,7 @@ const OperatorChat = () => {
                 <div className={classes.chatContent}>
                   <div className={classes.chatRowTop}>
                     <Typography className={classes.contactPhone}>
-                      {isPending ? (
-                        <Tooltip arrow title={PENDING_TOOLTIP}>
-                          <span
-                            style={{
-                              cursor: "help",
-                              color: "#8696a0",
-                              fontStyle: "italic"
-                            }}
-                          >
-                            Nº pendente{" "}
-                            <span style={{ fontWeight: 700, color: "#aebac1" }}>
-                              (?)
-                            </span>
-                          </span>
-                        </Tooltip>
-                      ) : (
-                        displayName
-                      )}
+                      {displayName}
                     </Typography>
                     {t.updatedAt && (
                       <span className={classes.chatTimestamp}>
@@ -740,24 +723,7 @@ const OperatorChat = () => {
                 </Avatar>
                 <div>
                   <Typography className={classes.chatHeaderPhone}>
-                    {isPendingResolution(getContactDisplayName(activeTicket?.contact)) ? (
-                      <Tooltip arrow title={PENDING_TOOLTIP}>
-                        <span
-                          style={{
-                            cursor: "help",
-                            color: "#8696a0",
-                            fontStyle: "italic"
-                          }}
-                        >
-                          Nº pendente{" "}
-                          <span style={{ fontWeight: 700, color: "#aebac1" }}>
-                            (?)
-                          </span>
-                        </span>
-                      </Tooltip>
-                    ) : (
-                      getContactDisplayName(activeTicket?.contact)
-                    )}
+                    {getContactDisplayName(activeTicket?.contact)}
                   </Typography>
                   <Typography className={classes.chatHeaderSubtext}>
                     {activeDeviceName}

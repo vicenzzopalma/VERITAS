@@ -305,10 +305,7 @@ const Contacts = () => {
                     {<Avatar src={contact.profilePicUrl}>{getContactDisplayName(contact).charAt(0).toUpperCase()}</Avatar>}
                   </TableCell>
                   <TableCell style={{ fontWeight: 600 }}>
-                    {isPendingResolution(getContactDisplayName(contact))
-                      ? <Tooltip arrow title={PENDING_TOOLTIP}><span style={{ cursor: "help", color: "#999", fontStyle: "italic" }}>Nº pendente <span style={{ fontWeight: 700, color: "#666" }}>(?)</span></span></Tooltip>
-                      : getContactDisplayName(contact)
-                    }
+                    {getContactDisplayName(contact)}
                   </TableCell>
                   <TableCell align="center">
                     {formatPhoneNumber(contact.number) || "-"}

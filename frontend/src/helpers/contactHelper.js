@@ -1,9 +1,12 @@
 /**
  * contactHelper.js
  * 
- * REGRA ABSOLUTA: Todo contato individual exibe SEMPRE E EXCLUSIVAMENTE o número
- * de telefone formatado. NADA DE NOMES. NADA DE LIDs. NADA DE TEXTOS GENÉRICOS.
- * Única exceção: Grupos do WhatsApp (exibem nome do grupo).
+ * Exibição Clara e Imediata do WhatsApp:
+ * - Prioridade Máxima: Número de telefone real formatado (+55 (XX) 9XXXX-XXXX).
+ * - Se houver nome salvo e telefone real, ambos ficam acessíveis.
+ * - Se for grupo WhatsApp, exibe o nome do grupo.
+ * - Se for um ID/LID do WhatsApp (14+ dígitos), exibe o identificador real do WhatsApp
+ *   junto com o nome (se houver), NUNCA ocultando por "Nº pendente".
  */
 
 export const isLidNumber = (val = "") => {
@@ -43,9 +46,9 @@ export const formatPhoneNumber = (num = "") => {
     return "Grupo WhatsApp";
   }
 
-  // Se for LID (14+ dígitos), não prefixar com +
+  // Se for LID (14+ dígitos), exibir diretamente o ID WhatsApp sem enrolação
   if (clean.length >= 14) {
-    return `⏳ Resolução pendente (${clean.slice(0, 6)}...)`;
+    return `WhatsApp ID: ${clean}`;
   }
 
   // Número internacional legítimo
@@ -54,9 +57,9 @@ export const formatPhoneNumber = (num = "") => {
 
 /**
  * Extrai o melhor número de telefone real disponível no contato.
- * Retorna null se não houver número real (apenas LID).
+ * Retorna null se não houver número real.
  */
-const extractRealPhone = (contact) => {
+export const extractRealPhone = (contact) => {
   if (!contact) return null;
 
   // 1. Campo phoneNumber resolvido explicitamente
@@ -71,13 +74,12 @@ const extractRealPhone = (contact) => {
     return rawNumber;
   }
 
-  // 3. Campo name (pode conter o número real)
+  // 3. Campo name (se foi salvo como número de telefone)
   const rawName = String(contact.name || "").replace(/\D/g, "");
   if (rawName && rawName.length >= 10 && rawName.length <= 13) {
     return rawName;
   }
 
-  // 4. Nenhum número real encontrado
   return null;
 };
 
@@ -87,7 +89,7 @@ export const getContactDisplayName = (contact) => {
   const numberStr = String(contact.number || "").trim();
   const rawNumber = numberStr.replace(/\D/g, "");
 
-  // 1. Grupo WhatsApp → mostra nome do grupo (ÚNICA EXCEÇÃO)
+  // 1. Grupo WhatsApp → mostra nome do grupo
   const isGroup = Boolean(
     contact.isGroup ||
     numberStr.includes("@g.us") ||
@@ -104,24 +106,36 @@ export const getContactDisplayName = (contact) => {
     return "Grupo WhatsApp";
   }
 
-  // 2. Para contatos individuais: SEMPRE E EXCLUSIVAMENTE o número de telefone
+  // 2. Contato com telefone real disponível
   const realPhone = extractRealPhone(contact);
   if (realPhone) {
-    return formatPhoneNumber(realPhone);
+    const formatted = formatPhoneNumber(realPhone);
+    const nameStr = String(contact.name || "").trim();
+    // Se o contato tiver um nome real cadastrado (e não for apenas números), exibir Nome com o Telefone
+    if (nameStr && nameStr !== realPhone && !isLidNumber(nameStr) && !/^\d+$/.test(nameStr)) {
+      return `${formatted} (${nameStr})`;
+    }
+    return formatted;
   }
 
-  // 3. Se não houver número real (LID sem resolução), mostrar indicador visual
-  return `Nº pendente (?)`;
+  // 3. Contato com identificador LID (14+ dígitos)
+  const nameStr = String(contact.name || "").trim();
+  if (nameStr && !isLidNumber(nameStr) && !/^\d+$/.test(nameStr)) {
+    return `${nameStr} [${rawNumber.slice(0, 6)}...]`;
+  }
+
+  if (rawNumber) {
+    return `WhatsApp ID: ${rawNumber}`;
+  }
+
+  return "Contato WhatsApp";
 };
 
 /**
- * Verifica se o display name indica resolução pendente (LID sem telefone real)
+ * Função mantida para retrocompatibilidade: agora NUNCA bloqueia a exibição.
  */
 export const isPendingResolution = (displayName) => {
-  return displayName === "Nº pendente (?)";
+  return false;
 };
 
-/**
- * Tooltip explicativo para contatos com resolução pendente
- */
-export const PENDING_TOOLTIP = "Assim que o contato responder uma mensagem, o telefone real será capturado automaticamente.";
+export const PENDING_TOOLTIP = "";

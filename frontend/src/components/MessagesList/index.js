@@ -714,10 +714,7 @@ const MessagesList = ({ ticketId, isGroup }) => {
                 </IconButton>
                 {isGroup && (
                   <span className={classes.messageContactName}>
-                    {isPendingResolution(getContactDisplayName(message.contact))
-                      ? <Tooltip arrow title={PENDING_TOOLTIP}><span style={{ cursor: "help", color: "#999", fontStyle: "italic" }}>Nº pendente <span style={{ fontWeight: 700, color: "#666" }}>(?)</span></span></Tooltip>
-                      : getContactDisplayName(message.contact)
-                    }
+                    {getContactDisplayName(message.contact)}
                   </span>
                 )}
                 {(message.mediaUrl || message.mediaType === "location" || message.mediaType === "vcard"
