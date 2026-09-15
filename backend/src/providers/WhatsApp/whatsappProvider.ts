@@ -39,6 +39,10 @@ export interface WhatsappProvider {
     chatId: string,
     limit: number
   ): Promise<ProviderMessage[]>;
+  reconcileSessionHistory?(
+    sessionId: number
+  ): Promise<{ totalScanned: number; totalRecovered: number }>;
+  reconcileAllSessionsHistory?(): Promise<{ totalScanned: number; totalRecovered: number }>;
 }
 
 const whatsappProvider: WhatsappProvider = WhaileysProvider;

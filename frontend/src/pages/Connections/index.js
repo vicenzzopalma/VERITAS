@@ -117,7 +117,7 @@ const CustomToolTip = ({ title, content, children }) => {
 const Connections = () => {
 	const classes = useStyles();
 
-	const { whatsApps, loading } = useContext(WhatsAppsContext);
+	const { whatsApps, loading, fetchWhatsApps } = useContext(WhatsAppsContext);
 	const [whatsAppModalOpen, setWhatsAppModalOpen] = useState(false);
 	const [qrModalOpen, setQrModalOpen] = useState(false);
 	const [selectedWhatsApp, setSelectedWhatsApp] = useState(null);
@@ -216,7 +216,10 @@ const Connections = () => {
 	const handleCloseWhatsAppModal = useCallback(() => {
 		setWhatsAppModalOpen(false);
 		setSelectedWhatsApp(null);
-	}, [setSelectedWhatsApp, setWhatsAppModalOpen]);
+		if (fetchWhatsApps) {
+			fetchWhatsApps();
+		}
+	}, [setSelectedWhatsApp, setWhatsAppModalOpen, fetchWhatsApps]);
 
 	const handleOpenQrModal = whatsApp => {
 		setSelectedWhatsApp(whatsApp);

@@ -29,7 +29,8 @@ export const index = async (req: Request, res: Response): Promise<Response> => {
 
   const { count, messages, ticket, hasMore } = await ListMessagesService({
     pageNumber,
-    ticketId
+    ticketId,
+    userId: req.user?.id
   });
 
   SetTicketMessagesAsRead(ticket);
@@ -42,7 +43,7 @@ export const store = async (req: Request, res: Response): Promise<Response> => {
   const { body, quotedMsg }: MessageData = req.body;
   const medias = req.files as Express.Multer.File[];
 
-  const ticket = await ShowTicketService(ticketId);
+  const ticket = await ShowTicketService(ticketId, req.user?.id);
 
   SetTicketMessagesAsRead(ticket);
 

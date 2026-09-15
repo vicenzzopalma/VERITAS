@@ -1,4 +1,4 @@
-import { useState, useEffect, useReducer } from "react";
+import { useState, useEffect, useReducer, useCallback } from "react";
 import openSocket from "../../services/socket-io";
 import toastError from "../../errors/toastError";
 
@@ -16,8 +16,9 @@ const reducer = (state, action) => {
 		const whatsAppIndex = state.findIndex(s => s.id === whatsApp.id);
 
 		if (whatsAppIndex !== -1) {
-			state[whatsAppIndex] = whatsApp;
-			return [...state];
+			const newState = [...state];
+			newState[whatsAppIndex] = { ...state[whatsAppIndex], ...whatsApp };
+			return newState;
 		} else {
 			return [whatsApp, ...state];
 		}
@@ -28,11 +29,16 @@ const reducer = (state, action) => {
 		const whatsAppIndex = state.findIndex(s => s.id === whatsApp.id);
 
 		if (whatsAppIndex !== -1) {
-			state[whatsAppIndex].status = whatsApp.status;
-			state[whatsAppIndex].updatedAt = whatsApp.updatedAt;
-			state[whatsAppIndex].qrcode = whatsApp.qrcode;
-			state[whatsAppIndex].retries = whatsApp.retries;
-			return [...state];
+			const newState = [...state];
+			newState[whatsAppIndex] = {
+				...state[whatsAppIndex],
+				...whatsApp,
+				status: whatsApp.status,
+				updatedAt: whatsApp.updatedAt,
+				qrcode: whatsApp.qrcode,
+				retries: whatsApp.retries
+			};
+			return newState;
 		} else {
 			return [...state];
 		}
@@ -57,20 +63,21 @@ const useWhatsApps = () => {
 	const [whatsApps, dispatch] = useReducer(reducer, []);
 	const [loading, setLoading] = useState(true);
 
+	const fetchWhatsApps = useCallback(async () => {
+		try {
+			const { data } = await api.get("/whatsapp/");
+			dispatch({ type: "LOAD_WHATSAPPS", payload: data });
+			setLoading(false);
+		} catch (err) {
+			setLoading(false);
+			toastError(err);
+		}
+	}, []);
+
 	useEffect(() => {
 		setLoading(true);
-		const fetchSession = async () => {
-			try {
-				const { data } = await api.get("/whatsapp/");
-				dispatch({ type: "LOAD_WHATSAPPS", payload: data });
-				setLoading(false);
-			} catch (err) {
-				setLoading(false);
-				toastError(err);
-			}
-		};
-		fetchSession();
-	}, []);
+		fetchWhatsApps();
+	}, [fetchWhatsApps]);
 
 	useEffect(() => {
 		const socket = openSocket();
@@ -98,7 +105,24 @@ const useWhatsApps = () => {
 		};
 	}, []);
 
-	return { whatsApps, loading };
+	// Auto-sincronização ativa enquanto houver conexões conectando ou exibindo QR Code
+	useEffect(() => {
+		const hasPendingConnection = whatsApps.some(w => w.status === "OPENING" || w.status === "qrcode");
+		if (!hasPendingConnection) return;
+
+		const interval = setInterval(async () => {
+			try {
+				const { data } = await api.get("/whatsapp/");
+				dispatch({ type: "LOAD_WHATSAPPS", payload: data });
+			} catch (err) {
+				// silencia erros transitórios
+			}
+		}, 3000);
+
+		return () => clearInterval(interval);
+	}, [whatsApps]);
+
+	return { whatsApps, loading, fetchWhatsApps };
 };
 
 export default useWhatsApps;

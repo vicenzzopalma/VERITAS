@@ -30,11 +30,23 @@ const getStoredRefreshToken = () => {
 	}
 };
 
+const getStoredUser = () => {
+	try {
+		const raw = localStorage.getItem("user");
+		if (!raw || raw === "null" || raw === "undefined") return {};
+		const parsed = JSON.parse(raw);
+		return typeof parsed === "object" && parsed !== null ? parsed : {};
+	} catch {
+		return {};
+	}
+};
+
 const useAuth = () => {
 	const history = useHistory();
-	const [isAuth, setIsAuth] = useState(false);
-	const [loading, setLoading] = useState(true);
-	const [user, setUser] = useState({});
+	const initialToken = getStoredToken();
+	const [isAuth, setIsAuth] = useState(() => Boolean(initialToken));
+	const [loading, setLoading] = useState(() => Boolean(initialToken));
+	const [user, setUser] = useState(() => getStoredUser());
 
 	api.interceptors.request.use(
 		config => {
@@ -74,16 +86,20 @@ const useAuth = () => {
 				} catch (refreshErr) {
 					localStorage.removeItem("token");
 					localStorage.removeItem("refreshToken");
+					localStorage.removeItem("user");
 					api.defaults.headers.Authorization = undefined;
 					setIsAuth(false);
+					setUser({});
 					return Promise.reject(refreshErr);
 				}
 			}
-			if (error?.response?.status === 401 && !originalRequest.url?.includes("/auth/login")) {
+			if (error?.response?.status === 401 && !originalRequest.url?.includes("/auth/login") && !originalRequest.url?.includes("/auth/refresh_token")) {
 				localStorage.removeItem("token");
 				localStorage.removeItem("refreshToken");
+				localStorage.removeItem("user");
 				api.defaults.headers.Authorization = undefined;
 				setIsAuth(false);
+				setUser({});
 			}
 			return Promise.reject(error);
 		}
@@ -93,6 +109,7 @@ const useAuth = () => {
 		const token = getStoredToken();
 		(async () => {
 			if (token) {
+				api.defaults.headers.Authorization = `Bearer ${token}`;
 				try {
 					const refreshToken = getStoredRefreshToken();
 					const { data } = await api.post("/auth/refresh_token", { refreshToken });
@@ -100,11 +117,23 @@ const useAuth = () => {
 					if (data.refreshToken) {
 						localStorage.setItem("refreshToken", JSON.stringify(data.refreshToken));
 					}
+					if (data.user) {
+						localStorage.setItem("user", JSON.stringify(data.user));
+						setUser(data.user);
+					}
 					api.defaults.headers.Authorization = `Bearer ${data.token}`;
 					setIsAuth(true);
-					setUser(data.user);
 				} catch (err) {
-					console.warn("Failed to refresh session on startup:", err);
+					console.warn("Falha ao atualizar token na inicialização:", err);
+					// Só desloga se o servidor responder explicitamente 401 ou 403 (sessão expirada)
+					if (err?.response?.status === 401 || err?.response?.status === 403) {
+						localStorage.removeItem("token");
+						localStorage.removeItem("refreshToken");
+						localStorage.removeItem("user");
+						api.defaults.headers.Authorization = undefined;
+						setIsAuth(false);
+						setUser({});
+					}
 				}
 			}
 			setLoading(false);
@@ -117,6 +146,7 @@ const useAuth = () => {
 		socket.on("user", data => {
 			if (data.action === "update" && data.user.id === user.id) {
 				setUser(data.user);
+				localStorage.setItem("user", JSON.stringify(data.user));
 			}
 		});
 
@@ -134,11 +164,19 @@ const useAuth = () => {
 			if (data.refreshToken) {
 				localStorage.setItem("refreshToken", JSON.stringify(data.refreshToken));
 			}
+			if (data.user) {
+				localStorage.setItem("user", JSON.stringify(data.user));
+			}
 			api.defaults.headers.Authorization = `Bearer ${data.token}`;
 			setUser(data.user);
 			setIsAuth(true);
 			toast.success(i18n.t("auth.toasts.success"));
-			history.push("/tickets");
+			if (data.user?.profile === "operator") {
+				history.push("/live");
+			} else if (data.user?.profile === "whatsapp_control") {
+				history.push("/whatsapp-control");} else {
+				history.push("/tickets");
+			}
 			setLoading(false);
 		} catch (err) {
 			toastError(err);
@@ -151,16 +189,17 @@ const useAuth = () => {
 
 		try {
 			await api.delete("/auth/logout");
+		} catch (err) {
+			// Ignora erro de rede no logout
+		} finally {
 			setIsAuth(false);
 			setUser({});
 			localStorage.removeItem("token");
 			localStorage.removeItem("refreshToken");
+			localStorage.removeItem("user");
 			api.defaults.headers.Authorization = undefined;
 			setLoading(false);
 			history.push("/login");
-		} catch (err) {
-			toastError(err);
-			setLoading(false);
 		}
 	};
 

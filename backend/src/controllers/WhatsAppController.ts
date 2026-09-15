@@ -123,3 +123,68 @@ export const remove = async (
 
   return res.status(200).json({ message: "Whatsapp deleted." });
 };
+
+
+export const getCrmChips = async (
+  req: Request,
+  res: Response
+): Promise<Response> => {
+  const { sector } = req.query;
+  const sectorParam = sector ? `?sector=${encodeURIComponent(String(sector))}` : "";
+  const url = "http://127.0.0.1:3000/api/public/chips" + sectorParam;
+
+  return new Promise((resolve) => {
+    const http = require("http");
+    http.get(url, (apiRes: any) => {
+      let data = "";
+      apiRes.on("data", (chunk: any) => {
+        data += chunk;
+      });
+      apiRes.on("end", () => {
+        try {
+          const parsed = JSON.parse(data);
+          resolve(res.status(200).json(parsed));
+        } catch (e) {
+          resolve(res.status(200).json({ success: false, chips: [] }));
+        }
+      });
+    }).on("error", () => {
+      resolve(res.status(200).json({ success: false, chips: [] }));
+    });
+  });
+};
+
+
+export const syncAudit = async (
+  req: Request,
+  res: Response
+): Promise<Response> => {
+  const { whatsappId } = req.params;
+
+  if (whatsappProvider.reconcileSessionHistory) {
+    const result = await whatsappProvider.reconcileSessionHistory(+whatsappId);
+    return res.status(200).json({
+      success: true,
+      message: `Varredura concluída: ${result.totalRecovered} mensagens faltantes recuperadas.`,
+      ...result
+    });
+  }
+
+  return res.status(200).json({ success: true, message: "Provedor não suporta reconciliação manual" });
+};
+
+export const syncAllAudit = async (
+  req: Request,
+  res: Response
+): Promise<Response> => {
+  if (whatsappProvider.reconcileAllSessionsHistory) {
+    const result = await whatsappProvider.reconcileAllSessionsHistory();
+    return res.status(200).json({
+      success: true,
+      message: `Varredura global concluída: ${result.totalRecovered} mensagens faltantes recuperadas em todos os túneis ativos.`,
+      ...result
+    });
+  }
+
+  return res.status(200).json({ success: true, message: "Provedor não suporta reconciliação global" });
+};

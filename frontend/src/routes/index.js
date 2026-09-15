@@ -14,6 +14,8 @@ import Contacts from "../pages/Contacts/";
 import QuickAnswers from "../pages/QuickAnswers/";
 import Queues from "../pages/Queues/";
 import Audit from "../pages/Audit/";
+import OperatorChat from "../pages/OperatorChat/";
+import WhatsappControl from "../pages/WhatsappControl/";
 import { AuthProvider } from "../context/Auth/AuthContext";
 import { WhatsAppsProvider } from "../context/WhatsApp/WhatsAppsContext";
 import { ThemeProvider } from "../context/DarkMode";
@@ -32,6 +34,8 @@ const Routes = () => {
                 <Route exact path="/" component={Dashboard} isPrivate />
                 <Route exact path="/audit" component={Audit} isPrivate />
                 <Route exact path="/tickets/:ticketId?" component={Tickets} isPrivate />
+                <Route exact path="/live/:ticketId?" component={OperatorChat} isPrivate />
+                <Route exact path="/whatsapp-control" component={WhatsappControl} isPrivate />
                 <Route exact path="/connections" component={Connections} isPrivate />
                 <Route exact path="/contacts" component={Contacts} isPrivate />
                 <Route exact path="/users" component={Users} isPrivate />

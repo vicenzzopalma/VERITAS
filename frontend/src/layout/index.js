@@ -1,4 +1,5 @@
 import React, { useState, useContext, useEffect } from "react";
+import { useLocation } from "react-router-dom";
 import clsx from "clsx";
 import {
   makeStyles,
@@ -27,17 +28,17 @@ import { i18n } from "../translate/i18n";
 import { useThemeContext } from "../context/DarkMode";
 
 const drawerWidth = 240;
+const collapsedWidth = 68;
 
 const useStyles = makeStyles((theme) => ({
   root: {
     display: "flex",
     height: "100vh",
-    [theme.breakpoints.down("sm")]: {
-      height: "calc(100vh - 56px)",
-    },
+    width: "100vw",
+    overflow: "hidden",
   },
   toolbar: {
-    paddingRight: 24, // keep right padding when drawer closed
+    paddingRight: 24,
   },
   toolbarIcon: {
     display: "flex",
@@ -47,52 +48,79 @@ const useStyles = makeStyles((theme) => ({
     minHeight: "48px",
   },
   appBar: {
-    zIndex: theme.zIndex.drawer + 1,
+    zIndex: theme.zIndex.drawer - 1,
     transition: theme.transitions.create(["width", "margin"], {
       easing: theme.transitions.easing.sharp,
-      duration: theme.transitions.duration.leavingScreen,
+      duration: 200,
     }),
     backgroundColor: theme.palette.background.default,
-  },
-  appBarShift: {
-    marginLeft: drawerWidth,
-    width: `calc(100% - ${drawerWidth}px)`,
-    transition: theme.transitions.create(["width", "margin"], {
-      easing: theme.transitions.easing.sharp,
-      duration: theme.transitions.duration.enteringScreen,
-    }),
+    marginLeft: collapsedWidth,
+    width: `calc(100% - ${collapsedWidth}px)`,
   },
   menuButton: {
-    marginRight: 36,
+    marginRight: 20,
     color: theme.palette.text.primary,
-  },
-  menuButtonHidden: {
-    display: "none",
   },
   title: {
     flexGrow: 1,
     color: theme.palette.text.primary,
   },
-  drawerPaper: {
-    position: "relative",
+  drawerContainer: {
+    width: collapsedWidth,
+    flexShrink: 0,
     whiteSpace: "nowrap",
+  },
+  drawerPaper: {
     width: drawerWidth,
-    transition: theme.transitions.create("width", {
-      easing: theme.transitions.easing.sharp,
-      duration: theme.transitions.duration.enteringScreen,
-    }),
+    transition: "width 0.22s cubic-bezier(0.4, 0, 0.2, 1)",
+    overflowX: "hidden",
+    boxShadow: "6px 0 24px rgba(0, 0, 0, 0.25)",
+    zIndex: theme.zIndex.drawer + 5,
     backgroundColor: theme.palette.background.paper,
   },
   drawerPaperClose: {
+    width: collapsedWidth,
+    transition: "width 0.22s cubic-bezier(0.4, 0, 0.2, 1)",
     overflowX: "hidden",
-    transition: theme.transitions.create("width", {
-      easing: theme.transitions.easing.sharp,
-      duration: theme.transitions.duration.leavingScreen,
-    }),
-    width: theme.spacing(7),
-    [theme.breakpoints.up("sm")]: {
-      width: theme.spacing(9),
+    boxShadow: "2px 0 8px rgba(0, 0, 0, 0.08)",
+    zIndex: theme.zIndex.drawer + 5,
+  },
+  crmDrawerPaper: {
+    backgroundColor: "#0c0d14 !important",
+    borderRight: "1px solid rgba(255, 255, 255, 0.08) !important",
+    fontFamily: "'Outfit', sans-serif !important",
+    boxShadow: "8px 0 32px rgba(0, 0, 0, 0.6) !important",
+    "& *": {
+      fontFamily: "'Outfit', sans-serif !important",
     },
+    "& .MuiDivider-root": {
+      backgroundColor: "rgba(255, 255, 255, 0.1) !important",
+    },
+    "& .MuiIconButton-root": {
+      color: "#ffffff !important",
+    },
+    "& .MuiSvgIcon-root": {
+      color: "#ffffff !important",
+      fill: "#ffffff !important",
+    },
+    "& .MuiTypography-root": {
+      color: "#ffffff !important",
+      fontWeight: 500,
+    },
+    "& .MuiListItemIcon-root": {
+      color: "#ffffff !important",
+    },
+    "& .MuiListItemText-primary": {
+      color: "#ffffff !important",
+    },
+    "& .MuiListSubheader-root": {
+      color: "#94a3b8 !important",
+      backgroundColor: "transparent !important",
+      fontWeight: 700,
+      fontSize: "0.75rem",
+      textTransform: "uppercase",
+      letterSpacing: "0.08em",
+    }
   },
   appBarSpacer: {
     minHeight: "48px",
@@ -100,16 +128,14 @@ const useStyles = makeStyles((theme) => ({
   content: {
     flex: 1,
     overflow: "auto",
+    height: "100vh",
   },
-  container: {
-    paddingTop: theme.spacing(4),
-    paddingBottom: theme.spacing(4),
-  },
-  paper: {
-    padding: theme.spacing(2),
-    display: "flex",
-    overflow: "auto",
-    flexDirection: "column",
+  contentFull: {
+    flex: 1,
+    overflow: "hidden",
+    height: "100vh",
+    margin: 0,
+    padding: 0,
   },
   switch: {
     transform: "scale(0.8)",
@@ -128,28 +154,25 @@ const useStyles = makeStyles((theme) => ({
 
 const LoggedInLayout = ({ children }) => {
   const classes = useStyles();
+  const location = useLocation();
+
+  if (location.pathname.startsWith("/live")) {
+    return <>{children}</>;
+  }
+
+  const isWhatsappControl = location.pathname.startsWith("/whatsapp-control");
+
   const [userModalOpen, setUserModalOpen] = useState(false);
   const [anchorEl, setAnchorEl] = useState(null);
   const [menuOpen, setMenuOpen] = useState(false);
   const { handleLogout, loading } = useContext(AuthContext);
-  const [drawerOpen, setDrawerOpen] = useState(false);
-  const [drawerVariant, setDrawerVariant] = useState("permanent");
+
+  // Menu Retrátil por Hover
+  const [drawerHovered, setDrawerHovered] = useState(false);
+  const isDrawerExpanded = drawerHovered;
+
   const { user } = useContext(AuthContext);
   const { darkMode, toggleTheme } = useThemeContext();
-
-  useEffect(() => {
-    if (document.body.offsetWidth > 600) {
-      setDrawerOpen(true);
-    }
-  }, []);
-
-  useEffect(() => {
-    if (document.body.offsetWidth < 600) {
-      setDrawerVariant("temporary");
-    } else {
-      setDrawerVariant("permanent");
-    }
-  }, [drawerOpen]);
 
   const handleMenu = (event) => {
     setAnchorEl(event.currentTarget);
@@ -172,9 +195,7 @@ const LoggedInLayout = ({ children }) => {
   };
 
   const drawerClose = () => {
-    if (document.body.offsetWidth < 600) {
-      setDrawerOpen(false);
-    }
+    setDrawerHovered(false);
   };
 
   if (loading) {
@@ -183,110 +204,117 @@ const LoggedInLayout = ({ children }) => {
 
   return (
     <div className={classes.root}>
-      <Drawer
-        variant={drawerVariant}
-        className={drawerOpen ? classes.drawerPaper : classes.drawerPaperClose}
-        classes={{
-          paper: clsx(
-            classes.drawerPaper,
-            !drawerOpen && classes.drawerPaperClose
-          ),
-        }}
-        open={drawerOpen}
+      {/* Menu Lateral Retrátil Flutuante (expansão no hover) */}
+      <div
+        className={classes.drawerContainer}
+        onMouseEnter={() => setDrawerHovered(true)}
+        onMouseLeave={() => setDrawerHovered(false)}
       >
-        <div className={classes.toolbarIcon}>
-          <IconButton onClick={() => setDrawerOpen(!drawerOpen)}>
-            <ChevronLeftIcon />
-          </IconButton>
-        </div>
-        <Divider />
-        <List>
-          <MainListItems drawerClose={drawerClose} />
-        </List>
-        <Divider />
-      </Drawer>
+        <Drawer
+          variant="permanent"
+          classes={{
+            paper: clsx(
+              isDrawerExpanded ? classes.drawerPaper : classes.drawerPaperClose,
+              isWhatsappControl && classes.crmDrawerPaper,
+              isWhatsappControl && "crm-drawer-dark-mode"
+            ),
+          }}
+          open={isDrawerExpanded}
+        >
+          <div className={classes.toolbarIcon}>
+            <IconButton
+              onClick={() => setDrawerHovered(!drawerHovered)}
+              style={isWhatsappControl ? { color: "#ffffff" } : undefined}
+            >
+              {isDrawerExpanded ? (
+                <ChevronLeftIcon style={isWhatsappControl ? { color: "#ffffff", fill: "#ffffff" } : undefined} />
+              ) : (
+                <MenuIcon style={isWhatsappControl ? { color: "#ffffff", fill: "#ffffff" } : undefined} />
+              )}
+            </IconButton>
+          </div>
+          <Divider style={isWhatsappControl ? { backgroundColor: "rgba(255, 255, 255, 0.1)" } : undefined} />
+          <List>
+            <MainListItems drawerClose={drawerClose} />
+          </List>
+          <Divider style={isWhatsappControl ? { backgroundColor: "rgba(255, 255, 255, 0.1)" } : undefined} />
+        </Drawer>
+      </div>
+
       <UserModal
         open={userModalOpen}
         onClose={() => setUserModalOpen(false)}
         userId={user?.id}
       />
-      <AppBar
-        position="absolute"
-        className={clsx(classes.appBar, drawerOpen && classes.appBarShift)}
-      >
-        <Toolbar variant="dense" className={classes.toolbar}>
-          <IconButton
-            edge="start"
-            aria-label="open drawer"
-            onClick={() => setDrawerOpen(!drawerOpen)}
-            className={clsx(
-              classes.menuButton,
-              drawerOpen && classes.menuButtonHidden
+
+      {/* Na aba Whatsapp Control, o CRM tem seu próprio header completo, então ocultamos o AppBar do Veritas */}
+      {!isWhatsappControl && (
+        <AppBar position="absolute" className={classes.appBar}>
+          <Toolbar variant="dense" className={classes.toolbar}>
+            <Typography
+              component="h1"
+              variant="h6"
+              noWrap
+              className={classes.title}
+            >
+              VERITAS
+            </Typography>
+
+            <div className={classes.themeSwitchContainer}>
+              <Brightness4Icon className={classes.themeIcon} />
+              <Switch
+                checked={darkMode}
+                onChange={toggleTheme}
+                color="default"
+                className={classes.switch}
+              />
+            </div>
+
+            {user.id && (
+              <NotificationsPopOver className={classes.iconButton} />
             )}
-          >
-            <MenuIcon />
-          </IconButton>
-          <Typography
-            component="h1"
-            variant="h6"
-            noWrap
-            className={classes.title}
-          >
-            VERITAS
-          </Typography>
 
-          <div className={classes.themeSwitchContainer}>
-            <Brightness4Icon className={classes.themeIcon} />
-            <Switch
-              checked={darkMode}
-              onChange={toggleTheme}
-              color="default"
-              className={classes.switch}
-            />
-          </div>
+            <div>
+              <IconButton
+                aria-label="account of current user"
+                aria-controls="menu-appbar"
+                aria-haspopup="true"
+                onClick={handleMenu}
+                className={classes.iconButton}
+              >
+                <AccountCircle />
+              </IconButton>
+              <Menu
+                id="menu-appbar"
+                anchorEl={anchorEl}
+                getContentAnchorEl={null}
+                anchorOrigin={{
+                  vertical: "bottom",
+                  horizontal: "right",
+                }}
+                transformOrigin={{
+                  vertical: "top",
+                  horizontal: "right",
+                }}
+                open={menuOpen}
+                onClose={handleCloseMenu}
+              >
+                <MenuItem onClick={handleOpenUserModal}>
+                  {i18n.t("mainDrawer.appBar.user.profile")}
+                </MenuItem>
+                <MenuItem onClick={handleClickLogout}>
+                  {i18n.t("mainDrawer.appBar.user.logout")}
+                </MenuItem>
+              </Menu>
+            </div>
+          </Toolbar>
+        </AppBar>
+      )}
 
-          {user.id && (
-            <NotificationsPopOver className={classes.iconButton} />
-          )}
-
-          <div>
-            <IconButton
-              aria-label="account of current user"
-              aria-controls="menu-appbar"
-              aria-haspopup="true"
-              onClick={handleMenu}
-              className={classes.iconButton}
-            >
-              <AccountCircle />
-            </IconButton>
-            <Menu
-              id="menu-appbar"
-              anchorEl={anchorEl}
-              getContentAnchorEl={null}
-              anchorOrigin={{
-                vertical: "bottom",
-                horizontal: "right",
-              }}
-              transformOrigin={{
-                vertical: "top",
-                horizontal: "right",
-              }}
-              open={menuOpen}
-              onClose={handleCloseMenu}
-            >
-              <MenuItem onClick={handleOpenUserModal}>
-                {i18n.t("mainDrawer.appBar.user.profile")}
-              </MenuItem>
-              <MenuItem onClick={handleClickLogout}>
-                {i18n.t("mainDrawer.appBar.user.logout")}
-              </MenuItem>
-            </Menu>
-          </div>
-        </Toolbar>
-      </AppBar>
-      <main className={classes.content}>
-        <div className={classes.appBarSpacer} />
-        {children ? children : null}
+      {/* Conteúdo Principal */}
+      <main className={isWhatsappControl ? classes.contentFull : classes.content}>
+        {!isWhatsappControl && <div className={classes.appBarSpacer} />}
+        {children}
       </main>
     </div>
   );

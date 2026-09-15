@@ -10,13 +10,15 @@ import {
   createRefreshToken
 } from "../../helpers/CreateTokens";
 
+import { SerializeUser } from "../../helpers/SerializeUser";
+
 interface RefreshTokenPayload {
   id: string;
   tokenVersion: number;
 }
 
 interface Response {
-  user: User;
+  user: any;
   newToken: string;
   refreshToken: string;
 }
@@ -29,7 +31,14 @@ export const RefreshTokenService = async (
     const decoded = verify(token, authConfig.refreshSecret);
     const { id, tokenVersion } = decoded as RefreshTokenPayload;
 
-    const user = await ShowUserService(id);
+    const user = await User.findByPk(id, {
+      include: ["queues", "whatsapp"]
+    });
+
+    if (!user) {
+      res.clearCookie("jrt");
+      throw new AppError("ERR_SESSION_EXPIRED", 401);
+    }
 
     if (user.tokenVersion !== tokenVersion) {
       res.clearCookie("jrt");
@@ -39,7 +48,9 @@ export const RefreshTokenService = async (
     const newToken = createAccessToken(user);
     const refreshToken = createRefreshToken(user);
 
-    return { user, newToken, refreshToken };
+    const serializedUser = SerializeUser(user);
+
+    return { user: serializedUser, newToken, refreshToken };
   } catch (err) {
     res.clearCookie("jrt");
     throw new AppError("ERR_SESSION_EXPIRED", 401);

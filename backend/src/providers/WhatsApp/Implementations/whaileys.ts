@@ -1432,7 +1432,7 @@ const init = async (whatsapp: Whatsapp): Promise<void> => {
         "";
 
       try {
-        require("fs").appendFileSync("D:/whaticket/backend/disconnect_debug.log", `[${new Date().toISOString()}] Session ${sessionId} (${whatsapp.name}) CLOSED! statusCode=${statusCode}, error=${errorMessage}\n`);
+        require("fs").appendFileSync(require("path").join(process.cwd(), "disconnect_debug.log"), `[${new Date().toISOString()}] Session ${sessionId} (${whatsapp.name}) CLOSED! statusCode=${statusCode}, error=${errorMessage}\n`);
       } catch {}
 
       console.error(`[WHAILEYS DISCONNECT] Session ${sessionId} (${whatsapp.name}) CLOSED! statusCode=${statusCode}, error=${errorMessage}`);
@@ -1492,12 +1492,17 @@ const init = async (whatsapp: Whatsapp): Promise<void> => {
         return;
       }
 
-      // 3. Timeout de QR Code ou Conexao Expirada (408)
-      if (statusCode === DisconnectReason.timedOut || statusCode === 408) {
+      // 3. Timeout real de QR Code (quando aguardando leitura de QR e as tentativas esgotaram)
+      const isQrTimeout =
+        errorMessage === "QR refs attempts ended" ||
+        (Boolean(whatsapp.qrcode) && statusCode === 408 && errorMessage !== "Connection was lost");
+
+      if (isQrTimeout) {
         logger.warn({
-          info: "Connection timed out / QR expired (408). Stopping attempts.",
+          info: "QR Code expired. Stopping attempts until user requests new QR.",
           sessionId,
-          statusCode
+          statusCode,
+          errorMessage
         });
 
         await whatsapp.update({
@@ -2179,6 +2184,123 @@ const fetchChatMessages = async (
   }));
 };
 
+
+const reconcileStoredChatMessages = async (
+  whatsapp: Whatsapp,
+  wbot: Session,
+  store: Store
+): Promise<{ totalScanned: number; totalRecovered: number }> => {
+  const sessionId = whatsapp.id;
+  let totalScanned = 0;
+  let totalRecovered = 0;
+
+  try {
+    if (!store?.messages) return { totalScanned: 0, totalRecovered: 0 };
+
+    logger.info({
+      info: `[Audit Recon] Iniciando varredura de mensagens do túnel ${whatsapp.name} (#${sessionId})`,
+      sessionId
+    });
+
+    const chatJids = Object.keys(store.messages);
+
+    for (const chatJid of chatJids) {
+      if (isJidGroup(chatJid) || isJidBroadcast(chatJid) || chatJid.endsWith("@newsletter")) {
+        continue;
+      }
+
+      const msgList = store.messages[chatJid]?.array || [];
+      if (msgList.length === 0) continue;
+
+      for (const msg of msgList) {
+        totalScanned++;
+        try {
+          if (!msg.key?.id || !msg.message || !shouldHandleMessage(msg)) continue;
+
+          const existing = await Message.findByPk(msg.key.id);
+          if (existing) continue;
+
+          const {
+            messagePayload,
+            contactPayload,
+            contextPayload,
+            mediaPayload
+          } = await getMessageData(msg, wbot);
+
+          const msgTs = msg.messageTimestamp
+            ? new Date(Number(msg.messageTimestamp) * 1000)
+            : new Date();
+
+          await handleMessage(
+            messagePayload,
+            contactPayload,
+            contextPayload,
+            mediaPayload,
+            true, // isHistoricalSync
+            msgTs
+          );
+
+          totalRecovered++;
+        } catch (msgErr) {
+          logger.debug({
+            info: "[Audit Recon] Erro ao recuperar mensagem faltante",
+            msgId: msg.key?.id,
+            err: msgErr
+          });
+        }
+      }
+    }
+
+    logger.info({
+      info: `[Audit Recon] Varredura concluída para ${whatsapp.name}: ${totalScanned} analisadas, ${totalRecovered} novas mensagens recuperadas e adicionadas à auditoria.`,
+      sessionId,
+      totalScanned,
+      totalRecovered
+    });
+  } catch (err) {
+    logger.error({
+      info: "[Audit Recon] Erro geral na varredura",
+      sessionId,
+      err
+    });
+  }
+
+  return { totalScanned, totalRecovered };
+};
+
+const reconcileSessionHistory = async (
+  sessionId: number
+): Promise<{ totalScanned: number; totalRecovered: number }> => {
+  const wbot = sessions.get(sessionId);
+  const store = stores.get(sessionId);
+  if (!wbot || !store) {
+    return { totalScanned: 0, totalRecovered: 0 };
+  }
+  const whatsapp = await Whatsapp.findByPk(sessionId);
+  if (!whatsapp) return { totalScanned: 0, totalRecovered: 0 };
+
+  return reconcileStoredChatMessages(whatsapp, wbot, store);
+};
+
+const reconcileAllSessionsHistory = async (): Promise<{ totalScanned: number; totalRecovered: number }> => {
+  let totalScanned = 0;
+  let totalRecovered = 0;
+
+  for (const [sessionId, wbot] of sessions.entries()) {
+    const store = stores.get(sessionId);
+    if (!wbot || !store) continue;
+
+    const whatsapp = await Whatsapp.findByPk(sessionId);
+    if (!whatsapp || whatsapp.status !== "CONNECTED") continue;
+
+    const res = await reconcileStoredChatMessages(whatsapp, wbot, store);
+    totalScanned += res.totalScanned;
+    totalRecovered += res.totalRecovered;
+  }
+
+  return { totalScanned, totalRecovered };
+};
+
 export const WhaileysProvider: WhatsappProvider = {
   init,
   removeSession,
@@ -2190,5 +2312,7 @@ export const WhaileysProvider: WhatsappProvider = {
   getProfilePicUrl,
   getContacts,
   sendSeen,
-  fetchChatMessages
+  fetchChatMessages,
+  reconcileSessionHistory,
+  reconcileAllSessionsHistory
 };

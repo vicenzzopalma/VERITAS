@@ -12,11 +12,18 @@ const QrcodeModal = ({ open, onClose, whatsAppId }) => {
 	const [qrCode, setQrCode] = useState("");
 
 	useEffect(() => {
-		const fetchSession = async () => {
-			if (!whatsAppId) return;
+		if (!open || !whatsAppId) {
+			setQrCode("");
+			return;
+		}
 
+		let isMounted = true;
+
+		const checkSession = async () => {
 			try {
 				const { data } = await api.get(`/whatsapp/${whatsAppId}`);
+				if (!isMounted) return;
+
 				if (data.status === "CONNECTED") {
 					onClose();
 					return;
@@ -25,23 +32,25 @@ const QrcodeModal = ({ open, onClose, whatsAppId }) => {
 					setQrCode(data.qrcode);
 				}
 			} catch (err) {
-				toastError(err);
+				// Silencia falhas transitórias de polling
 			}
 		};
-		fetchSession();
-	}, [whatsAppId, onClose]);
 
-	useEffect(() => {
-		if (!whatsAppId) return;
+		// Checagem imediata
+		checkSession();
+
+		// Polling ativo a cada 1.5s enquanto o modal estiver aberto
+		const pollInterval = setInterval(checkSession, 1500);
+
 		const socket = openSocket();
 
 		socket.on("whatsappSession", data => {
+			if (!isMounted) return;
 			if (data.action === "update" && data.session && data.session.id === whatsAppId) {
 				if (data.session.qrcode) {
 					setQrCode(data.session.qrcode);
 				}
 
-				// SÓ FECHA QUANDO O WHATSAPP REALMENTE CONECTAR
 				if (data.session.status === "CONNECTED") {
 					onClose();
 				}
@@ -49,12 +58,12 @@ const QrcodeModal = ({ open, onClose, whatsAppId }) => {
 		});
 
 		socket.on("whatsapp", data => {
+			if (!isMounted) return;
 			if (data.action === "update" && data.whatsapp && data.whatsapp.id === whatsAppId) {
 				if (data.whatsapp.qrcode) {
 					setQrCode(data.whatsapp.qrcode);
 				}
 
-				// SÓ FECHA QUANDO O WHATSAPP REALMENTE CONECTAR
 				if (data.whatsapp.status === "CONNECTED") {
 					onClose();
 				}
@@ -62,9 +71,11 @@ const QrcodeModal = ({ open, onClose, whatsAppId }) => {
 		});
 
 		return () => {
+			isMounted = false;
+			clearInterval(pollInterval);
 			socket.disconnect();
 		};
-	}, [whatsAppId, onClose]);
+	}, [open, whatsAppId, onClose]);
 
 	return (
 		<Dialog open={open} onClose={onClose} maxWidth="xs" fullWidth scroll="paper">

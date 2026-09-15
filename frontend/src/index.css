@@ -1,0 +1,81 @@
+/* CRM Dark Drawer override */
+.crm-drawer-dark-mode {
+  background-color: #0c0d14 !important;
+  border-right: 1px solid rgba(255, 255, 255, 0.08) !important;
+  box-shadow: 8px 0 32px rgba(0, 0, 0, 0.6) !important;
+}
+
+.crm-drawer-dark-mode,
+.crm-drawer-dark-mode * {
+  font-family: 'Outfit', sans-serif !important;
+}
+
+.crm-drawer-dark-mode .MuiSvgIcon-root,
+.crm-drawer-dark-mode svg {
+  color: #ffffff !important;
+  fill: #ffffff !important;
+  filter: drop-shadow(0 1px 2px rgba(0,0,0,0.6)) !important;
+}
+
+.crm-drawer-dark-mode .MuiListItemIcon-root {
+  color: #ffffff !important;
+  min-width: 42px !important;
+}
+
+.crm-drawer-dark-mode .MuiListItemText-primary,
+.crm-drawer-dark-mode .MuiTypography-root,
+.crm-drawer-dark-mode .MuiTypography-body1,
+.crm-drawer-dark-mode span {
+  color: #ffffff !important;
+  font-weight: 500 !important;
+}
+
+.crm-drawer-dark-mode .MuiListSubheader-root {
+  color: #94a3b8 !important;
+  background-color: transparent !important;
+  font-weight: 700 !important;
+  font-size: 0.72rem !important;
+  text-transform: uppercase !important;
+  letter-spacing: 0.08em !important;
+}
+
+.crm-drawer-dark-mode .MuiIconButton-root,
+.crm-drawer-dark-mode .MuiIconButton-root svg {
+  color: #ffffff !important;
+  fill: #ffffff !important;
+}
+
+.crm-drawer-dark-mode .MuiDivider-root {
+  background-color: rgba(255, 255, 255, 0.1) !important;
+}
+
+.crm-drawer-dark-mode .crm-menu-item:hover {
+  background-color: rgba(255, 255, 255, 0.12) !important;
+  transform: translateX(3px) !important;
+}
+
+.crm-drawer-dark-mode .crm-menu-item:hover svg,
+.crm-drawer-dark-mode .crm-menu-item:hover .MuiSvgIcon-root,
+.crm-drawer-dark-mode .crm-menu-item:hover .MuiListItemIcon-root {
+  color: #818cf8 !important;
+  fill: #818cf8 !important;
+}
+
+.crm-drawer-dark-mode .crm-menu-item:hover .MuiListItemText-primary,
+.crm-drawer-dark-mode .crm-menu-item:hover span {
+  color: #ffffff !important;
+}
+
+.crm-drawer-dark-mode .crm-active-item svg,
+.crm-drawer-dark-mode .crm-active-item .MuiSvgIcon-root,
+.crm-drawer-dark-mode .crm-active-item .MuiListItemIcon-root {
+  color: #818cf8 !important;
+  fill: #818cf8 !important;
+  filter: drop-shadow(0 0 6px rgba(88,101,242,0.6)) !important;
+}
+
+.crm-drawer-dark-mode .crm-active-item .MuiListItemText-primary,
+.crm-drawer-dark-mode .crm-active-item span {
+  color: #ffffff !important;
+  font-weight: 700 !important;
+}

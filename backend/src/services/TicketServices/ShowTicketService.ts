@@ -5,7 +5,10 @@ import User from "../../models/User";
 import Queue from "../../models/Queue";
 import Whatsapp from "../../models/Whatsapp";
 
-const ShowTicketService = async (id: string | number): Promise<Ticket> => {
+const ShowTicketService = async (
+  id: string | number,
+  userId?: string | number
+): Promise<Ticket> => {
   const ticket = await Ticket.findByPk(id, {
     include: [
       {
@@ -36,7 +39,19 @@ const ShowTicketService = async (id: string | number): Promise<Ticket> => {
     throw new AppError("ERR_NO_TICKET_FOUND", 404);
   }
 
+  if (userId) {
+    const user = await User.findByPk(userId);
+    const isOperator =
+      user?.profile === "operator" ||
+      Boolean(user?.whatsappId && user?.profile !== "admin");
+
+    if (isOperator && ticket.whatsappId !== user?.whatsappId) {
+      throw new AppError("ERR_NO_PERMISSION", 403);
+    }
+  }
+
   return ticket;
 };
 
 export default ShowTicketService;
+

@@ -116,7 +116,11 @@ const UserModal = ({ open, onClose, userId }) => {
 	};
 
 	const handleSaveUser = async values => {
-		const userData = { ...values, whatsappId, queueIds: selectedQueueIds };
+		if (values.profile === "operator" && !whatsappId) {
+			toast.error("Selecione a conexão do WhatsApp para o Operador.");
+			return;
+		}
+		const userData = { ...values, whatsappId: whatsappId || null, queueIds: selectedQueueIds };
 		try {
 			if (userId) {
 				await api.put(`/users/${userId}`, userData);
@@ -124,10 +128,10 @@ const UserModal = ({ open, onClose, userId }) => {
 				await api.post("/users", userData);
 			}
 			toast.success(i18n.t("userModal.success"));
+			handleClose();
 		} catch (err) {
 			toastError(err);
 		}
-		handleClose();
 	};
 
 	return (
@@ -229,6 +233,7 @@ const UserModal = ({ open, onClose, userId }) => {
 													>
 														<MenuItem value="admin">Admin</MenuItem>
 														<MenuItem value="user">User</MenuItem>
+														<MenuItem value="operator">Operador WhatsApp (Tela Dedicada)</MenuItem>
 													</Field>
 												</>
 											)}

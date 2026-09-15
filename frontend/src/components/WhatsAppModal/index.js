@@ -1,7 +1,8 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useContext } from "react";
 import * as Yup from "yup";
 import { Formik, Form, Field } from "formik";
 import { toast } from "react-toastify";
+import { WhatsAppsContext } from "../../context/WhatsApp/WhatsAppsContext";
 
 import { makeStyles } from "@material-ui/core/styles";
 import { green } from "@material-ui/core/colors";
@@ -74,8 +75,122 @@ const SessionSchema = Yup.object().shape({
 		.required("O setor é obrigatório"),
 });
 
+
+const CrmChipSelector = ({ sector, setFieldValue }) => {
+	const [crmChips, setCrmChips] = useState([]);
+	const [loading, setLoading] = useState(false);
+	const [selectedPhone, setSelectedPhone] = useState("");
+
+	useEffect(() => {
+		if (!sector) {
+			setCrmChips([]);
+			setSelectedPhone("");
+			return;
+		}
+
+		let isMounted = true;
+		setLoading(true);
+		api.get("/whatsapp/crm-chips", { params: { sector } })
+			.then(res => {
+				if (isMounted) {
+					if (res.data && Array.isArray(res.data.chips)) {
+						setCrmChips(res.data.chips);
+					} else {
+						setCrmChips([]);
+					}
+					setLoading(false);
+				}
+			})
+			.catch(err => {
+				console.error("Erro ao carregar chips do CRM:", err);
+				if (isMounted) {
+					setCrmChips([]);
+					setLoading(false);
+				}
+			});
+
+		return () => {
+			isMounted = false;
+		};
+	}, [sector]);
+
+	const handleChipChange = (e) => {
+		const phone = e.target.value;
+		setSelectedPhone(phone);
+		if (!phone) return;
+
+		const chip = crmChips.find(c => c.phone_number === phone);
+		if (chip) {
+			const suffix = chip.phone_number ? chip.phone_number.slice(-4) : "";
+			const suggestedName = chip.name
+				? (suffix ? `${chip.name.toUpperCase()} ${suffix}` : chip.name.toUpperCase())
+				: `CHIP ${suffix}`;
+			setFieldValue("name", suggestedName);
+		}
+	};
+
+	if (!sector) return null;
+
+	return (
+		<div style={{ marginTop: 8, marginBottom: 8 }}>
+			<FormControl variant="outlined" margin="dense" fullWidth>
+				<InputLabel id="crm-chip-select-label" shrink>
+					WhatsApp do CRM ({sector}) - Opcional
+				</InputLabel>
+				<Select
+					labelId="crm-chip-select-label"
+					id="crm-chip-select"
+					label={`WhatsApp do CRM (${sector}) - Opcional`}
+					displayEmpty
+					value={selectedPhone}
+					onChange={handleChipChange}
+					disabled={loading}
+					renderValue={selected => {
+						if (!selected) {
+							return <span style={{ color: "#94a3b8" }}>Nenhum / Manual (Não vincular)</span>;
+						}
+						const chip = crmChips.find(c => c.phone_number === selected);
+						if (chip) {
+							return `${chip.name || "Sem Nome"} - (${chip.phone_number})`;
+						}
+						return selected;
+					}}
+				>
+					<MenuItem value="">
+						<em>Nenhum / Manual (Não vincular)</em>
+					</MenuItem>
+					{crmChips.map(chip => (
+						<MenuItem key={chip.id || chip.phone_number} value={chip.phone_number}>
+							<span style={{ fontWeight: 600 }}>{chip.name || "Sem Nome"}</span>
+							<span style={{ marginLeft: 8, color: "#64748b" }}>({chip.phone_number})</span>
+							{chip.holder ? (
+								<span style={{ marginLeft: 8, fontSize: "0.85em", color: "#0284c7" }}>
+									[{chip.holder}]
+								</span>
+							) : null}
+							{chip.device_name ? (
+								<span style={{ marginLeft: 8, fontSize: "0.8em", color: "#16a34a" }}>
+									[Celular {chip.device_name}]
+								</span>
+							) : null}
+						</MenuItem>
+					))}
+				</Select>
+				<FormHelperText>
+					{loading
+						? "Buscando números no CRM WhatsApp Control..."
+						: crmChips.length === 0
+						? `Nenhum WhatsApp cadastrado no CRM para a equipe ${sector}.`
+						: `${crmChips.length} WhatsApp(s) disponível(is) na equipe ${sector}. Ao selecionar, o nome é preenchido automaticamente.`}
+				</FormHelperText>
+			</FormControl>
+		</div>
+	);
+};
+
 const WhatsAppModal = ({ open, onClose, whatsAppId }) => {
 	const classes = useStyles();
+	const { fetchWhatsApps } = useContext(WhatsAppsContext);
 	const initialState = {
 		name: "",
 		greetingMessage: "",
@@ -123,6 +238,9 @@ const WhatsAppModal = ({ open, onClose, whatsAppId }) => {
 			} else {
 				await api.post("/whatsapp", whatsappData);
 			}
+			if (fetchWhatsApps) {
+				await fetchWhatsApps();
+			}
 			toast.success(i18n.t("whatsappModal.success"));
 			handleClose();
 		} catch (err) {
@@ -162,7 +280,7 @@ const WhatsAppModal = ({ open, onClose, whatsAppId }) => {
 						}, 400);
 					}}
 				>
-					{({ values, touched, errors, isSubmitting }) => (
+					{({ values, touched, errors, isSubmitting, setFieldValue }) => (
 						<Form>
 							<DialogContent dividers>
 								<div className={classes.multFieldLine}>
@@ -266,6 +384,7 @@ const WhatsAppModal = ({ open, onClose, whatsAppId }) => {
 										</div>
 									)}
 								</div>
+								<CrmChipSelector sector={values.sector} setFieldValue={setFieldValue} />
 								<div style={{ marginTop: 8, marginBottom: 8 }}>
 									<Field
 										as={TextField}

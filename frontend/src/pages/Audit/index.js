@@ -52,6 +52,7 @@ import {
   ArrowForward as ArrowForwardIcon,
   CropFree as QrCodeIcon,
   Person as PersonIcon,
+  SyncAlt as SyncAltIcon,
 } from "@material-ui/icons";
 import { format, parseISO } from "date-fns";
 import { useHistory } from "react-router-dom";
@@ -528,6 +529,22 @@ const Audit = () => {
   const [selectedChat, setSelectedChat] = useState(null);
   const [messages, setMessages] = useState([]);
   const [loadingDevices, setLoadingDevices] = useState(false);
+  const [syncingTunnels, setSyncingTunnels] = useState(false);
+
+  const handleSyncAllTunnels = async () => {
+    setSyncingTunnels(true);
+    try {
+      const { data } = await api.post("/whatsapp-sync-all-audit");
+      toast.success(data.message || "Varredura de mensagens dos túneis concluída!");
+      await fetchDevices();
+      await fetchChats();
+      await fetchMessages();
+    } catch (err) {
+      toastError(err);
+    } finally {
+      setSyncingTunnels(false);
+    }
+  };
   const [loadingChats, setLoadingChats] = useState(false);
   const [loadingMessages, setLoadingMessages] = useState(false);
   const [chatsPage, setChatsPage] = useState(1);
@@ -1057,6 +1074,8 @@ const Audit = () => {
           >
             Exportar
           </Button>
+
+          
 
           <Tooltip title="Atualizar dados">
             <IconButton

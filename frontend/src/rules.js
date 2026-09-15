@@ -1,4 +1,12 @@
 const rules = {
+	whatsapp_control: {
+		static: [],
+	},
+
+	operator: {
+		static: [],
+	},
+
 	user: {
 		static: [],
 	},

@@ -42,7 +42,10 @@ const ListAuditChatsService = async ({
   const cleanSearch = (search || "").trim().toLowerCase();
 
   let ticketWhere: any = {
-    whatsappId: Number(whatsappId)
+    whatsappId: Number(whatsappId),
+    id: {
+      [Op.in]: sequelize.literal(`(SELECT MAX(id) FROM Tickets WHERE whatsappId = ${Number(whatsappId)} GROUP BY contactId)`)
+    }
   };
 
   const contactOrConditions: any[] = [];

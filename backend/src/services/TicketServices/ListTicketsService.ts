@@ -5,6 +5,7 @@ import Ticket from "../../models/Ticket";
 import Contact from "../../models/Contact";
 import Message from "../../models/Message";
 import Queue from "../../models/Queue";
+import User from "../../models/User";
 import ShowUserService from "../UserServices/ShowUserService";
 import Whatsapp from "../../models/Whatsapp";
 import { getPhoneSearchVariants } from "../../helpers/phoneSearchHelper";
@@ -36,10 +37,26 @@ const ListTicketsService = async ({
   userId,
   withUnreadMessages
 }: Request): Promise<Response> => {
-  let whereCondition: Filterable["where"] = {
-    [Op.or]: [{ userId }, { status: "pending" }],
-    queueId: { [Op.or]: [queueIds, null] }
-  };
+  const user = await User.findByPk(userId);
+  const isOperator = user?.profile === "operator" || Boolean(user?.whatsappId && user?.profile !== "admin");
+
+  let whereCondition: Filterable["where"];
+
+  if (isOperator) {
+    whereCondition = {
+      whatsappId: user?.whatsappId || -1
+    };
+  } else {
+    whereCondition = {
+      [Op.or]: [{ userId }, { status: "pending" }],
+      queueId: { [Op.or]: [queueIds, null] }
+    };
+
+    if (showAll === "true") {
+      whereCondition = { queueId: { [Op.or]: [queueIds, null] } };
+    }
+  }
+
   let includeCondition: Includeable[];
 
   includeCondition = [
@@ -60,16 +77,13 @@ const ListTicketsService = async ({
     }
   ];
 
-  if (showAll === "true") {
-    whereCondition = { queueId: { [Op.or]: [queueIds, null] } };
-  }
-
   if (status) {
     whereCondition = {
       ...whereCondition,
       status
     };
   }
+
 
   if (searchParam) {
     const sanitizedSearchParam = searchParam.toLocaleLowerCase().trim();
@@ -135,16 +149,23 @@ const ListTicketsService = async ({
   }
 
   if (withUnreadMessages === "true") {
-    const user = await ShowUserService(userId);
-    const userQueueIds = (user.queues || []).map((queue: any) => queue.id);
+    if (isOperator) {
+      whereCondition = {
+        ...whereCondition,
+        unreadMessages: { [Op.gt]: 0 }
+      };
+    } else {
+      const userWithQueues = await ShowUserService(userId);
+      const userQueueIds = (userWithQueues.queues || []).map((queue: any) => queue.id);
 
-    whereCondition = {
-      [Op.or]: [{ userId }, { status: "pending" }],
-      ...(userQueueIds.length > 0
-        ? { queueId: { [Op.or]: [userQueueIds, null] } }
-        : {}),
-      unreadMessages: { [Op.gt]: 0 }
-    };
+      whereCondition = {
+        [Op.or]: [{ userId }, { status: "pending" }],
+        ...(userQueueIds.length > 0
+          ? { queueId: { [Op.or]: [userQueueIds, null] } }
+          : {}),
+        unreadMessages: { [Op.gt]: 0 }
+      };
+    }
   }
 
   const limit = 40;

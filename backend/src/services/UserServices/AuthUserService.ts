@@ -6,13 +6,16 @@ import {
 } from "../../helpers/CreateTokens";
 import { SerializeUser } from "../../helpers/SerializeUser";
 import Queue from "../../models/Queue";
+import Whatsapp from "../../models/Whatsapp";
 
 interface SerializedUser {
   id: number;
   name: string;
   email: string;
   profile: string;
+  whatsappId?: number;
   queues: Queue[];
+  whatsapp?: Whatsapp;
 }
 
 interface Request {
@@ -32,7 +35,7 @@ const AuthUserService = async ({
 }: Request): Promise<Response> => {
   const user = await User.findOne({
     where: { email },
-    include: ["queues"]
+    include: ["queues", "whatsapp"]
   });
 
   if (!user) {

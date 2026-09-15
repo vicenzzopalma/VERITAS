@@ -4,7 +4,7 @@ echo ======================================================
 echo   INICIANDO VERITAS (BACKEND + FRONTEND + CLOUDFLARE)
 echo ======================================================
 
-cd /d d:\whaticket
+cd /d "%~dp0"
 echo [1/3] Iniciando aplicacoes com PM2...
 call npx pm2 start ecosystem.config.js
 
