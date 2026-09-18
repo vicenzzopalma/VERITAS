@@ -2,15 +2,16 @@
 
 <div align="center">
 
-![Institution Ready](https://img.shields.io/badge/Evaluation-Oxford%20%7C%20Yale%20%7C%20MIT%20Ready-blueviolet?style=for-the-badge&logo=academia)
+![Institution Ready](https://img.shields.io/badge/Evaluation-Enterprise%20%7C%20Compliance%20Ready-blueviolet?style=for-the-badge&logo=academia)
 ![Architecture](https://img.shields.io/badge/Architecture-Distributed%20WebSocket%20Clustering-0284c7?style=for-the-badge&logo=node.js&logoColor=white)
 ![Forensic Compliance](https://img.shields.io/badge/Forensic%20Compliance-Non--Repudiation%20%26%20Anti--Delete-dc2626?style=for-the-badge&logo=shield&logoColor=white)
 ![Storage Telemetry](https://img.shields.io/badge/Storage%20Telemetry-Real--Time%20Disk%20Analytics-16a34a?style=for-the-badge&logo=sqlite&logoColor=white)
 ![Anti-Ban Engine](https://img.shields.io/badge/Anti--Ban%20Engine-IP%20Isolation%20%26%20Human%20Flow-f59e0b?style=for-the-badge&logo=fastapi&logoColor=white)
+![SSO & Hardware](https://img.shields.io/badge/SSO%20Integration-WhatsApp%20Control%20Synced-8b5cf6?style=for-the-badge&logo=auth0&logoColor=white)
 
-**An Enterprise-Grade, High-Performance Distributed System for Passive Real-Time Communication Auditing, Cryptographic Integrity Verification, and Session-Level Traffic Virtualization.**
+**An Enterprise-Grade, High-Performance Distributed System for Passive Real-Time Communication Auditing, Cryptographic Integrity Verification, Device Lifecycle Management, and Session-Level Traffic Virtualization.**
 
-[📑 Abstract](#-executive-abstract) • [🔬 Architecture](#-system-architecture) • [📊 State Comparison](#-comparative-analysis-current-system-vs-traditional-platforms) • [🛡️ Core Engines](#-core-functional-engines) • [🗄️ Storage Telemetry](#️-real-time-storage--database-telemetry) • [🚀 Deployment](#-execution--deployment)
+[📑 Abstract](#-executive-abstract) • [🔬 Architecture](#-system-architecture) • [📊 State Comparison](#-comparative-analysis-current-system-vs-traditional-platforms) • [🛡️ Core Engines](#-core-functional-engines) • [📱 WhatsApp Control & SSO](#-whatsapp-control--device-lifecycle-integration) • [🗄️ Storage Telemetry](#️-real-time-storage--database-telemetry) • [🚀 Deployment & CI/CD](#-execution--deployment)
 
 </div>
 
@@ -20,7 +21,7 @@
 
 Modern end-to-end encrypted messaging ecosystems (such as WhatsApp, built upon the **Signal Protocol** and **Noise Framework**) present fundamental challenges for institutional governance, dispute resolution, and legal compliance. Standard client applications do not provide non-repudiation audit trails, allow retroactive deletion of evidentiary artifacts, and suffer from severe memory bottlenecks when managed at scale.
 
-**VERITAS** is a high-throughput, low-latency distributed platform engineered to solve these challenges. Originating as an advanced architectural evolution and extensive re-engineering (*remanejamento*) of the open-source **Whaticket** codebase, VERITAS decouples message capture from resource-intensive headless browser renders through native WebSocket stream interception and session key caching. The system orchestrates dozens of concurrent WhatsApp endpoints, enforces immutable anti-delete compliance, provides real-time per-channel disk and database telemetry, and applies advanced session-level proxy virtualization alongside human behavior simulation (*Human Flow*) to prevent heuristic traffic anomalies.
+**VERITAS** is a high-throughput, low-latency distributed platform engineered to solve these challenges. Originating as an advanced architectural evolution and extensive re-engineering (*remanejamento*) of the open-source **Whaticket** codebase, VERITAS decouples message capture from resource-intensive headless browser renders through native WebSocket stream interception and session key caching. The system orchestrates dozens of concurrent WhatsApp endpoints, enforces immutable anti-delete compliance, provides real-time per-channel disk and database telemetry, features seamless SSO with **WhatsApp Control** (hardware chip & device lifecycle), and applies session-level proxy virtualization alongside human behavior simulation (*Human Flow*) to prevent heuristic traffic anomalies.
 
 ---
 
@@ -41,15 +42,19 @@ Modern end-to-end encrypted messaging ecosystems (such as WhatsApp, built upon t
 │ • Robotic packet burst transmission       │ • Human Flow Engine (Organic Jitter/Typing)│
 │ • Opaque black-box storage metrics        │ • Real-Time Live SQLite & Media Telemetry  │
 │ • Media binaries force external tab opens │ • Native Lightbox Popup & Inline PDF Cards │
+│ • Open self-registration without gate     │ • Pending Approval Queue & Anti-Spam Gate  │
+│ • Isolated device lifecycle               │ • Integrated WhatsApp Control Hardware CRM │
 └───────────────────────────────────────────┴────────────────────────────────────────────┘
 ```
 
 ### Key Architectural Transformations:
 1. **Connection Core Re-Engineering:** Substituted resource-heavy browser sessions with direct Baileys WebSocket streams orchestrated via jittered 800ms staggered handshakes.
 2. **Forensic Compliance & Evidentiary Vault:** Implemented perpetual anti-delete message interception, bi-directional quoted reply graph reconstruction, and certified evidentiary exports (PDF / CSV / TXT).
-3. **Real-Time Disk & Database Telemetry:** Built embedded low-latency disk monitoring for `whaticket.sqlite`, the `/public` media directory, and per-device footprint distribution.
-4. **Anti-Ban Protection & Human Flow:** Integrated session-level proxy virtualization and dynamic delay heuristics proportional to payload character length.
-5. **Seamless User Experience (UI/UX):** Introduced inline semi-rendered PDF cards within chat bubbles and a native unified lightbox modal, eliminating 100% of external tab launches.
+3. **WhatsApp Control & Dynamic SSO Integration:** Seamless single sign-on linking VERITAS user profiles directly to the cellular chip control system, ensuring strict operator attribution on all chip restriction and banishment logs.
+4. **Real-Time Disk & Database Telemetry:** Built embedded low-latency disk monitoring for `whaticket.sqlite`, the `/public` media directory, and per-device footprint distribution.
+5. **Connections Hub Enhancements:** Integrated live countdown timers for restricted chips alongside a real-time multi-criteria instant search bar.
+6. **User Governance Gatekeeper:** Strict pending-approval state machine for new account registrations, blocking unauthorized tenant access until administrator sign-off.
+7. **Anti-Ban Protection & Human Flow:** Integrated session-level proxy virtualization and dynamic delay heuristics proportional to payload character length.
 
 ---
 
@@ -63,9 +68,10 @@ Modern end-to-end encrypted messaging ecosystems (such as WhatsApp, built upon t
 | **Network IP Isolation** | Single server IP for all numbers (High ban risk) | **Session-Level Virtualized Proxy (HTTP / SOCKS5 Routing)** |
 | **Transmission Heuristics** | Instant robotic packet bursts (Trigger rate-limit) | **Human Flow Engine (Proportional Delay + Typing Emulation)** |
 | **Storage Observability** | Blind black-box database storage | **Real-Time Storage Telemetry (SQLite & Media Footprint per Device)** |
+| **Device & Chip Lifecycle** | Isolated, static number listing | **Integrated WhatsApp Control (Hardware ID, Chip Status, Restrict Timers)** |
 | **Telephone Search (Omnisearch)** | Exact E.164 string match only (Fails on missing 9th digit) | **Permutational Multi-Variant Index Matcher (DDI/DDD/9-digit tolerant)** |
 | **Boot & Reconnection Stability** | Thundering herd collision (All sessions disconnect) | **Jittered Staggered Initialization (800ms ramp-up sequence)** |
-| **Security & Auditing Access** | Unrestricted or basic role flags | **Cryptographic Token-Based RBAC with Audit Isolation** |
+| **Account Access Governance** | Open signup or basic role assignment | **Pending Verification Gatekeeper with Admin Approval Queue** |
 
 ---
 
@@ -77,7 +83,7 @@ flowchart TB
         D1["📱 WhatsApp Device #01"]
         D2["📱 WhatsApp Device #02"]
         Dn["📱 WhatsApp Device #N"]
-        Tunnel["🔒 Cloudflare Edge Tunnel (Zero-Trust)"]
+        Tunnel["🔒 Cloudflare / Ngrok Edge Tunnel"]
     end
 
     subgraph CoreEngine["⚡ High-Performance WebSocket Engine (Port 6002)"]
@@ -93,16 +99,25 @@ flowchart TB
         Omnisearch["Permutational Phone Matcher"]
     end
 
+    subgraph HardwareCRM["📱 WhatsApp Control Engine (Port 3000)"]
+        CRMService["Phone & Chip Lifecycle Manager"]
+        SSOEngine["Dynamic JWT SSO Resolver"]
+        AuditEngine["Operator Attribution & Audit Logs"]
+        TimerEngine["Countdown & Restriction Monitor"]
+    end
+
     subgraph Persistence["🗄️ Real-Time Persistence Layer"]
         SQLiteDB[("whaticket.sqlite (Structured Records)")]
         MediaDir["/public (Audio, Image, PDF Blobs)"]
         TelemetrySvc["Disk & Table Storage Telemetry Service"]
+        CRMDb[("database.sqlite (Hardware & Chips)")]
     end
 
-    subgraph ClientLayer["🖥️ Frontend Application & Edge Proxy (Port 6001)"]
+    subgraph ClientLayer["🖥️ Frontend Application & Reverse Proxy (Port 6001)"]
         StaticProxy["Unified NodeJS Reverse Proxy"]
         ReactUI["React / Material-UI Telemetry Dashboard"]
         AuditVaultUI["Forensic Audit Vault UI"]
+        ConnectionsHub["Live Connections Hub with Timers & Search"]
     end
 
     D1 & D2 & Dn <-->|Noise Protocol over TLS| AntiBan
@@ -113,7 +128,10 @@ flowchart TB
     AntiDelete --> MediaDir
     SQLiteDB & MediaDir <--> TelemetrySvc
     TelemetrySvc --> StaticProxy
-    StaticProxy <--> ReactUI & AuditVaultUI
+    CRMService <--> CRMDb
+    CRMService <--> SSOEngine
+    StaticProxy <--> ReactUI & AuditVaultUI & ConnectionsHub
+    StaticProxy <-->|Proxy Route /crm| CRMService
     Tunnel <--> StaticProxy
 ```
 
@@ -140,9 +158,48 @@ Matches contacts across all connected devices in $< 5\text{ms}$.
 
 ---
 
+## 📱 WhatsApp Control & Device Lifecycle Integration
+
+The **WhatsApp Control** module operates in seamless harmony with VERITAS to govern the physical fleet of smartphones and SIM cards:
+
+```
+┌────────────────────────────────────────────────────────────────────────────────────────┐
+│                   📱 WHATSAPP CONTROL & HARDWARE LIFECYCLE CAPABILITIES                │
+├────────────────────────────────┬───────────────────────────────────────────────────────┤
+│ Feature                        │ Architecture & Behavioral Implementation              │
+├────────────────────────────────┼───────────────────────────────────────────────────────┤
+│ Dynamic Seamless SSO           │ Auto-resolves JWT credentials into active CRM sessions│
+│ True Operator Attribution      │ Guarantees exact user names in ban and mutation logs  │
+│ Hardware Identity Immutability │ Enforces perpetual operator sovereignty on device names│
+│ Real-Time Restriction Timer    │ Live countdown tickers on the VERITAS Connections tab │
+│ Multi-Criteria Search Filter   │ Instantly filters by device name, phone, proxy, sector│
+│ Fail-Safe Date Sanitization    │ Bulletproof parsing for SQLite timestamps with offsets│
+└────────────────────────────────┴───────────────────────────────────────────────────────┘
+```
+
+1. **Operator Sovereignty & Name Immutability**:
+   - Device names manually assigned by the operator are strictly immutable and perpetual. System routines, reconnections, or discovery agents are forbidden from executing bulk renames or default resets.
+2. **Real-Time Live Countdown Ticker**:
+   - The Connections dashboard displays a dedicated **Timer** column beside each channel status. Restricting or banning a chip automatically updates the countdown ticker across both VERITAS and WhatsApp Control.
+3. **Multi-Criteria Filter**:
+   - Live search input allows instant filtering across all 60+ channels by channel title, connected number, assigned sector (Junior, Senior, PA Fixa, Pesquisa, etc.), or active proxy.
+
+---
+
+## 👥 User Governance: Registration Gatekeeper
+
+To prevent unverified accounts from accessing confidential audit vaults and message streams, VERITAS enforces a zero-trust registration workflow:
+
+- **Pending Verification State**: When a new user registers via `/signup`, their account is automatically created in `pending` status.
+- **Access Guard**: Login attempts by pending users are rejected with an explicit notification requesting administrative activation.
+- **Duplicate Prevention**: Re-registering with an existing pending email notifies the user of the awaiting status instead of creating duplicate accounts.
+- **Administrative Activation**: Administrators can review, activate, promote, or reject pending accounts directly within the **Usuários** dashboard.
+
+---
+
 ## 🗄️ Real-Time Storage & Database Telemetry
 
-VERITAS features an embedded low-latency disk monitoring engine that inspects the filesystem and SQLite relational indices in real time.
+VERITAS features an embedded low-latency disk monitoring engine that inspects the filesystem and SQLite relational indices in real time:
 
 ```
 ┌──────────────────────────────────────────────────────────────────────────────────────────┐
@@ -152,28 +209,6 @@ VERITAS features an embedded low-latency disk monitoring engine that inspects th
 │ 28.25 MB                     │ 131.11 MB                    │ 159.36 MB                  │
 │ whaticket.sqlite (8,832 msgs)│ /public (925 files)          │ 37,765 Contacts • 17 Lines │
 └──────────────────────────────┴──────────────────────────────┴────────────────────────────┘
-
-┌──────────────────────────────────────────────────────────────────────────────────────────┐
-│ 📱 STORAGE CONSUMPTION BREAKDOWN PER WHATSAPP ENDPOINT                                   │
-├──────────────────────┬─────────────┬──────────────┬──────────────┬──────────────┬────────┤
-│ Device / Channel     │ Status      │ Messages     │ DB Footprint │ Media Blobs  │ % Total│
-├──────────────────────┼─────────────┼──────────────┼──────────────┼──────────────┼────────┤
-│ BRUNA ANJOS - 6843   │ 🟢 Connected│ 747 msgs     │ 208.07 KB    │ 11.04 MB     │ 7.1% █ │
-│ ARTHUR 1827          │ 🟢 Connected│ 2,029 msgs   │ 478.38 KB    │ 9.45 MB      │ 6.2% █ │
-│ STHEFANNY 6542       │ 🟢 Connected│ 1,514 msgs   │ 366.68 KB    │ 8.66 MB      │ 5.7% █ │
-│ RESERVA 6696         │ 🟢 Connected│ 775 msgs     │ 163.03 KB    │ 6.16 MB      │ 4.0% █ │
-│ RESERVA 2255         │ 🟢 Connected│ 367 msgs     │ 75.77 KB     │ 4.57 MB      │ 2.9% █ │
-│ RESERVA 7191         │ 🟢 Connected│ 638 msgs     │ 131.77 KB    │ 3.78 MB      │ 2.5% █ │
-│ RESERVA 2186         │ 🟢 Connected│ 791 msgs     │ 156.70 KB    │ 3.82 MB      │ 2.5% █ │
-│ RESERVA 4632         │ 🟢 Connected│ 366 msgs     │ 83.16 KB     │ 3.02 MB      │ 2.0% █ │
-│ RESERVA 0425         │ 🟢 Connected│ 379 msgs     │ 77.54 KB     │ 2.42 MB      │ 1.6% █ │
-│ KASSIEL 5392         │ 🟢 Connected│ 582 msgs     │ 117.32 KB    │ 1.65 MB      │ 1.1% █ │
-│ BRUNA REIS - 6626    │ 🟢 Connected│ 53 msgs      │ 15.55 KB     │ 1.59 MB      │ 1.0% █ │
-│ PAOLA 5151           │ 🟢 Connected│ 119 msgs     │ 28.98 KB     │ 1.07 MB      │ 0.7% █ │
-│ HELOISA PES 8229     │ 🟢 Connected│ 202 msgs     │ 39.83 KB     │ 0.95 MB      │ 0.6% █ │
-│ RESERVA 3495         │ 🟢 Connected│ 61 msgs      │ 14.92 KB     │ 0.95 MB      │ 0.6% █ │
-│ RENATA 1808          │ 🟢 Connected│ 180 msgs     │ 39.12 KB     │ 0.43 MB      │ 0.3% █ │
-└──────────────────────┴─────────────┴──────────────┴──────────────┴──────────────┴────────┘
 ```
 
 ---
@@ -193,6 +228,8 @@ VERITAS features an embedded low-latency disk monitoring engine that inspects th
 | `GET` | `/whatsapp` | List of all WhatsApp session configurations and proxy states | JWT Authenticated |
 | `PUT` | `/whatsapp/:id` | Update dedicated proxy URL, human delay, and channel metadata | JWT Authenticated |
 | `POST` | `/whatsappsession/:id` | Trigger resilient reconnection sequence for an endpoint | JWT Authenticated |
+| `GET` | `/api/public/chips` | Public integration endpoint returning chip restriction timers | CORS / Token |
+| `POST` | `/auth/signup` | Public user registration entering the pending verification queue | Rate-Limited |
 
 ---
 
@@ -200,39 +237,36 @@ VERITAS features an embedded low-latency disk monitoring engine that inspects th
 
 ### Prerequisites
 - **Node.js**: `v18.x` – `v24.x`
-- **Cloudflared**: For Zero-Trust secure edge tunneling
+- **PM2**: Process manager for high availability
+- **Git**: For automated continuous deployment
 
 ---
 
-### Local Windows Startup
+### Local Startup via PM2
 
 ```powershell
-# 1. Start Backend API & WebSocket Engine (Port 6002)
-cd d:\whaticket\backend
-npm run dev
+# Iniciar todos os serviços via PM2 (Backend, Frontend, CRM WhatsApp Control, Sincronizador e Túnel)
+cd d:\VERITAS
+npx pm2 start ecosystem.config.js
 
-# 2. Start Frontend Static Build & Unified Reverse Proxy (Port 6001)
-cd d:\whaticket\frontend
-node server.js
-
-# 3. Expose Live Instance via Cloudflare Tunnel
-cloudflared tunnel --url http://localhost:6001
+# Monitorar status e métricas
+npx pm2 status
+npx pm2 logs
 ```
 
 ---
 
-### Containerized Deployment (Docker Compose)
+### Continuous Deployment (CI/CD para VPS)
 
-```bash
-cd d:\whaticket
-docker-compose up -d --build
-```
+VERITAS includes an automated GitHub Actions workflow (`.github/workflows/deploy.yml`) coupled with a production deployment script (`deploy_vps.sh`):
+
+- **Automatic Trigger**: Any `git push` to the `main` branch triggers the deployment pipeline.
+- **Zero-Downtime Rollout**: Pulls the latest code, executes database migrations, rebuilds the frontend bundles, and reloads PM2 instances gracefully.
+- **Health Check Verification**: Validates HTTP 200 responses before marking deployments as successful.
 
 ---
 
 ## 🛡️ Enterprise Security & Hardening Architecture (20-Layer Defense-in-Depth)
-
-The **VERITAS** platform implements an institutional-grade, defense-in-depth security matrix engineered for mission-critical compliance:
 
 ```
 ┌────────────────────────────────────────────────────────────────────────────────────────┐
@@ -265,60 +299,7 @@ The **VERITAS** platform implements an institutional-grade, defense-in-depth sec
 
 ---
 
-## 🌐 API & Telemetry Specification
-
-### Core Endpoints
-
-| Method | Route | Description | Security |
-| :--- | :--- | :--- | :--- |
-| `GET` | `/dashboard/storage-stats` | Real-time global storage metrics and per-device breakdown | JWT Authenticated |
-| `GET` | `/audit/devices` | Discovered WhatsApp devices with status and message counters | Admin RBAC |
-| `GET` | `/audit/devices/:id/chats` | Contact chat list for a given device with Omnisearch | Admin RBAC |
-| `GET` | `/audit/search-all` | Cross-device global contact and message phone search | Admin RBAC |
-| `GET` | `/audit/messages` | Message timeline with date, media, and anti-delete filters | Admin RBAC |
-| `GET` | `/audit/export` | Certified forensic export (PDF / CSV / TXT) | Admin RBAC |
-| `GET` | `/whatsapp` | List of all WhatsApp session configurations and proxy states | JWT Authenticated |
-| `PUT` | `/whatsapp/:id` | Update dedicated proxy URL, human delay, and channel metadata | JWT Authenticated |
-| `POST` | `/whatsappsession/:id` | Trigger resilient reconnection sequence for an endpoint | JWT Authenticated |
-
----
-
-## 🚀 Execution & Deployment
-
-### Prerequisites
-- **Node.js**: `v18.x` – `v24.x`
-- **Cloudflared**: For Zero-Trust secure edge tunneling
-
----
-
-### Local Windows Startup
-
-```powershell
-# 1. Start Backend API & WebSocket Engine (Port 6002)
-cd d:\whaticket\backend
-npm run dev
-
-# 2. Start Frontend Static Build & Unified Reverse Proxy (Port 6001)
-cd d:\whaticket\frontend
-node server.js
-
-# 3. Expose Live Instance via Cloudflare Tunnel
-cloudflared tunnel --url http://localhost:6001
-```
-
----
-
-### Containerized Deployment (Docker Compose)
-
-```bash
-cd d:\whaticket
-docker-compose up -d --build
-```
-
----
-
-## 📄 License & Academic Merit
+## 📄 License & Governance
 
 * **Engineering Core**: Engineered with a strict focus on **High-Performance Computing (HPC)**, **Mathematical Integrity**, and **Zero-Data Loss**.
-* **Academic Submission**: Designed as part of an institutional evaluation portfolio demonstrating scalable real-time systems engineering, protocol-level state machine handling, and distributed database optimization.
 * **Proprietary Governance**: All evidentiary data, media binaries, and cryptographic key stores remain 100% within the organization's private computational boundary.
