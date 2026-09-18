@@ -40,6 +40,12 @@ const WhatsappControl = () => {
     if (typeof currentToken === "string") {
       currentToken = currentToken.replace(/^["']|["']$/g, "").trim();
     }
+    if (currentToken) {
+      try {
+        sessionStorage.setItem("crm_sso_token", currentToken);
+        localStorage.setItem("crm_sso_token", currentToken);
+      } catch (e) {}
+    }
     setToken(currentToken);
     setReady(true);
   }, []);
@@ -52,7 +58,7 @@ const WhatsappControl = () => {
     );
   }
 
-  const iframeSrc = token ? `/crm/?sso_token=${encodeURIComponent(token)}` : "/crm/";
+  const iframeSrc = token ? `/crm/?sso_token=${encodeURIComponent(token)}&_t=${Date.now()}` : "/crm/";
 
   return (
     <div className={classes.root}>

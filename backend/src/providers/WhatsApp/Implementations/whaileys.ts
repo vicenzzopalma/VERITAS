@@ -442,6 +442,17 @@ const mapMessageAck = (status: number | null | undefined): MessageAck => {
   return 0;
 };
 
+const parseMessageTimestamp = (ts: any): number => {
+  if (!ts) return Date.now();
+  if (typeof ts === "object") {
+    if (typeof ts.toNumber === "function") return ts.toNumber() * 1000;
+    if (ts.low !== undefined) return ts.low * 1000;
+  }
+  const n = Number(ts);
+  if (isNaN(n)) return Date.now();
+  return n < 10000000000 ? n * 1000 : n;
+};
+
 const shouldHandleMessage = (msg: WAMessage): boolean => {
   const remoteJid = msg.key?.remoteJid || "";
   const participant = msg.key?.participant || "";
@@ -501,7 +512,7 @@ const convertToMessagePayload = (msg: WAMessage): MessagePayload => {
     fromMe,
     hasMedia: hasMedia(msg),
     type: mapMessageType(msg),
-    timestamp: msg.messageTimestamp ? Number(msg.messageTimestamp) : Date.now(),
+    timestamp: parseMessageTimestamp(msg.messageTimestamp),
     from: fromJid,
     to: toJid,
     hasQuotedMsg: Boolean(getQuotedMessageId(msg)),
@@ -1189,20 +1200,21 @@ const init = async (whatsapp: Whatsapp): Promise<void> => {
 
       if (!messages || messages.length === 0) return;
 
-      // 3. Filtrar estritamente mensagens das últimas 24 horas
+      // 3. Filtrar mensagens recentes (últimos 7 dias para cobrir noites, fins de semana e feriados)
       const now = Date.now();
-      const twentyFourHoursAgo = now - 24 * 60 * 60 * 1000;
+      const historyRetentionMs = 7 * 24 * 60 * 60 * 1000; // 7 dias de retenção
+      const minTimestamp = now - historyRetentionMs;
 
       const validHistoryMessages = messages.filter(msg => {
         if (!msg.message || !shouldHandleMessage(msg)) return false;
-        const ts = Number(msg.messageTimestamp || 0) * 1000;
-        return ts >= twentyFourHoursAgo;
+        const ts = parseMessageTimestamp(msg.messageTimestamp);
+        return !isNaN(ts) && ts >= minTimestamp;
       });
 
       logger.info({
-        info: "Filtered 24h history messages",
+        info: "Filtered history messages (7 days retention)",
         total: messages.length,
-        valid24h: validHistoryMessages.length,
+        valid: validHistoryMessages.length,
         sessionId
       });
 
@@ -1233,7 +1245,7 @@ const init = async (whatsapp: Whatsapp): Promise<void> => {
         });
 
         // Ordenar mensagens da conversa em ordem cronológica (mais antiga para mais recente)
-        chatMsgs.sort((a, b) => Number(a.messageTimestamp || 0) - Number(b.messageTimestamp || 0));
+        chatMsgs.sort((a, b) => parseMessageTimestamp(a.messageTimestamp) - parseMessageTimestamp(b.messageTimestamp));
 
         let lastMsgText = "";
 
@@ -1241,11 +1253,28 @@ const init = async (whatsapp: Whatsapp): Promise<void> => {
           try {
             if (!msg.key.id) continue;
 
-            // Checar se a mensagem já existe no banco de dados para evitar duplicidade
-            const existing = await Message.findByPk(msg.key.id);
+            // Checar se a mensagem já existe no banco de dados para esta sessão/whatsapp
+            const existing = await Message.findOne({
+              where: {
+                id: {
+                  [Op.or]: [
+                    msg.key.id,
+                    { [Op.like]: `%_${msg.key.id}` }
+                  ]
+                }
+              },
+              include: [
+                {
+                  model: Ticket,
+                  as: "ticket",
+                  where: { whatsappId: sessionId },
+                  attributes: ["id", "whatsappId"]
+                }
+              ]
+            });
             if (existing) continue;
 
-            const msgTs = new Date(Number(msg.messageTimestamp || 0) * 1000);
+            const msgTs = new Date(parseMessageTimestamp(msg.messageTimestamp));
 
             const {
               messagePayload,
@@ -2177,7 +2206,7 @@ const fetchChatMessages = async (
     fromMe: msg.key.fromMe || false,
     hasMedia: hasMedia(msg),
     type: mapMessageType(msg),
-    timestamp: msg.messageTimestamp ? Number(msg.messageTimestamp) : Date.now(),
+    timestamp: parseMessageTimestamp(msg.messageTimestamp),
     from: msg.key.participant || msg.key.remoteJid || "",
     to: normalizedChatId,
     ack: mapMessageAck(msg.status)
@@ -2217,7 +2246,24 @@ const reconcileStoredChatMessages = async (
         try {
           if (!msg.key?.id || !msg.message || !shouldHandleMessage(msg)) continue;
 
-          const existing = await Message.findByPk(msg.key.id);
+          const existing = await Message.findOne({
+            where: {
+              id: {
+                [Op.or]: [
+                  msg.key.id,
+                  { [Op.like]: `%_${msg.key.id}` }
+                ]
+              }
+            },
+            include: [
+              {
+                model: Ticket,
+                as: "ticket",
+                where: { whatsappId: sessionId },
+                attributes: ["id", "whatsappId"]
+              }
+            ]
+          });
           if (existing) continue;
 
           const {
@@ -2227,9 +2273,7 @@ const reconcileStoredChatMessages = async (
             mediaPayload
           } = await getMessageData(msg, wbot);
 
-          const msgTs = msg.messageTimestamp
-            ? new Date(Number(msg.messageTimestamp) * 1000)
-            : new Date();
+          const msgTs = new Date(parseMessageTimestamp(msg.messageTimestamp));
 
           await handleMessage(
             messagePayload,

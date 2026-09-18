@@ -80,7 +80,8 @@ const UserModal = ({ open, onClose, userId }) => {
 		name: "",
 		email: "",
 		password: "",
-		profile: "user"
+		profile: "user",
+		status: "active"
 	};
 
 	const { user: loggedInUser } = useContext(AuthContext);
@@ -234,6 +235,35 @@ const UserModal = ({ open, onClose, userId }) => {
 														<MenuItem value="admin">Admin</MenuItem>
 														<MenuItem value="user">User</MenuItem>
 														<MenuItem value="operator">Operador WhatsApp (Tela Dedicada)</MenuItem>
+													</Field>
+												</>
+											)}
+										/>
+									</FormControl>
+									<FormControl
+										variant="outlined"
+										className={classes.formControl}
+										margin="dense"
+									>
+										<Can
+											role={loggedInUser.profile}
+											perform="user-modal:editProfile"
+											yes={() => (
+												<>
+													<InputLabel id="status-selection-input-label">
+														Status
+													</InputLabel>
+
+													<Field
+														as={Select}
+														label="Status"
+														name="status"
+														labelId="status-selection-label"
+														id="status-selection"
+														required
+													>
+														<MenuItem value="active">Ativo</MenuItem>
+														<MenuItem value="pending">Pendente</MenuItem>
 													</Field>
 												</>
 											)}

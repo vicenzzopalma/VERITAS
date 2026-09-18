@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useContext } from "react";
+import React, { useState, useCallback, useContext, useEffect } from "react";
 import { toast } from "react-toastify";
 import { format, parseISO } from "date-fns";
 
@@ -17,6 +17,8 @@ import {
 	Typography,
 	CircularProgress,
 	Chip,
+	TextField,
+	InputAdornment,
 } from "@material-ui/core";
 import {
 	Edit,
@@ -26,6 +28,9 @@ import {
 	SignalCellular4Bar,
 	CropFree,
 	DeleteOutline,
+	Search as SearchIcon,
+	Clear as ClearIcon,
+	AccessTime,
 } from "@material-ui/icons";
 
 const getSectorColor = sector => {
@@ -46,6 +51,33 @@ const getSectorColor = sector => {
 			return "#374151";
 		default:
 			return "#6366f1";
+	}
+};
+
+const formatDateTime = dateVal => {
+	if (!dateVal) return "-";
+	try {
+		const str = String(dateVal).trim();
+		const cleaned = str.replace(" ", "T").replace(" +", "+").replace(" -", "-");
+		const d = new Date(cleaned);
+		if (isNaN(d.getTime())) {
+			const fallback = new Date(str);
+			if (isNaN(fallback.getTime())) return "-";
+			const dd = String(fallback.getDate()).padStart(2, "0");
+			const mm = String(fallback.getMonth() + 1).padStart(2, "0");
+			const yy = String(fallback.getFullYear()).slice(-2);
+			const hh = String(fallback.getHours()).padStart(2, "0");
+			const min = String(fallback.getMinutes()).padStart(2, "0");
+			return `${dd}/${mm}/${yy} ${hh}:${min}`;
+		}
+		const dd = String(d.getDate()).padStart(2, "0");
+		const mm = String(d.getMonth() + 1).padStart(2, "0");
+		const yy = String(d.getFullYear()).slice(-2);
+		const hh = String(d.getHours()).padStart(2, "0");
+		const min = String(d.getMinutes()).padStart(2, "0");
+		return `${dd}/${mm}/${yy} ${hh}:${min}`;
+	} catch (e) {
+		return "-";
 	}
 };
 
@@ -134,6 +166,109 @@ const Connections = () => {
 	);
 
 	const [selectedSector, setSelectedSector] = useState("TODOS");
+	const [searchParam, setSearchParam] = useState("");
+	const [crmChips, setCrmChips] = useState([]);
+	const [nowTime, setNowTime] = useState(Date.now());
+
+	const loadCrmChips = useCallback(async () => {
+		try {
+			const { data } = await api.get("/whatsapp/crm-chips");
+			if (data && Array.isArray(data.chips)) {
+				setCrmChips(data.chips);
+			}
+		} catch (err) {
+			// silencia falhas transitórias
+		}
+	}, []);
+
+	useEffect(() => {
+		loadCrmChips();
+		const interval = setInterval(loadCrmChips, 15000);
+		return () => clearInterval(interval);
+	}, [loadCrmChips]);
+
+	useEffect(() => {
+		const ticker = setInterval(() => {
+			setNowTime(Date.now());
+		}, 1000);
+		return () => clearInterval(ticker);
+	}, []);
+
+	const crmChipsIndex = React.useMemo(() => {
+		const byPhone = new Map();
+		const byLast4 = new Map();
+		const byName = new Map();
+
+		(crmChips || []).forEach(chip => {
+			if (!chip) return;
+			const rawPhone = String(chip.phone_number || "").replace(/\D/g, "");
+			if (rawPhone) {
+				byPhone.set(rawPhone, chip);
+				const clean = rawPhone.startsWith("55") && rawPhone.length >= 12 ? rawPhone.slice(2) : rawPhone;
+				byPhone.set(clean, chip);
+				if (clean.length >= 8) {
+					byPhone.set(clean.slice(-8), chip);
+				}
+				if (clean.length >= 4) {
+					byLast4.set(clean.slice(-4), chip);
+				}
+			}
+			if (chip.name) {
+				const norm = String(chip.name).toLowerCase().replace(/[^a-z0-9]/g, "");
+				if (norm) byName.set(norm, chip);
+			}
+		});
+
+		return { byPhone, byLast4, byName };
+	}, [crmChips]);
+
+	const getMatchedChip = useCallback(
+		whatsApp => {
+			if (!whatsApp || !crmChipsIndex) return null;
+			try {
+				let waPhone = whatsApp.number ? String(whatsApp.number).replace(/\D/g, "") : "";
+				if (!waPhone && whatsApp.session) {
+					try {
+						const sess = typeof whatsApp.session === "string" ? JSON.parse(whatsApp.session) : whatsApp.session;
+						if (sess?.me?.id) {
+							waPhone = String(sess.me.id).split("@")[0].split(":")[0].replace(/\D/g, "");
+						}
+					} catch (e) {}
+				}
+
+				if (waPhone) {
+					const clean = waPhone.startsWith("55") && waPhone.length >= 12 ? waPhone.slice(2) : waPhone;
+					const chip =
+						crmChipsIndex.byPhone?.get(clean) ||
+						crmChipsIndex.byPhone?.get(waPhone) ||
+						crmChipsIndex.byPhone?.get(clean.slice(-8));
+					if (chip) return chip;
+				}
+
+				if (whatsApp.name) {
+					const digits = String(whatsApp.name).match(/\d{4,}/g);
+					if (digits && digits.length > 0) {
+						const last4 = digits[digits.length - 1].slice(-4);
+						const chip = crmChipsIndex.byLast4?.get(last4);
+						if (chip) return chip;
+					}
+				}
+
+				if (whatsApp.name) {
+					const norm = String(whatsApp.name).toLowerCase().replace(/[^a-z0-9]/g, "");
+					if (norm) {
+						const chip = crmChipsIndex.byName?.get(norm);
+						if (chip) return chip;
+					}
+				}
+
+				return null;
+			} catch (e) {
+				return null;
+			}
+		},
+		[crmChipsIndex]
+	);
 
 	const sectorsList = React.useMemo(() => {
 		const defaultOrder = [
@@ -175,6 +310,25 @@ const Connections = () => {
 			list = list.filter(w => (w.sector || "Junior") === selectedSector);
 		}
 
+		if (searchParam && searchParam.trim() !== "") {
+			const term = searchParam.trim().toLowerCase();
+			list = list.filter(w => {
+				const nameMatch = (w.name || "").toLowerCase().includes(term);
+				const numberMatch =
+					(w.number && String(w.number).toLowerCase().includes(term)) ||
+					(w.phone_number && String(w.phone_number).toLowerCase().includes(term));
+				const sectorMatch = (w.sector || "").toLowerCase().includes(term);
+				const statusMatch = (w.status || "").toLowerCase().includes(term);
+				const proxyMatch = (w.proxyUrl || "").toLowerCase().includes(term);
+				const chip = getMatchedChip(w);
+				const timerMatch =
+					chip &&
+					((chip.status && String(chip.status).toLowerCase().includes(term)) ||
+						(chip.name && String(chip.name).toLowerCase().includes(term)));
+				return nameMatch || numberMatch || sectorMatch || statusMatch || proxyMatch || timerMatch;
+			});
+		}
+
 		// Prioridade absoluta: quem necessita de QR Code fica no topo!
 		return [...list].sort((a, b) => {
 			const pA = getStatusPriority(a.status);
@@ -184,7 +338,7 @@ const Connections = () => {
 			}
 			return (a.name || "").localeCompare(b.name || "");
 		});
-	}, [whatsApps, selectedSector]);
+	}, [whatsApps, selectedSector, searchParam, getMatchedChip]);
 
 	const handleStartWhatsAppSession = async whatsAppId => {
 		try {
@@ -393,6 +547,153 @@ const Connections = () => {
 		);
 	};
 
+	const renderTimerCell = whatsApp => {
+		try {
+			const chip = getMatchedChip(whatsApp);
+			if (!chip) {
+				return (
+					<Typography variant="body2" style={{ color: "#cbd5e1", fontSize: "0.85rem", fontWeight: 600 }}>
+						-
+					</Typography>
+				);
+			}
+
+			if (chip.alarm_active === 1) {
+				return (
+					<Tooltip title={`WhatsApp Control: Chip liberado da restrição (${chip.status || "Liberado"})`} arrow>
+						<span
+							style={{
+								display: "inline-flex",
+								alignItems: "center",
+								gap: 4,
+								padding: "3px 8px",
+								borderRadius: 12,
+								backgroundColor: "#f0fdf4",
+								border: "1px solid #bbf7d0",
+								color: "#15803d",
+								fontWeight: 700,
+								fontSize: "0.74rem",
+								letterSpacing: "0.2px",
+							}}
+						>
+							<span style={{ fontSize: "0.75rem" }}>⏰</span>
+							Liberado
+						</span>
+					</Tooltip>
+				);
+			}
+
+			if (chip.restricted_until) {
+				let targetTime = 0;
+				let targetDate = null;
+				try {
+					targetDate = new Date(chip.restricted_until);
+					targetTime = targetDate.getTime();
+				} catch (e) {
+					targetTime = NaN;
+				}
+
+				if (isNaN(targetTime)) {
+					return (
+						<Typography variant="body2" style={{ color: "#cbd5e1", fontSize: "0.85rem", fontWeight: 600 }}>
+							-
+						</Typography>
+					);
+				}
+
+				const diff = targetTime - nowTime;
+
+				if (diff <= 0) {
+					return (
+						<Tooltip title={`WhatsApp Control: Chip liberado da restrição (${chip.status || "Liberado"})`} arrow>
+							<span
+								style={{
+									display: "inline-flex",
+									alignItems: "center",
+									gap: 4,
+									padding: "3px 8px",
+									borderRadius: 12,
+									backgroundColor: "#f0fdf4",
+									border: "1px solid #bbf7d0",
+									color: "#15803d",
+									fontWeight: 700,
+									fontSize: "0.74rem",
+									letterSpacing: "0.2px",
+								}}
+							>
+								<span style={{ fontSize: "0.75rem" }}>⏰</span>
+								Liberado
+							</span>
+						</Tooltip>
+					);
+				}
+
+				const days = Math.floor(diff / 8.64e7);
+				const hrs = Math.floor((diff % 8.64e7) / 3.6e6);
+				const mins = Math.floor((diff % 3.6e6) / 6e4);
+				const secs = Math.floor((diff % 6e4) / 1000);
+
+				const label =
+					days > 0
+						? `${days}d ${String(hrs).padStart(2, "0")}h ${String(mins).padStart(2, "0")}m`
+						: `${String(hrs).padStart(2, "0")}:${String(mins).padStart(2, "0")}:${String(secs).padStart(2, "0")}`;
+
+				let formattedTarget = "";
+				if (targetDate && !isNaN(targetDate.getTime())) {
+					try {
+						const day = String(targetDate.getDate()).padStart(2, "0");
+						const month = String(targetDate.getMonth() + 1).padStart(2, "0");
+						const hours = String(targetDate.getHours()).padStart(2, "0");
+						const minutes = String(targetDate.getMinutes()).padStart(2, "0");
+						formattedTarget = `${day}/${month} às ${hours}:${minutes}`;
+					} catch (e) {
+						formattedTarget = "";
+					}
+				}
+
+				return (
+					<Tooltip
+						title={`WhatsApp Control: ${chip.status || "Restrito"}${formattedTarget ? ` • Até ${formattedTarget}` : ""}`}
+						arrow
+					>
+						<span
+							style={{
+								display: "inline-flex",
+								alignItems: "center",
+								gap: 4,
+								padding: "3px 8px",
+								borderRadius: 12,
+								backgroundColor: "#fffbeb",
+								border: "1px solid #fef3c7",
+								boxShadow: "0 1px 2px rgba(217, 119, 6, 0.08)",
+								color: "#b45309",
+								fontWeight: 700,
+								fontFamily: "monospace",
+								fontSize: "0.78rem",
+								letterSpacing: "0.4px",
+							}}
+						>
+							<AccessTime style={{ fontSize: 13, color: "#d97706" }} />
+							{label}
+						</span>
+					</Tooltip>
+				);
+			}
+
+			return (
+				<Typography variant="body2" style={{ color: "#cbd5e1", fontSize: "0.85rem", fontWeight: 600 }}>
+					-
+				</Typography>
+			);
+		} catch (err) {
+			return (
+				<Typography variant="body2" style={{ color: "#cbd5e1", fontSize: "0.85rem", fontWeight: 600 }}>
+					-
+				</Typography>
+			);
+		}
+	};
+
 	return (
 		<MainContainer>
 			<ConfirmationModal
@@ -416,10 +717,48 @@ const Connections = () => {
 			<MainHeader>
 				<Title>{i18n.t("connections.title")}</Title>
 				<MainHeaderButtonsWrapper>
+					<TextField
+						placeholder="Buscar por nome, número, setor ou status..."
+						type="search"
+						variant="outlined"
+						size="small"
+						value={searchParam}
+						onChange={e => setSearchParam(e.target.value)}
+						InputProps={{
+							startAdornment: (
+								<InputAdornment position="start">
+									<SearchIcon style={{ color: "#64748b", fontSize: 20 }} />
+								</InputAdornment>
+							),
+							endAdornment: searchParam ? (
+								<InputAdornment position="end">
+									<IconButton
+										size="small"
+										onClick={() => setSearchParam("")}
+										style={{ padding: 2 }}
+									>
+										<ClearIcon fontSize="small" style={{ color: "#94a3b8" }} />
+									</IconButton>
+								</InputAdornment>
+							) : null,
+							style: {
+								borderRadius: 8,
+								backgroundColor: "#fff",
+								fontSize: "0.85rem",
+								height: 38,
+							},
+						}}
+						style={{ minWidth: 320 }}
+					/>
 					<Button
 						variant="contained"
 						color="primary"
 						onClick={handleOpenWhatsAppModal}
+						style={{
+							height: 38,
+							borderRadius: 8,
+							fontWeight: 700,
+						}}
 					>
 						{i18n.t("connections.buttons.add")}
 					</Button>
@@ -508,6 +847,9 @@ const Connections = () => {
 								{i18n.t("connections.table.status")}
 							</TableCell>
 							<TableCell align="center">
+								Timer
+							</TableCell>
+							<TableCell align="center">
 								{i18n.t("connections.table.session")}
 							</TableCell>
 							<TableCell align="center">
@@ -563,10 +905,13 @@ const Connections = () => {
 												{renderStatusToolTips(whatsApp)}
 											</TableCell>
 											<TableCell align="center">
+												{renderTimerCell(whatsApp)}
+											</TableCell>
+											<TableCell align="center">
 												{renderActionButtons(whatsApp)}
 											</TableCell>
 											<TableCell align="center">
-												{format(parseISO(whatsApp.updatedAt), "dd/MM/yy HH:mm")}
+												{formatDateTime(whatsApp.updatedAt)}
 											</TableCell>
 											<TableCell align="center">
 												{whatsApp.isDefault && (
@@ -596,9 +941,13 @@ const Connections = () => {
 									))}
 								{filteredWhatsApps?.length === 0 && (
 									<TableRow>
-										<TableCell colSpan={7} align="center">
-											<Typography variant="body2" style={{ padding: "24px 0", color: "#64748b", fontWeight: 500 }}>
-												Nenhum WhatsApp cadastrado no setor <strong>{selectedSector}</strong>.
+										<TableCell colSpan={8} align="center">
+											<Typography variant="body2" style={{ padding: "28px 0", color: "#64748b", fontWeight: 500 }}>
+												{searchParam ? (
+													<>Nenhuma conexão encontrada para "<strong>{searchParam}</strong>"{selectedSector !== "TODOS" ? ` no setor ${selectedSector}` : ""}.</>
+												) : (
+													<>Nenhum WhatsApp cadastrado no setor <strong>{selectedSector}</strong>.</>
+												)}
 											</Typography>
 										</TableCell>
 									</TableRow>
@@ -612,4 +961,57 @@ const Connections = () => {
 	);
 };
 
-export default Connections;
+class ErrorBoundary extends React.Component {
+	constructor(props) {
+		super(props);
+		this.state = { hasError: false, error: null, errorInfo: null };
+	}
+	static getDerivedStateFromError(error) {
+		return { hasError: true, error };
+	}
+	componentDidCatch(error, errorInfo) {
+		console.error("ErrorBoundary em Connections:", error, errorInfo);
+		this.setState({ errorInfo });
+	}
+	render() {
+		if (this.state.hasError) {
+			return (
+				<MainContainer>
+					<MainHeader>
+						<Title>Conexões</Title>
+					</MainHeader>
+					<Paper style={{ padding: 24, margin: 16 }}>
+						<Typography variant="h6" color="secondary" gutterBottom>
+							Ocorreu um erro ao carregar as conexões:
+						</Typography>
+						<Typography variant="body1" style={{ color: "#b91c1c", fontWeight: 700, margin: "12px 0", background: "#fef2f2", padding: 12, borderRadius: 6 }}>
+							{String(this.state.error?.message || this.state.error || "Erro desconhecido")}
+						</Typography>
+						<pre style={{ fontSize: "0.75rem", background: "#f8fafc", color: "#334155", padding: 12, borderRadius: 6, overflowX: "auto", maxHeight: 300 }}>
+							{String(this.state.error?.stack || "")}
+							{"\n\nComponent Stack:\n"}
+							{String(this.state.errorInfo?.componentStack || "")}
+						</pre>
+						<Button
+							variant="contained"
+							color="primary"
+							onClick={() => window.location.reload()}
+							style={{ marginTop: 16 }}
+						>
+							Recarregar
+						</Button>
+					</Paper>
+				</MainContainer>
+			);
+		}
+		return this.props.children;
+	}
+}
+
+const ConnectionsWrapper = props => (
+	<ErrorBoundary>
+		<Connections {...props} />
+	</ErrorBoundary>
+);
+
+export default ConnectionsWrapper;

@@ -14,9 +14,12 @@ import IconButton from "@material-ui/core/IconButton";
 import SearchIcon from "@material-ui/icons/Search";
 import TextField from "@material-ui/core/TextField";
 import InputAdornment from "@material-ui/core/InputAdornment";
+import Chip from "@material-ui/core/Chip";
+import Tooltip from "@material-ui/core/Tooltip";
 
 import DeleteOutlineIcon from "@material-ui/icons/DeleteOutline";
 import EditIcon from "@material-ui/icons/Edit";
+import CheckCircleIcon from "@material-ui/icons/CheckCircle";
 
 import MainContainer from "../../components/MainContainer";
 import MainHeader from "../../components/MainHeader";
@@ -158,6 +161,20 @@ const Users = () => {
     setUserModalOpen(true);
   };
 
+  const handleApproveUser = async (user) => {
+    try {
+      await api.put(`/users/${user.id}`, {
+        name: user.name,
+        email: user.email,
+        profile: user.profile,
+        status: "active",
+      });
+      toast.success(i18n.t("users.toasts.approved") || "Usuário aprovado com sucesso.");
+    } catch (err) {
+      toastError(err);
+    }
+  };
+
   const handleDeleteUser = async (userId) => {
     try {
       await api.delete(`/users/${userId}`);
@@ -245,7 +262,10 @@ const Users = () => {
               </TableCell>
               <TableCell align="center">
                 {i18n.t("users.table.whatsapp")}
-              </TableCell>              
+              </TableCell>
+              <TableCell align="center">
+                {i18n.t("users.table.status") || "Status"}
+              </TableCell>
               <TableCell align="center">
                 {i18n.t("users.table.actions")}
               </TableCell>
@@ -258,8 +278,45 @@ const Users = () => {
                   <TableCell align="center">{user.name}</TableCell>
                   <TableCell align="center">{user.email}</TableCell>
                   <TableCell align="center">{user.profile}</TableCell>
-                  <TableCell align="center">{user.whatsapp?.name}</TableCell>
+                  <TableCell align="center">{user.whatsapp?.name || "-"}</TableCell>
                   <TableCell align="center">
+                    {user.status === "pending" ? (
+                      <Chip
+                        size="small"
+                        label="Pendente"
+                        style={{
+                          backgroundColor: "#f59e0b",
+                          color: "#fff",
+                          fontWeight: 600,
+                          fontSize: "0.75rem",
+                        }}
+                      />
+                    ) : (
+                      <Chip
+                        size="small"
+                        label="Ativo"
+                        style={{
+                          backgroundColor: "#10b981",
+                          color: "#fff",
+                          fontWeight: 600,
+                          fontSize: "0.75rem",
+                        }}
+                      />
+                    )}
+                  </TableCell>
+                  <TableCell align="center">
+                    {user.status === "pending" && (
+                      <Tooltip title={i18n.t("users.buttons.approve") || "Aprovar Conta"}>
+                        <IconButton
+                          size="small"
+                          style={{ color: "#10b981", marginRight: 4 }}
+                          onClick={() => handleApproveUser(user)}
+                        >
+                          <CheckCircleIcon />
+                        </IconButton>
+                      </Tooltip>
+                    )}
+
                     <IconButton
                       size="small"
                       onClick={() => handleEditUser(user)}
@@ -279,7 +336,7 @@ const Users = () => {
                   </TableCell>
                 </TableRow>
               ))}
-              {loading && <TableRowSkeleton columns={4} />}
+              {loading && <TableRowSkeleton columns={6} />}
             </>
           </TableBody>
         </Table>

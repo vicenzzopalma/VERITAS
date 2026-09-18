@@ -39,6 +39,14 @@ const CreateMessageService = async ({
     }
   }
 
+  // COLLISION DETECTION & ISOLATION FOR MULTI-DEVICE INTERNAL CHATS:
+  // Se a mensagem já existe no banco mas pertence a OUTRO ticket (ex: conversa interna entre 2 chips conectados),
+  // geramos um ID composto isolado por ticket para que cada ticket tenha sua cópia íntegra da mensagem.
+  const existingMessage = await Message.findByPk(messageData.id);
+  if (existingMessage && existingMessage.ticketId !== messageData.ticketId) {
+    messageData.id = `${messageData.ticketId}_${messageData.id}`;
+  }
+
   await Message.upsert(messageData);
 
   const message = await Message.findByPk(messageData.id, {

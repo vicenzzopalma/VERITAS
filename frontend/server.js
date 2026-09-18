@@ -124,12 +124,18 @@ const server = http.createServer((req, res) => {
 
     
     // 2.5 Proxy Direto para o Whatsapp Control (Gestão de Celulares)
+    const referer = req.headers["referer"] || "";
+    const isCrmReferer = referer.includes("/crm") || referer.includes("/whatsapp-control");
     const isCrmRoute = parsedUrl === "/crm" || 
                        parsedUrl.startsWith("/crm/") || 
                        parsedUrl === "/login.html" || 
                        parsedUrl === "/login.js" || 
+                       parsedUrl === "/style.css" || 
+                       parsedUrl === "/app.js" || 
                        parsedUrl === "/popup.html" || 
-                       parsedUrl === "/popup.js";
+                       parsedUrl === "/popup.js" || 
+                       parsedUrl === "/html2pdf.bundle.min.js" ||
+                       (isCrmReferer && (parsedUrl.endsWith(".css") || parsedUrl.endsWith(".js") || parsedUrl.endsWith(".map")));
     const isCrmApi = (parsedUrl.startsWith("/api/") && !parsedUrl.startsWith("/api/messages"));
 
     if (isCrmRoute || isCrmApi) {

@@ -1,0 +1,52 @@
+#!/bin/bash
+# ==============================================================================
+# Script de Atualização Automática do VERITAS na VPS
+# Executado localmente na VPS ou disparado via GitHub Actions / Webhook
+# ==============================================================================
+set -e
+
+echo "=================================================="
+echo "🚀 [VERITAS] Iniciando processo de atualização..."
+echo "📅 Data: $(date)"
+echo "=================================================="
+
+# Diretório raiz da aplicação na VPS
+APP_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+cd "$APP_DIR"
+
+# 1. Puxar as últimas alterações do GitHub
+echo ""
+echo "📥 1. Atualizando código via Git..."
+git fetch origin main
+git reset --hard origin/main
+
+# 2. Atualizar dependências e banco do Backend
+echo ""
+echo "⚙️ 2. Atualizando Backend..."
+cd "$APP_DIR/backend"
+npm install --omit=dev --legacy-peer-deps
+npx sequelize-cli db:migrate
+
+# 3. Compilar o Frontend (React + Vite)
+echo ""
+echo "⚛️ 3. Compilando Frontend (Produção)..."
+cd "$APP_DIR/frontend"
+npm install --omit=dev --legacy-peer-deps
+npm run build
+
+# 4. Atualizar Gestão de Celulares (CRM)
+echo ""
+echo "📱 4. Atualizando Gestão de Celulares..."
+cd "$APP_DIR/Gestão de celulares"
+npm install --omit=dev --legacy-peer-deps
+
+# 5. Reiniciar e recarregar os processos no PM2
+echo ""
+echo "🔄 5. Recarregando serviços no PM2 sem interrupção..."
+cd "$APP_DIR"
+pm2 reload ecosystem.config.js || pm2 restart ecosystem.config.js
+
+echo ""
+echo "=================================================="
+echo "✅ [VERITAS] Aplicação atualizada com 100% de sucesso!"
+echo "=================================================="

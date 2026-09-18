@@ -2,6 +2,7 @@ import { join } from "path";
 import { promisify } from "util";
 import { writeFile } from "fs";
 import * as Sentry from "@sentry/node";
+import { Op } from "sequelize";
 
 import { getIO } from "../libs/socket";
 import { logger } from "../utils/logger";
@@ -348,7 +349,15 @@ export const handleMessageAck = async (
   const io = getIO();
 
   try {
-    const messageToUpdate = await Message.findByPk(messageId, {
+    const messagesToUpdate = await Message.findAll({
+      where: {
+        id: {
+          [Op.or]: [
+            messageId,
+            { [Op.like]: `%_${messageId}` }
+          ]
+        }
+      },
       include: [
         "contact",
         {
@@ -359,16 +368,14 @@ export const handleMessageAck = async (
       ]
     });
 
-    if (!messageToUpdate) {
-      return;
+    for (const messageToUpdate of messagesToUpdate) {
+      await messageToUpdate.update({ ack });
+
+      io.to(messageToUpdate.ticketId.toString()).emit("appMessage", {
+        action: "update",
+        message: messageToUpdate
+      });
     }
-
-    await messageToUpdate.update({ ack });
-
-    io.to(messageToUpdate.ticketId.toString()).emit("appMessage", {
-      action: "update",
-      message: messageToUpdate
-    });
   } catch (err) {
     Sentry.captureException(err);
     logger.error(`Error handling message ack: ${err}`);

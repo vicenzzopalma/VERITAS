@@ -174,7 +174,8 @@ const useAuth = () => {
 			if (data.user?.profile === "operator") {
 				history.push("/live");
 			} else if (data.user?.profile === "whatsapp_control") {
-				history.push("/whatsapp-control");} else {
+				history.push("/whatsapp-control");
+			} else {
 				history.push("/tickets");
 			}
 			setLoading(false);
@@ -191,12 +192,21 @@ const useAuth = () => {
 			await api.delete("/auth/logout");
 		} catch (err) {
 			// Ignora erro de rede no logout
+		}
+		try {
+			await fetch("/api/auth/logout", { method: "POST" });
+		} catch (err) {
+			// Ignora se o CRM não responder
 		} finally {
 			setIsAuth(false);
 			setUser({});
 			localStorage.removeItem("token");
 			localStorage.removeItem("refreshToken");
 			localStorage.removeItem("user");
+			try {
+				sessionStorage.removeItem("crm_sso_token");
+				localStorage.removeItem("crm_sso_token");
+			} catch (e) {}
 			api.defaults.headers.Authorization = undefined;
 			setLoading(false);
 			history.push("/login");

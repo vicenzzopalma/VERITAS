@@ -4,7 +4,7 @@ const messages = {
       signup: {
         title: "Cadastre-se",
         toasts: {
-          success: "Usuário criado com sucesso! Faça seu login!!!.",
+          success: "Cadastro realizado com sucesso! Sua conta está pendente de aprovação por um administrador.",
           fail: "Erro ao criar usuário. Verifique os dados informados.",
         },
         form: {
@@ -349,13 +349,16 @@ const messages = {
           email: "Email",
           profile: "Perfil",
           whatsapp: "Conexão Padrão",
+          status: "Status",
           actions: "Ações",
         },
         buttons: {
           add: "Adicionar usuário",
+          approve: "Aprovar Conta",
         },
         toasts: {
           deleted: "Usuário excluído com sucesso.",
+          approved: "Usuário aprovado com sucesso.",
         },
         confirmationModal: {
           deleteTitle: "Excluir",
@@ -445,6 +448,9 @@ const messages = {
         ERR_DELETE_WAPP_MSG: "Não foi possível excluir a mensagem do WhatsApp.",
         ERR_OTHER_OPEN_TICKET: "Já existe um tíquete aberto para este contato.",
         ERR_SESSION_EXPIRED: "Sessão expirada. Por favor entre.",
+        ERR_USER_PENDING_APPROVAL: "Sua conta foi criada e está pendente de aprovação por um administrador.",
+        ERR_USER_ALREADY_EXISTS_PENDING: "Este cadastro já foi realizado e está aguardando a confirmação do administrador.",
+        ERR_USER_ALREADY_EXISTS: "Já existe uma conta cadastrada com este e-mail.",
         ERR_USER_CREATION_DISABLED:
           "A criação do usuário foi desabilitada pelo administrador.",
         ERR_NO_PERMISSION: "Você não tem permissão para acessar este recurso.",

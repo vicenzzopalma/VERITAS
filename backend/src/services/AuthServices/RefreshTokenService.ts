@@ -45,6 +45,11 @@ export const RefreshTokenService = async (
       throw new AppError("ERR_SESSION_EXPIRED", 401);
     }
 
+    if (user.status === "pending") {
+      res.clearCookie("jrt");
+      throw new AppError("ERR_USER_PENDING_APPROVAL", 403);
+    }
+
     const newToken = createAccessToken(user);
     const refreshToken = createRefreshToken(user);
 

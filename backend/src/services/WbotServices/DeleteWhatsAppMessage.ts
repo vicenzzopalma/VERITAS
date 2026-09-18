@@ -22,10 +22,14 @@ const DeleteWhatsAppMessage = async (messageId: string): Promise<Message> => {
 
   const chatId = `${ticket.contact.number}@${ticket.isGroup ? "g" : "c"}.us`;
 
+  const rawMessageId = message.id.includes("_")
+    ? message.id.split("_").slice(1).join("_")
+    : message.id;
+
   await whatsappProvider.deleteMessage(
     ticket.whatsappId,
     chatId,
-    message.id,
+    rawMessageId,
     message.fromMe
   );
 

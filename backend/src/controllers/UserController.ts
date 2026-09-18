@@ -28,7 +28,7 @@ export const index = async (req: Request, res: Response): Promise<Response> => {
 
 export const store = async (req: Request, res: Response): Promise<Response> => {
   const { email, password, name, queueIds, whatsappId } = req.body;
-  let { profile } = req.body;
+  let { profile, status } = req.body;
 
   if (
     req.url === "/signup" &&
@@ -42,6 +42,7 @@ export const store = async (req: Request, res: Response): Promise<Response> => {
   // Prevenção estrita de Mass Assignment / Escalação de Privilégio no Signup
   if (req.url === "/signup") {
     profile = "user";
+    status = "pending";
   }
 
   const user = await CreateUserService({
@@ -49,6 +50,7 @@ export const store = async (req: Request, res: Response): Promise<Response> => {
     password,
     name,
     profile: profile || "user",
+    status: status || "active",
     queueIds,
     whatsappId
   });
@@ -79,10 +81,10 @@ export const update = async (
   }
 
   const { userId } = req.params;
-  const { email, password, name, profile, queueIds, whatsappId } = req.body;
+  const { email, password, name, profile, queueIds, whatsappId, status } = req.body;
 
   const user = await UpdateUserService({
-    userData: { email, password, name, profile, queueIds, whatsappId },
+    userData: { email, password, name, profile, queueIds, whatsappId, status },
     userId
   });
 

@@ -10,6 +10,7 @@ interface Request {
   name: string;
   queueIds?: number[];
   profile?: string;
+  status?: string;
   whatsappId?: number;
 }
 
@@ -18,6 +19,7 @@ interface Response {
   name: string;
   id: number;
   profile: string;
+  status: string;
 }
 
 const CreateUserService = async ({
@@ -26,24 +28,12 @@ const CreateUserService = async ({
   name,
   queueIds = [],
   profile = "admin",
+  status = "active",
   whatsappId
 }: Request): Promise<Response> => {
   const schema = Yup.object().shape({
     name: Yup.string().required().min(2),
-    email: Yup.string()
-      .email()
-      .required()
-      .test(
-        "Check-email",
-        "An user with this email already exists.",
-        async value => {
-          if (!value) return false;
-          const emailExists = await User.findOne({
-            where: { email: value }
-          });
-          return !emailExists;
-        }
-      ),
+    email: Yup.string().email().required(),
     password: Yup.string().required().min(5)
   });
 
@@ -53,12 +43,24 @@ const CreateUserService = async ({
     throw new AppError(err.message);
   }
 
+  const emailExists = await User.findOne({
+    where: { email }
+  });
+
+  if (emailExists) {
+    if (emailExists.status === "pending") {
+      throw new AppError("ERR_USER_ALREADY_EXISTS_PENDING", 400);
+    }
+    throw new AppError("ERR_USER_ALREADY_EXISTS", 400);
+  }
+
   const user = await User.create(
     {
       email,
       password,
       name,
       profile,
+      status,
       whatsappId: whatsappId ? whatsappId : null
     },
     { include: ["queues", "whatsapp"] }

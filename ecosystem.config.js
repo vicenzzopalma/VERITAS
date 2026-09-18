@@ -50,6 +50,21 @@ module.exports = {
       autorestart: true,
       watch: false,
       max_memory_restart: "300M"
+    },
+    {
+      name: "veritas-sync-agent",
+      cwd: path.resolve(__dirname, "Gestão de celulares", "integracoes", "veritas-agent"),
+      script: "veritas-sync-agent.js",
+      instances: 1,
+      autorestart: true,
+      watch: false,
+      max_memory_restart: "300M",
+      env: {
+        WHATICKET_DB_PATH: path.resolve(__dirname, "backend", "whaticket.sqlite"),
+        CRM_URL: "http://127.0.0.1:3000",
+        VERITAS_SYNC_TOKEN: "esfera_veritas_sync_secret_2026",
+        SYNC_INTERVAL: "10"
+      }
     }
   ]
 };
