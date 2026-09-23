@@ -23,4 +23,4 @@ jobs:
             # Ajuste o caminho abaixo se seu projeto estiver em outra pasta na VPS
             cd /var/www/VERITAS || cd ~/VERITAS || cd /opt/VERITAS
             chmod +x deploy_vps.sh
-            ./deploy_vps.sh
+            bash deploy_vps.sh

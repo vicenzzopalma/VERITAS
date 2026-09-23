@@ -43,15 +43,6 @@ module.exports = {
       }
     },
     {
-      name: "ngrok-tunnel",
-      cwd: path.resolve(__dirname, "Gestão de celulares"),
-      script: "tunnel.js",
-      instances: 1,
-      autorestart: true,
-      watch: false,
-      max_memory_restart: "300M"
-    },
-    {
       name: "veritas-sync-agent",
       cwd: path.resolve(__dirname, "Gestão de celulares", "integracoes", "veritas-agent"),
       script: "veritas-sync-agent.js",

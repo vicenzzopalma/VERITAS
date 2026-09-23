@@ -35,7 +35,6 @@ echo ""
 echo "⚙️ 2. Atualizando Backend..."
 cd "$APP_DIR/backend"
 npm install --legacy-peer-deps
-npm run build || true
 npx sequelize-cli db:migrate || true
 
 # 3. Compilar o Frontend (React + Vite)
@@ -48,16 +47,12 @@ npm run build
 # 4. Atualizar Gestão de Celulares (CRM)
 echo ""
 echo "📱 4. Atualizando Gestão de Celulares..."
-if [ -d "$APP_DIR/Gestão de celulares/.git" ]; then
+if [ -d "$APP_DIR/Gestão de celulares" ]; then
     cd "$APP_DIR/Gestão de celulares"
-    git fetch origin main
-    git reset --hard origin/main
-    npm install --legacy-peer-deps
-else
-    rm -rf "$APP_DIR/Gestão de celulares"
-    git clone https://github.com/vicenzzopalma/PhoneGestorage.git "$APP_DIR/Gestão de celulares"
-    cd "$APP_DIR/Gestão de celulares"
-    npm install --legacy-peer-deps
+    if [ -d ".git" ]; then
+        GIT_TERMINAL_PROMPT=0 git fetch origin main 2>/dev/null && git reset --hard origin/main 2>/dev/null || echo "ℹ️ Gestão de Celulares: Mantido na versão instalada localmente."
+    fi
+    npm install --legacy-peer-deps || true
 fi
 
 # 5. Reiniciar e recarregar os processos no PM2
@@ -65,6 +60,7 @@ echo ""
 echo "🔄 5. Recarregando serviços no PM2 sem interrupção..."
 cd "$APP_DIR"
 pm2 reload ecosystem.config.js || pm2 restart ecosystem.config.js
+pm2 save
 
 echo ""
 echo "=================================================="
