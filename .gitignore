@@ -8,14 +8,14 @@ ssl/
 *.crt
 
 # Databases & Backups
-*.sqlite
-*.sqlite3
-*.sqlite-wal
-*.sqlite-shm
-*.sqlite.bak*
-*.db
-!.gitignore
-!backend/whaticket.sqlite.gz
+*.sqlite*
+*.sqlite3*
+*.db*
+*.gz
+*.zip
+*.tar*
+*.bak*
+*.dump
 .docker/data/
 
 # Logs & Runtime

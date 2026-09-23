@@ -107,10 +107,10 @@ Diferente do modelo engessado de Helpdesk, este módulo oferece consulta direta 
 
 | Usuário | Login | Senha | Perfil | Finalidade |
 | :--- | :--- | :--- | :--- | :--- |
-| **Yasmin** | `yasmin` | `Ope@2025` | Administrador | Supervisão e Auditoria Geral |
-| **Arthur Hille** | `arthur.hille` | `Ope@2025` | Administrador | Gestão Técnica e Conexões |
-| **Jana Juttel** | `jana.juttel` | `Jana@2025` | Administrador | Supervisão de Atendimento |
-| **Admin Geral** | `admin@whaticket.com` | `admin` | Administrador | Manutenção Master |
+| **Yasmin** | `yasmin` | `********` | Administrador | Supervisão e Auditoria Geral |
+| **Arthur Hille** | `arthur.hille` | `********` | Administrador | Gestão Técnica e Conexões |
+| **Jana Juttel** | `jana.juttel` | `********` | Administrador | Supervisão de Atendimento |
+| **Admin Geral** | `admin@whaticket.com` | `********` | Administrador | Manutenção Master |
 
 ---
 
