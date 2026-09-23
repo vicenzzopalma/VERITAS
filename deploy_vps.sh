@@ -48,8 +48,17 @@ npm run build
 # 4. Atualizar Gestão de Celulares (CRM)
 echo ""
 echo "📱 4. Atualizando Gestão de Celulares..."
-cd "$APP_DIR/Gestão de celulares"
-npm install --legacy-peer-deps
+if [ -d "$APP_DIR/Gestão de celulares/.git" ]; then
+    cd "$APP_DIR/Gestão de celulares"
+    git fetch origin main
+    git reset --hard origin/main
+    npm install --legacy-peer-deps
+else
+    rm -rf "$APP_DIR/Gestão de celulares"
+    git clone https://github.com/vicenzzopalma/PhoneGestorage.git "$APP_DIR/Gestão de celulares"
+    cd "$APP_DIR/Gestão de celulares"
+    npm install --legacy-peer-deps
+fi
 
 # 5. Reiniciar e recarregar os processos no PM2
 echo ""

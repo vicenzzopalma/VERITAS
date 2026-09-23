@@ -37,9 +37,9 @@ if ! command -v node >/dev/null 2>&1 || [ "$(node -v | cut -d'.' -f1)" != "v20" 
 fi
 npm install -g pm2
 
-# 4. Clonar ou atualizar o repositório do VERITAS
+# 4. Clonar ou atualizar os repositórios do VERITAS e PhoneGestorage
 echo ""
-echo "📥 [4/8] Baixando a versão mais recente do VERITAS do GitHub..."
+echo "📥 [4/8] Baixando a versão mais recente do VERITAS e Gestão de Celulares..."
 mkdir -p /var/www
 if [ -d "/var/www/VERITAS/.git" ]; then
     cd /var/www/VERITAS
@@ -49,6 +49,16 @@ else
     rm -rf /var/www/VERITAS
     git clone https://github.com/vicenzzopalma/VERITAS.git /var/www/VERITAS
     cd /var/www/VERITAS
+fi
+
+# Clonar ou atualizar Gestão de Celulares (CRM)
+if [ -d "/var/www/VERITAS/Gestão de celulares/.git" ]; then
+    cd "/var/www/VERITAS/Gestão de celulares"
+    git fetch origin main
+    git reset --hard origin/main
+else
+    rm -rf "/var/www/VERITAS/Gestão de celulares"
+    git clone https://github.com/vicenzzopalma/PhoneGestorage.git "/var/www/VERITAS/Gestão de celulares"
 fi
 
 chmod +x /var/www/VERITAS/deploy_vps.sh
@@ -86,12 +96,12 @@ echo ""
 echo "⚙️ [6/8] Instalando dependências e compilando aplicações..."
 cd /var/www/VERITAS/backend
 npm install --legacy-peer-deps
-npm run build || true
-npx sequelize-cli db:migrate || true
 
 cd /var/www/VERITAS/frontend
 npm install --legacy-peer-deps
-npm run build
+if [ ! -d "/var/www/VERITAS/frontend/build" ] || [ ! -f "/var/www/VERITAS/frontend/build/index.html" ]; then
+    npm run build
+fi
 
 cd "/var/www/VERITAS/Gestão de celulares"
 npm install --legacy-peer-deps
