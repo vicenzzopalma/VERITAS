@@ -141,6 +141,13 @@ server {
 }
 EOF
 
+# Parar Traefik caso a VPS tenha vindo com template Docker+Traefik
+systemctl stop traefik 2>/dev/null || true
+systemctl disable traefik 2>/dev/null || true
+docker stop $(docker ps -a -q --filter name=traefik) 2>/dev/null || true
+docker update --restart=no $(docker ps -a -q --filter name=traefik) 2>/dev/null || true
+fuser -k 80/tcp 2>/dev/null || true
+
 ln -sf /etc/nginx/sites-available/veritas /etc/nginx/sites-enabled/default
 nginx -t && systemctl restart nginx && systemctl enable nginx
 
