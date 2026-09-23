@@ -50,14 +50,26 @@ Toda IA, agente ou desenvolvedor que for realizar alterações e executar `git p
 
 1. **BLINDAGEM ABSOLUTA DE DADOS SENSÍVEIS (PROIBIÇÃO DE BANCOS E TOKENS):**
    - **NUNCA adicionar ao Git:** Arquivos de banco de dados (`*.sqlite`, `*.sqlite3`, `*.db`, `*.wal`, `*.shm`), arquivos compactados (`*.gz`, `*.zip`, `*.tar`), arquivos `.env`, senhas reais em arquivos markdown ou tokens de autenticação.
-   - **Banco de Dados Real:** O banco de dados de produção contendo as 140.000+ mensagens, contatos e sessões reside **exclusivamente na VPS** em `/var/www/VERITAS/backend/whaticket.sqlite`. Nunca deve ser commitado no repositório.
+   - **Banco de Dados Real:** O banco de dados de produção contendo as 140.000+ mensagens, contatos e sessões reside **exclusivamente na VPS** em `/var/www/VERITAS/backend/whaticket.sqlite`. Nunca deve ser commitado no repositório público.
    - **Validação Pré-Commit Obrigatória:** Antes de qualquer commit, a IA deve inspecionar o `git status` para garantir que nenhum arquivo temporário, sensível ou dump foi incluído no stage.
 
 2. **FLUXO DE DEPLOY CONTÍNUO (CI/CD AUTOMÁTICO VIA GITHUB ACTIONS):**
    - Ao executar `git push origin main` no repositório `VERITAS`, o workflow [`.github/workflows/deploy.yml`] é acionado automaticamente.
-   - O GitHub Actions conecta via SSH na VPS oficial (`187.77.243.224`), executa o script [`deploy_vps.sh`], atualiza o código, recompila o frontend em produção e recarrega os microsserviços no PM2 sem interrupção de serviço.
+   - O GitHub Actions conecta via SSH na VPS oficial (`187.77.243.224`), executa o comando encadeado:
+     ```bash
+     cd /var/www/VERITAS && git fetch origin main && git reset --hard origin/main && bash deploy_vps.sh
+     ```
+   - O script [`deploy_vps.sh`] atualiza o código, recompila o frontend Vite em produção e recarrega os microsserviços no PM2 com zero downtime.
    - **Imutabilidade do Pipeline:** Fica proibido quebrar ou remover os scripts [`deploy_vps.sh`] e [`.github/workflows/deploy.yml`].
 
-3. **ESTRUTURA DUAL DE REPOSITÓRIOS:**
+3. **PASSO A PASSO MANDATÓRIO PARA A IA AO FAZER ALTERAÇÕES E PUSH:**
+   - **Passo 1:** Realizar as modificações necessárias no código.
+   - **Passo 2:** Executar `git status` e verificar linha por linha se nenhum arquivo sensível (`.env`, `.sqlite`, logs, mídias) foi tocado.
+   - **Passo 3:** Adicionar especificamente os arquivos modificados (ex: `git add src/...`).
+   - **Passo 4:** Criar o commit semântico (ex: `git commit -m "feat/fix: descricao"`).
+   - **Passo 5:** Fazer o push para o GitHub (`git push origin main`).
+   - **Passo 6:** O deploy na VPS é 100% automático. Não há necessidade de acessar a VPS via SSH para dar reload manual.
+
+4. **ESTRUTURA DUAL DE REPOSITÓRIOS:**
    - **Repositório Principal (VERITAS):** `https://github.com/vicenzzopalma/VERITAS` (Backend Baileys + Frontend React).
    - **Repositório do WhatsApp Control (CRM):** `https://github.com/vicenzzopalma/PhoneGestorage` (pasta `Gestão de celulares`). Alterações dentro deste submódulo devem ser commitadas e enviadas para o seu repositório dedicado.
