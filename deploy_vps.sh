@@ -34,21 +34,22 @@ fi
 echo ""
 echo "⚙️ 2. Atualizando Backend..."
 cd "$APP_DIR/backend"
-npm install --omit=dev --legacy-peer-deps
-npx sequelize-cli db:migrate
+npm install --legacy-peer-deps
+npm run build || true
+npx sequelize-cli db:migrate || true
 
 # 3. Compilar o Frontend (React + Vite)
 echo ""
 echo "⚛️ 3. Compilando Frontend (Produção)..."
 cd "$APP_DIR/frontend"
-npm install --omit=dev --legacy-peer-deps
+npm install --legacy-peer-deps
 npm run build
 
 # 4. Atualizar Gestão de Celulares (CRM)
 echo ""
 echo "📱 4. Atualizando Gestão de Celulares..."
 cd "$APP_DIR/Gestão de celulares"
-npm install --omit=dev --legacy-peer-deps
+npm install --legacy-peer-deps
 
 # 5. Reiniciar e recarregar os processos no PM2
 echo ""

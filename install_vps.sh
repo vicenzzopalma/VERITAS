@@ -81,19 +81,20 @@ PROXY_PORT=6002
 REDIS_URL=
 EOF
 
-# 6. Instalar dependências, migrações e compilar o frontend
+# 6. Instalar dependências, compilar e preparar aplicações
 echo ""
 echo "⚙️ [6/8] Instalando dependências e compilando aplicações..."
 cd /var/www/VERITAS/backend
-npm install --omit=dev --legacy-peer-deps
-npx sequelize-cli db:migrate
+npm install --legacy-peer-deps
+npm run build || true
+npx sequelize-cli db:migrate || true
 
 cd /var/www/VERITAS/frontend
-npm install --omit=dev --legacy-peer-deps
+npm install --legacy-peer-deps
 npm run build
 
 cd "/var/www/VERITAS/Gestão de celulares"
-npm install --omit=dev --legacy-peer-deps
+npm install --legacy-peer-deps
 
 # 7. Iniciar serviços com PM2
 echo ""
