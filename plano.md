@@ -151,3 +151,4 @@ Diferente do modelo engessado de Helpdesk, este módulo oferece consulta direta 
 | **Fase 5** | Implementação do Sync Retroativo de 24h (1 conversa por vez) | ✅ Concluído |
 | **Fase 6** | Criação do Módulo Frontend/Backend "Cofre / Auditoria por Aparelho" | ✅ Concluído |
 | **Fase 7** | Geração do pacote e Deploy na VPS Hostinger (IP: 187.77.243.224) | ✅ Concluído |
+| **Fase 8** | Automação Contínua CI/CD via GitHub Actions e SSH Deploy | ✅ Concluído |
