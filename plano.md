@@ -99,7 +99,7 @@ Diferente do modelo engessado de Helpdesk, este módulo oferece consulta direta 
   * `6002`: Backend API + Engine Baileys.
 * **Canais de Acesso:**
   1. **Acesso Local Direto:** `http://192.168.1.128:6001/` (Regras liberadas no Firewall do Windows).
-  2. **Túnel Seguro (Cloudflare Tunnel Ativo):** `https://lecture-playstation-windsor-extremely.trycloudflare.com` (Bypassa bloqueios de AP Isolation / Wi-Fi corporativo).
+  2. **Túnel Seguro (Cloudflare Tunnel Ativo):** `https://higher-farmer-offshore-tropical.trycloudflare.com` (Bypassa bloqueios de AP Isolation / Wi-Fi corporativo).
 
 ---
 

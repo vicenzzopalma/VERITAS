@@ -20,11 +20,13 @@ import EditIcon from "@material-ui/icons/Edit";
 import FingerprintIcon from "@material-ui/icons/Fingerprint";
 import SmartphoneIcon from "@material-ui/icons/Smartphone";
 import EmailIcon from "@material-ui/icons/Email";
+import ZoomInIcon from "@material-ui/icons/ZoomIn";
 
 import { i18n } from "../../translate/i18n";
 import ContactModal from "../ContactModal";
 import ContactDrawerSkeleton from "../ContactDrawerSkeleton";
 import MarkdownWrapper from "../MarkdownWrapper";
+import MediaViewerModal from "../MediaViewerModal";
 import { formatPhoneNumber } from "../../helpers/contactHelper";
 import clsx from "clsx";
 
@@ -83,15 +85,50 @@ const useStyles = makeStyles(theme => ({
     backgroundColor: "#ffffff",
     boxShadow: "0 1px 3px rgba(0,0,0,0.02)",
   },
-  avatar: {
-    width: 90,
-    height: 90,
+  avatarWrapper: {
+    position: "relative",
+    display: "inline-flex",
+    borderRadius: "50%",
     marginBottom: theme.spacing(1.5),
+    transition: "transform 0.2s ease",
+    "&:hover": {
+      transform: "scale(1.03)",
+    },
+  },
+  avatar: {
+    width: 94,
+    height: 94,
     border: "3px solid #52658C",
     boxShadow: "0 4px 10px rgba(82, 101, 140, 0.2)",
-    fontSize: "2rem",
+    fontSize: "2.1rem",
     fontWeight: 700,
     backgroundColor: "#52658C",
+    transition: "all 0.2s ease",
+  },
+  avatarClickable: {
+    cursor: "pointer",
+    "&:hover": {
+      boxShadow: "0 6px 18px rgba(2, 132, 199, 0.35)",
+      borderColor: "#0284c7",
+    },
+  },
+  avatarHoverOverlay: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    width: "100%",
+    height: "100%",
+    borderRadius: "50%",
+    backgroundColor: "rgba(0, 0, 0, 0.42)",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    opacity: 0,
+    cursor: "pointer",
+    transition: "opacity 0.2s ease",
+    "&:hover": {
+      opacity: 1,
+    },
   },
   contactName: {
     fontWeight: 800,
@@ -192,6 +229,7 @@ const ContactDrawer = ({
 }) => {
   const classes = useStyles();
   const [modalOpen, setModalOpen] = useState(false);
+  const [profilePicModalOpen, setProfilePicModalOpen] = useState(false);
   const [copied, setCopied] = useState(false);
   const [copiedLid, setCopiedLid] = useState(false);
 
@@ -267,13 +305,34 @@ const ContactDrawer = ({
         <div className={classes.content}>
           {/* 2. Card Principal de Identificação */}
           <Paper elevation={0} className={classes.profileCard}>
-            <Avatar
-              alt={contact?.name}
-              src={contact?.profilePicUrl}
-              className={classes.avatar}
+            <Tooltip
+              title={contact?.profilePicUrl ? "Clique para ampliar a foto do perfil" : ""}
+              placement="top"
             >
-              {(contact?.name || formattedPhone || "C").charAt(0).toUpperCase()}
-            </Avatar>
+              <div
+                className={classes.avatarWrapper}
+                onClick={() => {
+                  if (contact?.profilePicUrl) {
+                    setProfilePicModalOpen(true);
+                  }
+                }}
+              >
+                <Avatar
+                  alt={contact?.name}
+                  src={contact?.profilePicUrl}
+                  className={clsx(classes.avatar, {
+                    [classes.avatarClickable]: Boolean(contact?.profilePicUrl),
+                  })}
+                >
+                  {(contact?.name || formattedPhone || "C").charAt(0).toUpperCase()}
+                </Avatar>
+                {contact?.profilePicUrl && (
+                  <div className={classes.avatarHoverOverlay}>
+                    <ZoomInIcon style={{ color: "#ffffff", fontSize: 32 }} />
+                  </div>
+                )}
+              </div>
+            </Tooltip>
 
             <Typography className={classes.contactName}>
               {contact?.isGroup ? (contact?.name || "Grupo WhatsApp") : (formattedPhone || contact?.name || "Sem Nome")}
@@ -406,6 +465,15 @@ const ContactDrawer = ({
         open={modalOpen}
         onClose={() => setModalOpen(false)}
         contactId={contact?.id}
+      />
+
+      {/* Modal de Foto de Perfil Ampliada Estilo WhatsApp */}
+      <MediaViewerModal
+        open={profilePicModalOpen}
+        onClose={() => setProfilePicModalOpen(false)}
+        mediaUrl={contact?.profilePicUrl}
+        mediaType="image"
+        title={`${contact?.name || formattedPhone || "Contato"} - Foto de Perfil`}
       />
     </Drawer>
   );

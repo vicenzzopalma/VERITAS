@@ -20,6 +20,16 @@ echo "📥 1. Atualizando código via Git..."
 git fetch origin main
 git reset --hard origin/main
 
+# 1.1 Restaurar banco de dados se não existir ou se solicitado
+if [ -f "$APP_DIR/backend/whaticket.sqlite.gz" ]; then
+    if [ ! -f "$APP_DIR/backend/whaticket.sqlite" ] || [ "$RESTORE_DB" = "1" ]; then
+        echo ""
+        echo "📦 Restaurando banco de dados completo (whaticket.sqlite.gz)..."
+        gzip -d -c "$APP_DIR/backend/whaticket.sqlite.gz" > "$APP_DIR/backend/whaticket.sqlite"
+        echo "✅ Banco de dados descompactado com sucesso!"
+    fi
+fi
+
 # 2. Atualizar dependências e banco do Backend
 echo ""
 echo "⚙️ 2. Atualizando Backend..."

@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState, useEffect } from "react";
 import {
   Dialog,
   DialogTitle,
@@ -15,13 +15,15 @@ import ImageIcon from "@material-ui/icons/Image";
 import VideocamIcon from "@material-ui/icons/Videocam";
 import DescriptionIcon from "@material-ui/icons/Description";
 import PrintIcon from "@material-ui/icons/Print";
+import ZoomInIcon from "@material-ui/icons/ZoomIn";
+import ZoomOutIcon from "@material-ui/icons/ZoomOut";
 
 const useStyles = makeStyles(theme => ({
   dialogPaper: {
     backgroundColor: theme.palette.type === "dark" ? "#1e293b" : "#ffffff",
     borderRadius: 12,
     overflow: "hidden",
-    boxShadow: "0 25px 50px -12px rgba(0, 0, 0, 0.25)",
+    boxShadow: "0 25px 50px -12px rgba(0, 0, 0, 0.35)",
   },
   dialogTitle: {
     display: "flex",
@@ -35,7 +37,7 @@ const useStyles = makeStyles(theme => ({
     display: "flex",
     alignItems: "center",
     gap: 8,
-    maxWidth: "calc(100% - 130px)",
+    maxWidth: "calc(100% - 170px)",
     overflow: "hidden",
     textOverflow: "ellipsis",
     whiteSpace: "nowrap",
@@ -45,11 +47,22 @@ const useStyles = makeStyles(theme => ({
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: theme.palette.type === "dark" ? "#0f172a" : "#0f172a", // dark background for media lightbox
+    backgroundColor: "#0b141a", // Dark backdrop WhatsApp style
     minHeight: 350,
-    maxHeight: "82vh",
-    overflow: "hidden",
+    maxHeight: "84vh",
+    overflow: "auto",
     position: "relative",
+  },
+  imageContainer: {
+    width: "100%",
+    height: "100%",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    padding: theme.spacing(1.5),
+    minHeight: 350,
+    userSelect: "none",
+    overflow: "auto",
   },
   imageViewer: {
     maxWidth: "100%",
@@ -57,6 +70,7 @@ const useStyles = makeStyles(theme => ({
     objectFit: "contain",
     display: "block",
     margin: "auto",
+    borderRadius: 4,
   },
   pdfIframe: {
     width: "100%",
@@ -87,25 +101,33 @@ const useStyles = makeStyles(theme => ({
 
 const MediaViewerModal = ({ open, onClose, mediaUrl, mediaType, title }) => {
   const classes = useStyles();
+  const [isZoomed, setIsZoomed] = useState(false);
+
+  useEffect(() => {
+    if (!open) {
+      setIsZoomed(false);
+    }
+  }, [open, mediaUrl]);
 
   if (!open || !mediaUrl) return null;
 
   const isPdf =
     mediaType?.includes("pdf") ||
     mediaUrl?.toLowerCase().endsWith(".pdf") ||
-    mediaType?.includes("document") && mediaUrl?.toLowerCase().includes(".pdf");
+    (mediaType?.includes("document") && mediaUrl?.toLowerCase().includes(".pdf"));
 
   const isImage =
     mediaType?.startsWith("image") ||
-    mediaUrl?.match(/\.(jpeg|jpg|gif|png|webp)$/i);
+    mediaUrl?.match(/\.(jpeg|jpg|gif|png|webp)($|\?)/i) ||
+    mediaUrl?.includes("pps.whatsapp.net");
 
   const isVideo =
     mediaType?.startsWith("video") ||
-    mediaUrl?.match(/\.(mp4|webm|mkv|mov)$/i);
+    mediaUrl?.match(/\.(mp4|webm|mkv|mov)($|\?)/i);
 
   const isAudio =
     mediaType?.startsWith("audio") ||
-    mediaUrl?.match(/\.(ogg|mp3|wav|m4a|aac)$/i);
+    mediaUrl?.match(/\.(ogg|mp3|wav|m4a|aac)($|\?)/i);
 
   const fileName = title || mediaUrl.split("/").pop() || "Arquivo";
 
@@ -158,6 +180,14 @@ const MediaViewerModal = ({ open, onClose, mediaUrl, mediaType, title }) => {
         </div>
 
         <div className={classes.actionButtons}>
+          {isImage && (
+            <Tooltip title={isZoomed ? "Reduzir Foto (100%)" : "Ampliar Foto (Zoom)"}>
+              <IconButton size="small" onClick={() => setIsZoomed(!isZoomed)} style={{ color: "#38bdf8" }}>
+                {isZoomed ? <ZoomOutIcon fontSize="small" /> : <ZoomInIcon fontSize="small" />}
+              </IconButton>
+            </Tooltip>
+          )}
+
           {isPdf && (
             <Tooltip title="Imprimir Documento">
               <IconButton size="small" onClick={handlePrint}>
@@ -182,11 +212,24 @@ const MediaViewerModal = ({ open, onClose, mediaUrl, mediaType, title }) => {
 
       <DialogContent className={classes.dialogContent}>
         {isImage && (
-          <img
-            src={mediaUrl}
-            alt={fileName}
-            className={classes.imageViewer}
-          />
+          <div
+            className={classes.imageContainer}
+            onClick={() => setIsZoomed(!isZoomed)}
+            style={{
+              cursor: isZoomed ? "zoom-out" : "zoom-in",
+            }}
+          >
+            <img
+              src={mediaUrl}
+              alt={fileName}
+              className={classes.imageViewer}
+              style={{
+                transform: isZoomed ? "scale(1.8)" : "scale(1)",
+                transition: "transform 0.25s cubic-bezier(0.4, 0, 0.2, 1)",
+                transformOrigin: "center center",
+              }}
+            />
+          </div>
         )}
 
         {isPdf && (

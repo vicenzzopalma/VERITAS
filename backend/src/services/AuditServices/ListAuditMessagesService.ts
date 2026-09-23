@@ -32,16 +32,26 @@ const ListAuditMessagesService = async ({
   onlyDeleted,
   mediaType,
   pageNumber = 1,
-  limit = 50
+  limit = 2000
 }: Request): Promise<Response> => {
+  const isFetchAll = limit === -1 || limit >= 50000;
+  const actualLimit = isFetchAll ? 50000 : Math.max(1, Number(limit));
   const page = Math.max(1, Number(pageNumber));
-  const offset = limit * (page - 1);
+  const offset = isFetchAll ? 0 : actualLimit * (page - 1);
 
   const whereConditions: any = {};
   const ticketWhereConditions: any = {};
 
   if (ticketId) {
-    whereConditions.ticketId = Number(ticketId);
+    const currentTicket = await Ticket.findByPk(Number(ticketId));
+    if (currentTicket) {
+      if (!whatsappId) {
+        ticketWhereConditions.whatsappId = currentTicket.whatsappId;
+      }
+      ticketWhereConditions.contactId = currentTicket.contactId;
+    } else {
+      whereConditions.ticketId = Number(ticketId);
+    }
   }
 
   if (whatsappId) {
@@ -58,17 +68,31 @@ const ListAuditMessagesService = async ({
     };
   }
 
+  const parseDateFilter = (val: string, isEnd: boolean): Date => {
+    if (val.length === 10 && val.includes("-")) {
+      const [y, m, d] = val.split("-").map(Number);
+      const date = new Date(y, m - 1, d);
+      if (isEnd) {
+        date.setHours(23, 59, 59, 999);
+      } else {
+        date.setHours(0, 0, 0, 0);
+      }
+      return date;
+    }
+    const date = new Date(val);
+    if (isEnd && !val.includes("T")) {
+      date.setHours(23, 59, 59, 999);
+    }
+    return date;
+  };
+
   if (startDate || endDate) {
     const dateFilter: any = {};
     if (startDate) {
-      const start = new Date(startDate);
-      start.setHours(0, 0, 0, 0);
-      dateFilter[Op.gte] = start;
+      dateFilter[Op.gte] = parseDateFilter(startDate, false);
     }
     if (endDate) {
-      const end = new Date(endDate);
-      end.setHours(23, 59, 59, 999);
-      dateFilter[Op.lte] = end;
+      dateFilter[Op.lte] = parseDateFilter(endDate, true);
     }
     whereConditions.createdAt = dateFilter;
   }
@@ -133,7 +157,7 @@ const ListAuditMessagesService = async ({
         ]
       }
     ],
-    limit,
+    limit: actualLimit,
     offset,
     order: [["createdAt", "DESC"]]
   });
@@ -155,7 +179,7 @@ const ListAuditMessagesService = async ({
       : undefined
   });
 
-  const hasMore = count > offset + messages.length;
+  const hasMore = isFetchAll ? false : count > offset + messages.length;
 
   return {
     messages: messages.reverse(),

@@ -53,6 +53,7 @@ import {
   CropFree as QrCodeIcon,
   Person as PersonIcon,
   SyncAlt as SyncAltIcon,
+  History as HistoryIcon,
 } from "@material-ui/icons";
 import { format, parseISO } from "date-fns";
 import { useHistory } from "react-router-dom";
@@ -254,6 +255,11 @@ const useStyles = makeStyles((theme) => ({
     height: 40,
     fontSize: "0.95rem",
     fontWeight: 600,
+    transition: "transform 0.15s ease, box-shadow 0.15s ease",
+    "&:hover": {
+      transform: "scale(1.08)",
+      boxShadow: "0 2px 8px rgba(0,0,0,0.15)",
+    },
   },
   chatInfo: {
     flexGrow: 1,
@@ -307,6 +313,11 @@ const useStyles = makeStyles((theme) => ({
     height: 44,
     fontSize: "1.05rem",
     fontWeight: 700,
+    transition: "transform 0.15s ease, box-shadow 0.15s ease",
+    "&:hover": {
+      transform: "scale(1.08)",
+      boxShadow: "0 3px 10px rgba(0,0,0,0.2)",
+    },
   },
   filterToolbar: {
     backgroundColor: theme.palette.background.paper,
@@ -550,6 +561,13 @@ const Audit = () => {
   const [chatsPage, setChatsPage] = useState(1);
   const [hasMoreChats, setHasMoreChats] = useState(false);
   const [loadingMoreChats, setLoadingMoreChats] = useState(false);
+
+  // Estados de paginação e histórico completo de mensagens
+  const [messagesTotalCount, setMessagesTotalCount] = useState(0);
+  const [hasMoreMessages, setHasMoreMessages] = useState(false);
+  const [loadingMoreMessages, setLoadingMoreMessages] = useState(false);
+  const [messagesPage, setMessagesPage] = useState(1);
+  const isAppendingOlderRef = useRef(false);
 
   // Busca Global no Topo (Todos os Aparelhos)
   const [globalSearchInput, setGlobalSearchInput] = useState("");
@@ -837,13 +855,16 @@ const Audit = () => {
     fetchChats(true, 1);
   }, [selectedDevice?.id, chatSearch]);
 
-  // 3. Carregar mensagens da conversa ou filtros
-  const fetchMessages = async (showLoading = false) => {
+  // 3. Carregar mensagens da conversa ou filtros (com histórico completo)
+  const fetchMessages = async (showLoading = false, page = 1, appendOlder = false, fetchAll = false) => {
     const activeWhatsappId = selectedChat?.whatsappId || selectedDevice?.id;
     if (!activeWhatsappId) return;
 
     if (showLoading) setLoadingMessages(true);
+    if (appendOlder) setLoadingMoreMessages(true);
+
     try {
+      const limitToUse = fetchAll ? 50000 : 2000;
       const params = {
         whatsappId: activeWhatsappId,
         ticketId: selectedChat?.ticketId,
@@ -852,21 +873,55 @@ const Audit = () => {
         endDate: endDate || undefined,
         onlyDeleted: onlyDeleted || undefined,
         mediaType: mediaType !== "all" ? mediaType : undefined,
-        limit: 500,
+        pageNumber: page,
+        limit: limitToUse,
       };
 
       const { data } = await api.get("/audit/messages", { params });
-      setMessages(data.messages || []);
+      const newMsgs = data.messages || [];
+
+      setMessagesTotalCount(data.count || newMsgs.length);
+      setHasMoreMessages(Boolean(data.hasMore));
+      setMessagesPage(page);
+
+      if (appendOlder) {
+        isAppendingOlderRef.current = true;
+        const container = messagesContainerRef.current;
+        const prevScrollHeight = container ? container.scrollHeight : 0;
+        const prevScrollTop = container ? container.scrollTop : 0;
+
+        setMessages((prev) => [...newMsgs, ...prev]);
+
+        setTimeout(() => {
+          if (container) {
+            const newScrollHeight = container.scrollHeight;
+            container.scrollTop = prevScrollTop + (newScrollHeight - prevScrollHeight);
+          }
+        }, 40);
+      } else {
+        isAppendingOlderRef.current = false;
+        setMessages(newMsgs);
+      }
     } catch (err) {
       toastError(err);
     } finally {
       if (showLoading) setLoadingMessages(false);
+      if (appendOlder) setLoadingMoreMessages(false);
+    }
+  };
+
+  const handleLoadOlderMessages = (loadAll = false) => {
+    if (loadAll) {
+      fetchMessages(false, 1, false, true);
+    } else {
+      fetchMessages(false, messagesPage + 1, true, false);
     }
   };
 
   useEffect(() => {
     if (selectedChat || searchTerm || startDate || endDate || onlyDeleted || mediaType !== "all") {
-      fetchMessages(true);
+      setMessagesPage(1);
+      fetchMessages(true, 1, false, false);
     }
   }, [selectedChat?.ticketId, selectedChat?.whatsappId, searchTerm, startDate, endDate, onlyDeleted, mediaType]);
 
@@ -882,6 +937,10 @@ const Audit = () => {
 
   useEffect(() => {
     if (messages && messages.length > 0) {
+      if (isAppendingOlderRef.current) {
+        isAppendingOlderRef.current = false;
+        return;
+      }
       scrollToBottom("auto");
       const timer = setTimeout(() => {
         scrollToBottom("auto");
@@ -1229,9 +1288,30 @@ const Audit = () => {
                       className={`${classes.chatItem} ${isSelected ? classes.chatItemSelected : ""}`}
                       onClick={() => setSelectedChat(chat)}
                     >
-                      <Avatar className={classes.chatAvatar} src={chat.contact?.profilePicUrl}>
-                        {getContactDisplayName(chat.contact).charAt(0).toUpperCase()}
-                      </Avatar>
+                      <Tooltip
+                        title={chat.contact?.profilePicUrl ? "Clique para ampliar a foto do perfil" : ""}
+                        placement="right"
+                      >
+                        <Avatar
+                          className={classes.chatAvatar}
+                          src={chat.contact?.profilePicUrl}
+                          onClick={(e) => {
+                            if (chat.contact?.profilePicUrl) {
+                              e.stopPropagation();
+                              handleOpenMediaModal(
+                                chat.contact.profilePicUrl,
+                                "image",
+                                `${getContactDisplayName(chat.contact)} - Foto de Perfil`
+                              );
+                            }
+                          }}
+                          style={{
+                            cursor: chat.contact?.profilePicUrl ? "pointer" : "default",
+                          }}
+                        >
+                          {getContactDisplayName(chat.contact).charAt(0).toUpperCase()}
+                        </Avatar>
+                      </Tooltip>
 
                       <div className={classes.chatInfo}>
                         <Box display="flex" justifyContent="space-between" alignItems="center">
@@ -1301,13 +1381,38 @@ const Audit = () => {
                 display="flex"
                 alignItems="center"
                 gap={1.5}
-                onClick={() => setContactDrawerOpen(true)}
-                style={{ cursor: "pointer" }}
               >
-                <Avatar className={classes.activeChatAvatar} src={selectedChat.contact?.profilePicUrl}>
-                  {getContactDisplayName(selectedChat.contact).charAt(0).toUpperCase()}
-                </Avatar>
-                <Box>
+                <Tooltip
+                  title={selectedChat.contact?.profilePicUrl ? "Clique para ampliar a foto do perfil" : ""}
+                  placement="bottom"
+                >
+                  <Avatar
+                    className={classes.activeChatAvatar}
+                    src={selectedChat.contact?.profilePicUrl}
+                    onClick={(e) => {
+                      if (selectedChat.contact?.profilePicUrl) {
+                        e.stopPropagation();
+                        handleOpenMediaModal(
+                          selectedChat.contact.profilePicUrl,
+                          "image",
+                          `${getContactDisplayName(selectedChat.contact)} - Foto de Perfil`
+                        );
+                      } else {
+                        setContactDrawerOpen(true);
+                      }
+                    }}
+                    style={{
+                      cursor: selectedChat.contact?.profilePicUrl ? "pointer" : "pointer",
+                    }}
+                  >
+                    {getContactDisplayName(selectedChat.contact).charAt(0).toUpperCase()}
+                  </Avatar>
+                </Tooltip>
+
+                <Box
+                  onClick={() => setContactDrawerOpen(true)}
+                  style={{ cursor: "pointer" }}
+                >
                   <Typography variant="subtitle1" style={{ fontWeight: 700, color: "#0f172a", lineHeight: 1.2 }}>
                     {getContactDisplayName(selectedChat.contact)}
                   </Typography>
@@ -1345,9 +1450,18 @@ const Audit = () => {
                   Ver Perfil
                 </Button>
                 <Chip
-                  label={`${messages.length} mensagens`}
+                  label={
+                    messagesTotalCount > messages.length
+                      ? `${messages.length} de ${messagesTotalCount} msgs`
+                      : `${messages.length} mensagens`
+                  }
                   size="small"
-                  style={{ backgroundColor: "#e0f2fe", color: "#0369a1", fontWeight: 700, height: 28 }}
+                  style={{
+                    backgroundColor: messagesTotalCount > messages.length ? "#fef3c7" : "#e0f2fe",
+                    color: messagesTotalCount > messages.length ? "#b45309" : "#0369a1",
+                    fontWeight: 700,
+                    height: 28,
+                  }}
                 />
               </Box>
             </div>
@@ -1466,7 +1580,50 @@ const Audit = () => {
                 </Typography>
               </Box>
             ) : (
-              messages.map((message, index) => {
+              <>
+                {hasMoreMessages && (
+                  <Box
+                    textAlign="center"
+                    py={1.5}
+                    px={2}
+                    my={1.5}
+                    mx="auto"
+                    style={{
+                      maxWidth: 520,
+                      backgroundColor: "rgba(255, 255, 255, 0.94)",
+                      borderRadius: 10,
+                      border: "1px solid #cbd5e1",
+                      boxShadow: "0 2px 8px rgba(0,0,0,0.06)",
+                    }}
+                  >
+                    <Typography variant="caption" style={{ color: "#334155", fontWeight: 700, display: "block", marginBottom: 6 }}>
+                      📜 Existem mensagens anteriores neste aparelho ({messagesTotalCount - messages.length} mais antigas gravadas)
+                    </Typography>
+                    <Box display="flex" justifyContent="center" gap={1}>
+                      <Button
+                        size="small"
+                        variant="contained"
+                        color="primary"
+                        disabled={loadingMoreMessages}
+                        onClick={() => handleLoadOlderMessages(false)}
+                        style={{ textTransform: "none", fontSize: "0.75rem", fontWeight: 700 }}
+                        startIcon={loadingMoreMessages ? <CircularProgress size={14} color="inherit" /> : <HistoryIcon style={{ fontSize: 16 }} />}
+                      >
+                        ⬆️ Carregar +2.000 mensagens anteriores
+                      </Button>
+                      <Button
+                        size="small"
+                        variant="outlined"
+                        disabled={loadingMoreMessages}
+                        onClick={() => handleLoadOlderMessages(true)}
+                        style={{ textTransform: "none", fontSize: "0.75rem", fontWeight: 700, borderColor: "#0284c7", color: "#0284c7" }}
+                      >
+                        Carregar todo o histórico ({messagesTotalCount})
+                      </Button>
+                    </Box>
+                  </Box>
+                )}
+                {messages.map((message, index) => {
                 const isOp = message.fromMe;
                 const isGroup = selectedChat?.contact?.isGroup;
                 const senderName = isOp
@@ -1629,9 +1786,10 @@ const Audit = () => {
                     </div>
                   </React.Fragment>
                 );
-              })
-            )}
-            <div ref={messagesEndRef} />
+              })}
+            </>
+          )}
+          <div ref={messagesEndRef} />
           </div>
         </div>
 
@@ -1651,7 +1809,12 @@ const Audit = () => {
         open={exportModalOpen}
         onClose={() => setExportModalOpen(false)}
         selectedDevice={selectedDevice}
+        selectedChat={selectedChat}
         devices={devices}
+        startDate={startDate}
+        endDate={endDate}
+        onlyDeleted={onlyDeleted}
+        mediaType={mediaType}
       />
       <MediaViewerModal
         open={mediaModalOpen}

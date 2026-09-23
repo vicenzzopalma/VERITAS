@@ -14,12 +14,20 @@ interface TokenPayload {
 
 const isAuth = (req: Request, res: Response, next: NextFunction): void => {
   const authHeader = req.headers.authorization;
+  let token = "";
 
-  if (!authHeader) {
-    throw new AppError("ERR_SESSION_EXPIRED", 401);
+  if (authHeader) {
+    const [, rawToken] = authHeader.split(" ");
+    token = rawToken;
+  } else if (req.query && req.query.token) {
+    token = String(req.query.token);
+  } else if (req.cookies && (req.cookies.token || req.cookies.jwt)) {
+    token = String(req.cookies.token || req.cookies.jwt);
   }
 
-  const [, token] = authHeader.split(" ");
+  if (!token) {
+    throw new AppError("ERR_SESSION_EXPIRED", 401);
+  }
 
   try {
     const decoded = verify(token, authConfig.secret);
