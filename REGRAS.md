@@ -42,3 +42,22 @@
   - Runtime CPU dispatching (detecção de SSE4.2 / AVX2 / AVX-512 em C++/Rust quando aplicável).
   - Zero-copy buffers e estruturas lock-free onde houver gargalos de I/O e parsing.
   - Manutenção dos serviços gerenciados pelo PM2 com persistência de sessões sem quedas de conexão.
+
+---
+
+## 6. GOVERNANÇA DE GIT, SEGURANÇA DE DADOS E DEPLOY NA VPS (CI/CD)
+Toda IA, agente ou desenvolvedor que for realizar alterações e executar `git push` DEVE seguir obrigatoriamente as diretrizes abaixo:
+
+1. **BLINDAGEM ABSOLUTA DE DADOS SENSÍVEIS (PROIBIÇÃO DE BANCOS E TOKENS):**
+   - **NUNCA adicionar ao Git:** Arquivos de banco de dados (`*.sqlite`, `*.sqlite3`, `*.db`, `*.wal`, `*.shm`), arquivos compactados (`*.gz`, `*.zip`, `*.tar`), arquivos `.env`, senhas reais em arquivos markdown ou tokens de autenticação.
+   - **Banco de Dados Real:** O banco de dados de produção contendo as 140.000+ mensagens, contatos e sessões reside **exclusivamente na VPS** em `/var/www/VERITAS/backend/whaticket.sqlite`. Nunca deve ser commitado no repositório.
+   - **Validação Pré-Commit Obrigatória:** Antes de qualquer commit, a IA deve inspecionar o `git status` para garantir que nenhum arquivo temporário, sensível ou dump foi incluído no stage.
+
+2. **FLUXO DE DEPLOY CONTÍNUO (CI/CD AUTOMÁTICO VIA GITHUB ACTIONS):**
+   - Ao executar `git push origin main` no repositório `VERITAS`, o workflow [`.github/workflows/deploy.yml`] é acionado automaticamente.
+   - O GitHub Actions conecta via SSH na VPS oficial (`187.77.243.224`), executa o script [`deploy_vps.sh`], atualiza o código, recompila o frontend em produção e recarrega os microsserviços no PM2 sem interrupção de serviço.
+   - **Imutabilidade do Pipeline:** Fica proibido quebrar ou remover os scripts [`deploy_vps.sh`] e [`.github/workflows/deploy.yml`].
+
+3. **ESTRUTURA DUAL DE REPOSITÓRIOS:**
+   - **Repositório Principal (VERITAS):** `https://github.com/vicenzzopalma/VERITAS` (Backend Baileys + Frontend React).
+   - **Repositório do WhatsApp Control (CRM):** `https://github.com/vicenzzopalma/PhoneGestorage` (pasta `Gestão de celulares`). Alterações dentro deste submódulo devem ser commitadas e enviadas para o seu repositório dedicado.
