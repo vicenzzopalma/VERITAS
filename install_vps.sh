@@ -142,7 +142,7 @@ server {
 EOF
 
 ln -sf /etc/nginx/sites-available/veritas /etc/nginx/sites-enabled/default
-nginx -t && systemctl reload nginx
+nginx -t && systemctl restart nginx && systemctl enable nginx
 
 # Obter IP IPv4 da VPS
 IPV4_ADDR=$(curl -4 -s ifconfig.me || hostname -I | awk '{print $1}')
