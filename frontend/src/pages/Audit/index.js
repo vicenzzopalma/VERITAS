@@ -1161,9 +1161,10 @@ const Audit = () => {
         ) : (
           filteredDevices.map((device) => {
             const isSelected = selectedDevice?.id === device.id;
-            const isConnected = device.status === "CONNECTED";
-            const isOpening = device.status === "OPENING";
-            const isQrCode = device.status === "qrcode";
+            const normalizedStatus = String(device.status || "").trim().toUpperCase();
+            const isConnected = ["CONNECTED", "OPEN", "ONLINE", "READY"].includes(normalizedStatus);
+            const isOpening = ["OPENING", "PAIRING", "CONNECTING"].includes(normalizedStatus);
+            const isQrCode = normalizedStatus === "QRCODE";
 
             return (
               <Card

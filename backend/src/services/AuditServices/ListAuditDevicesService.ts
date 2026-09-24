@@ -54,8 +54,6 @@ const ListAuditDevicesService = async (): Promise<AuditDeviceResponse[]> => {
     const runtimeStatus = getSessionStatus(w.id);
     if (runtimeStatus) {
       liveStatus = runtimeStatus;
-    } else if (w.status === "CONNECTED" && !runtimeStatus) {
-      liveStatus = "DISCONNECTED";
     }
 
     return {
