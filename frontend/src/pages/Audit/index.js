@@ -292,20 +292,22 @@ const useStyles = makeStyles((theme) => ({
     display: "flex",
     flexDirection: "column",
     height: "100%",
-    backgroundColor: "#efeae2",
-    backgroundImage: `url(${whatsBackground})`,
+    backgroundColor: theme.palette.type === "dark" ? "#0b141a" : "#efeae2",
+    backgroundImage: theme.palette.type === "dark"
+      ? `linear-gradient(rgba(11, 20, 26, 0.88), rgba(11, 20, 26, 0.88)), url(${whatsBackground})`
+      : `url(${whatsBackground})`,
     backgroundRepeat: "repeat",
     overflow: "hidden",
   },
   activeChatHeader: {
     backgroundColor: theme.palette.background.paper,
     padding: theme.spacing(0.75, 1.4),
-    borderBottom: "1px solid rgba(0, 0, 0, 0.08)",
+    borderBottom: `1px solid ${theme.palette.type === "dark" ? "rgba(148, 163, 184, 0.18)" : "rgba(0, 0, 0, 0.08)"}`,
     display: "flex",
     alignItems: "center",
     justifyContent: "space-between",
     zIndex: 6,
-    boxShadow: "0 1px 2px rgba(0,0,0,0.03)",
+    boxShadow: theme.palette.type === "dark" ? "0 1px 2px rgba(0,0,0,0.28)" : "0 1px 2px rgba(0,0,0,0.03)",
   },
   activeChatAvatar: {
     backgroundColor: theme.palette.primary.main,
@@ -322,12 +324,12 @@ const useStyles = makeStyles((theme) => ({
   filterToolbar: {
     backgroundColor: theme.palette.background.paper,
     padding: theme.spacing(0.45, 1.1),
-    borderBottom: "1px solid rgba(0, 0, 0, 0.08)",
+    borderBottom: `1px solid ${theme.palette.type === "dark" ? "rgba(148, 163, 184, 0.18)" : "rgba(0, 0, 0, 0.08)"}`,
     display: "flex",
     alignItems: "center",
     gap: theme.spacing(0.7),
     flexWrap: "wrap",
-    boxShadow: "0 1px 3px rgba(0,0,0,0.04)",
+    boxShadow: theme.palette.type === "dark" ? "0 1px 3px rgba(0,0,0,0.24)" : "0 1px 3px rgba(0,0,0,0.04)",
     zIndex: 5,
   },
   filterItem: {
@@ -353,7 +355,7 @@ const useStyles = makeStyles((theme) => ({
       width: 6,
     },
     "&::-webkit-scrollbar-thumb": {
-      backgroundColor: "rgba(0,0,0,0.2)",
+      backgroundColor: theme.palette.type === "dark" ? "rgba(148,163,184,0.28)" : "rgba(0,0,0,0.2)",
       borderRadius: 3,
     },
   },
@@ -389,14 +391,14 @@ const useStyles = makeStyles((theme) => ({
   },
   messageOperator: {
     alignSelf: "flex-end",
-    backgroundColor: "#dcf8c6",
-    color: "#111827",
+    backgroundColor: theme.palette.type === "dark" ? "#005c4b" : "#dcf8c6",
+    color: theme.palette.type === "dark" ? "#e9edef" : "#111827",
     borderTopRightRadius: 0,
   },
   messageClient: {
     alignSelf: "flex-start",
-    backgroundColor: "#ffffff",
-    color: "#111827",
+    backgroundColor: theme.palette.type === "dark" ? "#202c33" : "#ffffff",
+    color: theme.palette.type === "dark" ? "#e9edef" : "#111827",
     borderTopLeftRadius: 0,
   },
   deletedBanner: {
@@ -413,13 +415,13 @@ const useStyles = makeStyles((theme) => ({
     marginBottom: 5,
   },
   quotedMsgBox: {
-    backgroundColor: "rgba(0,0,0,0.05)",
+    backgroundColor: theme.palette.type === "dark" ? "rgba(148,163,184,0.12)" : "rgba(0,0,0,0.05)",
     borderLeft: "3px solid #0284c7",
     borderRadius: 4,
     padding: "3px 7px",
     marginBottom: 5,
     fontSize: "0.78rem",
-    color: "#475569",
+    color: theme.palette.type === "dark" ? "#cbd5db" : "#475569",
   },
   mediaPreview: {
     maxWidth: "100%",

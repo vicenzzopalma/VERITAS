@@ -2,7 +2,7 @@ import React, { useState, useCallback, useContext, useEffect } from "react";
 import { toast } from "react-toastify";
 import { format, parseISO } from "date-fns";
 
-import { makeStyles } from "@material-ui/core/styles";
+import { makeStyles, useTheme } from "@material-ui/core/styles";
 import { green } from "@material-ui/core/colors";
 import {
 	Button,
@@ -136,10 +136,10 @@ const useStyles = makeStyles(theme => ({
 		flexWrap: "wrap",
 		marginBottom: 8,
 		padding: "6px 10px",
-		backgroundColor: "#fff",
+		backgroundColor: theme.palette.type === "dark" ? "#111827" : "#fff",
 		borderRadius: 8,
-		border: "1px solid rgba(0, 0, 0, 0.08)",
-		boxShadow: "0 1px 3px rgba(0,0,0,0.04)",
+		border: `1px solid ${theme.palette.type === "dark" ? "rgba(148, 163, 184, 0.18)" : "rgba(0, 0, 0, 0.08)"}`,
+		boxShadow: theme.palette.type === "dark" ? "0 1px 3px rgba(0,0,0,0.24)" : "0 1px 3px rgba(0,0,0,0.04)",
 	},
 	customTableCell: {
 		display: "flex",
@@ -147,10 +147,10 @@ const useStyles = makeStyles(theme => ({
 		justifyContent: "center",
 	},
 	tooltip: {
-		backgroundColor: "#f5f5f9",
-		color: "rgba(0, 0, 0, 0.87)",
+		backgroundColor: theme.palette.type === "dark" ? "#1e293b" : "#f5f5f9",
+		color: theme.palette.type === "dark" ? "#e5e7eb" : "rgba(0, 0, 0, 0.87)",
 		fontSize: theme.typography.pxToRem(14),
-		border: "1px solid #dadde9",
+		border: `1px solid ${theme.palette.type === "dark" ? "#475569" : "#dadde9"}`,
 		maxWidth: 450,
 	},
 	tooltipPopper: {
@@ -187,6 +187,7 @@ const CustomToolTip = ({ title, content, children }) => {
 
 const Connections = () => {
 	const classes = useStyles();
+	const theme = useTheme();
 
 	const { whatsApps, loading, fetchWhatsApps } = useContext(WhatsAppsContext);
 	const { user } = useContext(AuthContext);
@@ -796,7 +797,7 @@ const Connections = () => {
 							) : null,
 							style: {
 								borderRadius: 8,
-								backgroundColor: "#fff",
+								backgroundColor: theme.palette.type === "dark" ? "#1e293b" : "#fff",
 								fontSize: "0.85rem",
 								height: 38,
 							},
@@ -829,17 +830,17 @@ const Connections = () => {
 					flexWrap: "wrap",
 					marginBottom: 8,
 					padding: "6px 10px",
-					backgroundColor: "#fff",
+					backgroundColor: theme.palette.type === "dark" ? "#111827" : "#fff",
 					borderRadius: 8,
-					border: "1px solid rgba(0, 0, 0, 0.08)",
-					boxShadow: "0 1px 3px rgba(0,0,0,0.04)",
+					border: `1px solid ${theme.palette.type === "dark" ? "rgba(148, 163, 184, 0.18)" : "rgba(0, 0, 0, 0.08)"}`,
+					boxShadow: theme.palette.type === "dark" ? "0 1px 3px rgba(0,0,0,0.24)" : "0 1px 3px rgba(0,0,0,0.04)",
 				}}
 			>
 				<Typography
 					variant="body2"
 					style={{
 						fontWeight: 800,
-						color: "#334155",
+						color: theme.palette.type === "dark" ? "#cbd5e1" : "#334155",
 						marginRight: 6,
 						textTransform: "uppercase",
 						fontSize: "0.68rem",
