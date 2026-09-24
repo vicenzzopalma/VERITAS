@@ -27,14 +27,14 @@ const useStyles = makeStyles(theme => ({
 		flex: 1,
 		overflowY: "scroll",
 		...theme.scrollbarStyles,
-		borderTop: "2px solid rgba(0, 0, 0, 0.12)",
+		borderTop: `2px solid ${theme.palette.type === "dark" ? "rgba(148, 163, 184, 0.18)" : "rgba(0, 0, 0, 0.12)"}`,
 	},
 
 	ticketsListHeader: {
-		color: "rgb(67, 83, 105)",
+		color: theme.palette.type === "dark" ? "#cbd5e1" : "rgb(67, 83, 105)",
 		zIndex: 2,
-		backgroundColor: "white",
-		borderBottom: "1px solid rgba(0, 0, 0, 0.12)",
+		backgroundColor: theme.palette.type === "dark" ? "#111827" : "white",
+		borderBottom: `1px solid ${theme.palette.type === "dark" ? "rgba(148, 163, 184, 0.18)" : "rgba(0, 0, 0, 0.12)"}`,
 		display: "flex",
 		alignItems: "center",
 		justifyContent: "space-between",
@@ -42,14 +42,14 @@ const useStyles = makeStyles(theme => ({
 
 	ticketsCount: {
 		fontWeight: "normal",
-		color: "rgb(104, 121, 146)",
+		color: theme.palette.type === "dark" ? "#94a3b8" : "rgb(104, 121, 146)",
 		marginLeft: "8px",
 		fontSize: "14px",
 	},
 
 	noTicketsText: {
 		textAlign: "center",
-		color: "rgb(104, 121, 146)",
+		color: theme.palette.type === "dark" ? "#94a3b8" : "rgb(104, 121, 146)",
 		fontSize: "14px",
 		lineHeight: "1.4",
 	},

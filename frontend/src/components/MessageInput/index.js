@@ -53,11 +53,11 @@ const initRecorder = async () => {
 
 const useStyles = makeStyles(theme => ({
   mainWrapper: {
-    background: "#eee",
+    background: theme.palette.type === "dark" ? "#172033" : "#eee",
     display: "flex",
     flexDirection: "column",
     alignItems: "center",
-    borderTop: "1px solid rgba(0, 0, 0, 0.12)",
+    borderTop: `1px solid ${theme.palette.type === "dark" ? "rgba(148, 163, 184, 0.18)" : "rgba(0, 0, 0, 0.12)"}`,
     [theme.breakpoints.down("sm")]: {
       position: "fixed",
       bottom: 0,
@@ -66,7 +66,7 @@ const useStyles = makeStyles(theme => ({
   },
 
   newMessageBox: {
-    background: "#eee",
+    background: theme.palette.type === "dark" ? "#172033" : "#eee",
     width: "100%",
     display: "flex",
     padding: "7px",
@@ -76,7 +76,7 @@ const useStyles = makeStyles(theme => ({
   messageInputWrapper: {
     padding: 6,
     marginRight: 7,
-    background: "#fff",
+    background: theme.palette.type === "dark" ? "#1e293b" : "#fff",
     display: "flex",
     borderRadius: 20,
     flex: 1,
@@ -90,7 +90,7 @@ const useStyles = makeStyles(theme => ({
   },
 
   sendMessageIcons: {
-    color: "grey",
+    color: theme.palette.type === "dark" ? "#cbd5e1" : "grey",
   },
 
   uploadInput: {
@@ -103,8 +103,8 @@ const useStyles = makeStyles(theme => ({
     position: "relative",
     justifyContent: "space-between",
     alignItems: "center",
-    backgroundColor: "#eee",
-    borderTop: "1px solid rgba(0, 0, 0, 0.12)",
+    backgroundColor: theme.palette.type === "dark" ? "#172033" : "#eee",
+    borderTop: `1px solid ${theme.palette.type === "dark" ? "rgba(148, 163, 184, 0.18)" : "rgba(0, 0, 0, 0.12)"}`,
   },
 
   emojiBox: {
@@ -156,7 +156,7 @@ const useStyles = makeStyles(theme => ({
     flex: 1,
     marginRight: 5,
     overflowY: "hidden",
-    backgroundColor: "rgba(0, 0, 0, 0.05)",
+    backgroundColor: theme.palette.type === "dark" ? "rgba(148, 163, 184, 0.12)" : "rgba(0, 0, 0, 0.05)",
     borderRadius: "7.5px",
     display: "flex",
     position: "relative",
@@ -191,9 +191,9 @@ const useStyles = makeStyles(theme => ({
     margin: 0,
     position: "absolute",
     bottom: "50px",
-    background: "#ffffff",
+    background: theme.palette.type === "dark" ? "#1e293b" : "#ffffff",
     padding: "2px",
-    border: "1px solid #CCC",
+    border: `1px solid ${theme.palette.type === "dark" ? "#475569" : "#CCC"}`,
     left: 0,
     width: "100%",
     "& li": {
@@ -205,7 +205,7 @@ const useStyles = makeStyles(theme => ({
         overflow: "hidden",
         maxHeight: "32px",
         "&:hover": {
-          background: "#F1F1F1",
+          background: theme.palette.type === "dark" ? "#334155" : "#F1F1F1",
           cursor: "pointer",
         },
       },
