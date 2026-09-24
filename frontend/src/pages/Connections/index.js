@@ -98,9 +98,47 @@ import toastError from "../../errors/toastError";
 const useStyles = makeStyles(theme => ({
 	mainPaper: {
 		flex: 1,
-		padding: theme.spacing(1),
+		padding: theme.spacing(0.5),
 		overflowY: "scroll",
 		...theme.scrollbarStyles,
+		"& .MuiTableCell-root": {
+			padding: "5px 8px",
+			fontSize: "0.78rem",
+			lineHeight: 1.2,
+		},
+		"& .MuiTableHead-root .MuiTableCell-root": {
+			padding: "7px 8px",
+			fontSize: "0.72rem",
+			fontWeight: 800,
+		},
+		"& .MuiButton-root": {
+			minHeight: 34,
+			padding: "4px 9px",
+			fontSize: "0.72rem",
+			borderRadius: 8,
+		},
+		"& .MuiIconButton-root": {
+			padding: 5,
+		},
+	},
+	pageHeader: {
+		padding: "0 4px 4px",
+		"& h1, & h2, & h3, & h4, & h5, & h6": {
+			fontSize: "1rem",
+			fontWeight: 800,
+		},
+	},
+	sectorFilter: {
+		display: "flex",
+		alignItems: "center",
+		gap: 6,
+		flexWrap: "wrap",
+		marginBottom: 8,
+		padding: "6px 10px",
+		backgroundColor: "#fff",
+		borderRadius: 8,
+		border: "1px solid rgba(0, 0, 0, 0.08)",
+		boxShadow: "0 1px 3px rgba(0,0,0,0.04)",
 	},
 	customTableCell: {
 		display: "flex",
@@ -714,6 +752,7 @@ const Connections = () => {
 				onClose={handleCloseWhatsAppModal}
 				whatsAppId={!qrModalOpen && selectedWhatsApp?.id}
 			/>
+			<div className={classes.pageHeader}>
 			<MainHeader>
 				<Title>{i18n.t("connections.title")}</Title>
 				<MainHeaderButtonsWrapper>
@@ -748,14 +787,14 @@ const Connections = () => {
 								height: 38,
 							},
 						}}
-						style={{ minWidth: 320 }}
+						style={{ minWidth: 260 }}
 					/>
 					<Button
 						variant="contained"
 						color="primary"
 						onClick={handleOpenWhatsAppModal}
 						style={{
-							height: 38,
+							height: 34,
 							borderRadius: 8,
 							fontWeight: 700,
 						}}
@@ -764,16 +803,18 @@ const Connections = () => {
 					</Button>
 				</MainHeaderButtonsWrapper>
 			</MainHeader>
+			</div>
 
 			{/* Mini Filtro por Setores (Tema VERITAS) */}
 			<div
+				className={classes.sectorFilter}
 				style={{
 					display: "flex",
 					alignItems: "center",
 					gap: 8,
 					flexWrap: "wrap",
-					marginBottom: 12,
-					padding: "10px 16px",
+					marginBottom: 8,
+					padding: "6px 10px",
 					backgroundColor: "#fff",
 					borderRadius: 8,
 					border: "1px solid rgba(0, 0, 0, 0.08)",
@@ -787,7 +828,7 @@ const Connections = () => {
 						color: "#334155",
 						marginRight: 6,
 						textTransform: "uppercase",
-						fontSize: "0.72rem",
+						fontSize: "0.68rem",
 						letterSpacing: "0.6px",
 					}}
 				>
@@ -803,8 +844,8 @@ const Connections = () => {
 						fontWeight: 700,
 						cursor: "pointer",
 						borderRadius: 6,
-						height: 28,
-						fontSize: "0.75rem",
+						height: 24,
+						fontSize: "0.68rem",
 					}}
 				/>
 				{sectorsList.map(sector => {
@@ -822,8 +863,8 @@ const Connections = () => {
 								fontWeight: 700,
 								cursor: "pointer",
 								borderRadius: 6,
-								height: 28,
-								fontSize: "0.75rem",
+								height: 24,
+								fontSize: "0.68rem",
 								backgroundColor: isSelected ? sectorColor : "transparent",
 								borderColor: sectorColor,
 								color: isSelected ? "#fff" : sectorColor,
