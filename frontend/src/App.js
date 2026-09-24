@@ -54,7 +54,7 @@ const App = () => {
           },
         },
         MuiButton: {
-          root: { borderRadius: 10, minHeight: 40 },
+          root: { borderRadius: 14, minHeight: 40 },
           containedPrimary: {
             boxShadow: "0 8px 18px rgba(88, 101, 242, 0.22)",
             "&:hover": { boxShadow: "0 10px 24px rgba(88, 101, 242, 0.32)" },
@@ -62,7 +62,7 @@ const App = () => {
         },
         MuiOutlinedInput: {
           root: {
-            borderRadius: 10,
+            borderRadius: 14,
             "&:hover .MuiOutlinedInput-notchedOutline": { borderColor: "#818cf8" },
             "&.Mui-focused .MuiOutlinedInput-notchedOutline": { borderWidth: 2 },
           },
@@ -74,7 +74,7 @@ const App = () => {
           head: { fontWeight: 800, color: "#475569", letterSpacing: "0.02em" },
         },
         MuiChip: {
-          root: { fontWeight: 700, borderRadius: 8 },
+          root: { fontWeight: 700, borderRadius: 999 },
         },
         MuiDialog: {
           paper: { borderRadius: 18 },

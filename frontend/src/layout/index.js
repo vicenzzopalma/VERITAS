@@ -84,6 +84,14 @@ const useStyles = makeStyles((theme) => ({
     overflowX: "hidden",
     boxShadow: "2px 0 8px rgba(0, 0, 0, 0.08)",
     zIndex: theme.zIndex.drawer + 5,
+    "& .MuiListItemText-root": {
+      display: "none",
+    },
+    "& .MuiListItemIcon-root": {
+      minWidth: 0,
+      width: "100%",
+      justifyContent: "center",
+    },
   },
   crmDrawerPaper: {
     backgroundColor: "#0c0d14 !important",

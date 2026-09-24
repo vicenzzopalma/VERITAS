@@ -52,7 +52,7 @@ const useStyles = makeStyles((theme) => ({
   crmActiveItem: {
     backgroundColor: "rgba(88, 101, 242, 0.28) !important",
     borderLeft: "4px solid #5865f2 !important",
-    borderRadius: "0 8px 8px 0 !important",
+    borderRadius: "0 12px 12px 0 !important",
     margin: "3px 8px 3px 0 !important",
     color: "#ffffff !important",
     "& .MuiListItemIcon-root": {
@@ -69,7 +69,7 @@ const useStyles = makeStyles((theme) => ({
     }
   },
   crmItem: {
-    borderRadius: "8px",
+    borderRadius: "12px",
     margin: "3px 8px",
     color: "#ffffff !important",
     transition: "all 0.2s cubic-bezier(0.4, 0, 0.2, 1)",
