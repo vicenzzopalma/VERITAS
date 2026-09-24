@@ -1161,8 +1161,21 @@ const Audit = () => {
         ) : (
           filteredDevices.map((device) => {
             const isSelected = selectedDevice?.id === device.id;
-            const normalizedStatus = String(device.status || "").trim().toUpperCase();
-            const isConnected = ["CONNECTED", "OPEN", "ONLINE", "READY"].includes(normalizedStatus);
+            const normalizedStatus = String(
+              device.status || device.sessionStatus || device.connectionStatus || ""
+            ).trim().toUpperCase();
+            const isDisconnected = [
+              "DISCONNECTED",
+              "DISCONNECT",
+              "OFFLINE",
+              "CLOSED",
+              "LOGGED_OUT",
+              "ERROR",
+              "FAILED",
+            ].includes(normalizedStatus);
+            const isConnected =
+              !isDisconnected &&
+              !["OPENING", "PAIRING", "CONNECTING", "QRCODE"].includes(normalizedStatus);
             const isOpening = ["OPENING", "PAIRING", "CONNECTING"].includes(normalizedStatus);
             const isQrCode = normalizedStatus === "QRCODE";
 
