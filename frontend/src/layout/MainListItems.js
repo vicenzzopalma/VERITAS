@@ -134,9 +134,12 @@ function ListItemLink(props) {
                       width: "52px",
                       maxWidth: "52px",
                       minWidth: "52px",
+                      boxSizing: "border-box",
                       overflow: "hidden",
                       paddingLeft: "12px",
                       paddingRight: "12px",
+                      marginRight: "0",
+                      borderRight: "0",
                     }
                   : {}),
               }

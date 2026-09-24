@@ -69,6 +69,7 @@ const useStyles = makeStyles((theme) => ({
     width: collapsedWidth,
     flexShrink: 0,
     whiteSpace: "nowrap",
+    overflow: "hidden",
   },
   drawerPaper: {
     width: drawerWidth,
@@ -81,9 +82,11 @@ const useStyles = makeStyles((theme) => ({
   drawerPaperClose: {
     width: collapsedWidth,
     transition: "width 0.22s cubic-bezier(0.4, 0, 0.2, 1)",
-    overflowX: "hidden",
     boxShadow: "2px 0 8px rgba(0, 0, 0, 0.08)",
     zIndex: theme.zIndex.drawer + 5,
+    overflowX: "hidden",
+    overflowY: "auto",
+    boxSizing: "border-box",
     "& .MuiListItemText-root": {
       display: "none",
     },
@@ -96,9 +99,12 @@ const useStyles = makeStyles((theme) => ({
       width: "52px",
       minWidth: "52px",
       maxWidth: "52px",
+      boxSizing: "border-box",
       overflow: "hidden",
       paddingLeft: "12px",
       paddingRight: "12px",
+      marginRight: "0 !important",
+      borderRight: "0 !important",
     },
     "& li": {
       width: "68px",
