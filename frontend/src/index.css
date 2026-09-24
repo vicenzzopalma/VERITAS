@@ -1,3 +1,84 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Outfit:wght@400;500;600;700;800&display=swap');
+
+:root {
+  --veritas-primary: #5865f2;
+  --veritas-primary-dark: #4752c4;
+  --veritas-cyan: #06b6d4;
+  --veritas-ink: #0f172a;
+  --veritas-muted: #64748b;
+  --veritas-surface: #ffffff;
+  --veritas-background: #f5f7fb;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  margin: 0;
+  color: var(--veritas-ink);
+  background:
+    radial-gradient(circle at 100% 0%, rgba(88, 101, 242, 0.07), transparent 28rem),
+    var(--veritas-background);
+  font-family: "Outfit", "Inter", "Segoe UI", sans-serif;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+button,
+input,
+textarea,
+select {
+  font: inherit;
+}
+
+button,
+a,
+input,
+textarea,
+select,
+[role="button"] {
+  -webkit-tap-highlight-color: transparent;
+}
+
+*:focus-visible {
+  outline: 3px solid rgba(88, 101, 242, 0.38);
+  outline-offset: 2px;
+}
+
+::selection {
+  color: #ffffff;
+  background: var(--veritas-primary);
+}
+
+/* Shared polish for legacy Material UI screens. */
+.MuiToolbar-root {
+  min-height: 64px !important;
+}
+
+.MuiListItem-root.Mui-selected {
+  background: rgba(88, 101, 242, 0.1) !important;
+}
+
+.MuiTooltip-tooltip {
+  border-radius: 8px !important;
+  font-size: 0.75rem !important;
+  font-weight: 600 !important;
+}
+
+@media (max-width: 720px) {
+  .MuiToolbar-root {
+    padding-left: 14px !important;
+    padding-right: 14px !important;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+}
+
 /* CRM Dark Drawer override */
 .crm-drawer-dark-mode {
   background-color: #0c0d14 !important;

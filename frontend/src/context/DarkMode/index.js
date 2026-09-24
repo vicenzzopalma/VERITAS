@@ -6,10 +6,24 @@ import { CssBaseline } from "@material-ui/core";
 const ThemeContext = createContext();
 
 export const ThemeProvider = ({ children }) => {
-  const [darkMode, setDarkMode] = useState(false);
+  const [darkMode, setDarkMode] = useState(() => {
+    try {
+      return localStorage.getItem("veritas-theme") === "dark";
+    } catch {
+      return false;
+    }
+  });
 
   const toggleTheme = () => {
-    setDarkMode((prevMode) => !prevMode);
+    setDarkMode((prevMode) => {
+      const nextMode = !prevMode;
+      try {
+        localStorage.setItem("veritas-theme", nextMode ? "dark" : "light");
+      } catch {
+        // Prefer the current session when storage is unavailable.
+      }
+      return nextMode;
+    });
   };
 
   const theme = useMemo(
@@ -17,6 +31,19 @@ export const ThemeProvider = ({ children }) => {
       createMuiTheme({
         palette: {
           type: darkMode ? "dark" : "light",
+          primary: { main: "#5865f2", light: "#818cf8", dark: "#4752c4" },
+          secondary: { main: "#06b6d4" },
+        },
+        typography: {
+          fontFamily: '"Outfit", "Inter", "Segoe UI", sans-serif',
+          button: { fontWeight: 700, textTransform: "none" },
+        },
+        shape: { borderRadius: 14 },
+        overrides: {
+          MuiPaper: { root: { backgroundImage: "none" } },
+          MuiButton: { root: { borderRadius: 10, minHeight: 40 } },
+          MuiOutlinedInput: { root: { borderRadius: 10 } },
+          MuiDialog: { paper: { borderRadius: 18 } },
         },
       }),
     [darkMode]
