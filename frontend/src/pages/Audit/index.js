@@ -79,30 +79,30 @@ const useStyles = makeStyles((theme) => ({
   headerBar: {
     backgroundColor: theme.palette.background.paper,
     borderBottom: "1px solid rgba(0, 0, 0, 0.12)",
-    padding: theme.spacing(0.8, 2),
+    padding: theme.spacing(0.45, 1.5),
     display: "flex",
     alignItems: "center",
     justifyContent: "space-between",
-    gap: theme.spacing(2),
+    gap: theme.spacing(0.7),
     zIndex: 10,
   },
   headerTitle: {
     display: "flex",
     alignItems: "center",
-    gap: theme.spacing(1),
+    gap: theme.spacing(0.7),
     fontWeight: 600,
-    fontSize: "1.15rem",
+    fontSize: "1rem",
     color: theme.palette.text.primary,
     flexShrink: 0,
   },
   headerIcon: {
     color: theme.palette.primary.main,
-    fontSize: 24,
+    fontSize: 21,
   },
   globalSearchContainer: {
     position: "relative",
     flexGrow: 1,
-    maxWidth: 460,
+    maxWidth: 420,
   },
   globalSearchField: {
     width: "100%",
@@ -113,7 +113,7 @@ const useStyles = makeStyles((theme) => ({
       paddingRight: 6,
     },
     "& .MuiOutlinedInput-input": {
-      padding: "8px 12px",
+      padding: "6px 10px",
     },
   },
   popperPaper: {
@@ -156,19 +156,19 @@ const useStyles = makeStyles((theme) => ({
     backgroundColor: theme.palette.background.default,
     border: "1px solid rgba(0, 0, 0, 0.08)",
     borderRadius: 6,
-    padding: "3px 10px",
+    padding: "2px 8px",
     display: "flex",
     alignItems: "center",
     gap: 6,
-    fontSize: "0.8rem",
+    fontSize: "0.74rem",
     color: theme.palette.text.secondary,
   },
   deviceRibbon: {
     backgroundColor: theme.palette.background.paper,
     borderBottom: "1px solid rgba(0, 0, 0, 0.08)",
-    padding: theme.spacing(0.8, 2),
+    padding: theme.spacing(0.45, 1.5),
     display: "flex",
-    gap: theme.spacing(1.2),
+    gap: theme.spacing(0.7),
     overflowX: "auto",
     whiteSpace: "nowrap",
     "&::-webkit-scrollbar": {
@@ -180,8 +180,8 @@ const useStyles = makeStyles((theme) => ({
     },
   },
   deviceCard: {
-    minWidth: 165,
-    maxWidth: 210,
+    minWidth: 150,
+    maxWidth: 190,
     flexShrink: 0,
     border: "1px solid rgba(0, 0, 0, 0.08)",
     borderRadius: 6,
@@ -204,13 +204,13 @@ const useStyles = makeStyles((theme) => ({
   mainContent: {
     display: "flex",
     flexGrow: 1,
-    height: "calc(100% - 95px)",
+    height: "calc(100% - 76px)",
     overflow: "hidden",
   },
   // Painel Esquerdo: Lista de Conversas
   chatsPanel: {
-    width: 340,
-    minWidth: 300,
+    width: 320,
+    minWidth: 280,
     borderRight: "1px solid rgba(0, 0, 0, 0.08)",
     backgroundColor: theme.palette.background.paper,
     display: "flex",
@@ -218,7 +218,7 @@ const useStyles = makeStyles((theme) => ({
     height: "100%",
   },
   chatSearchBox: {
-    padding: theme.spacing(1),
+    padding: theme.spacing(0.65),
     borderBottom: "1px solid rgba(0, 0, 0, 0.08)",
     backgroundColor: theme.palette.background.default,
   },
@@ -234,11 +234,11 @@ const useStyles = makeStyles((theme) => ({
     },
   },
   chatItem: {
-    padding: theme.spacing(1.2, 1.5),
+    padding: theme.spacing(0.85, 1.1),
     borderBottom: "1px solid rgba(0, 0, 0, 0.04)",
     display: "flex",
     alignItems: "center",
-    gap: theme.spacing(1.2),
+    gap: theme.spacing(0.85),
     cursor: "pointer",
     transition: "background 0.15s ease",
     "&:hover": {
@@ -251,9 +251,9 @@ const useStyles = makeStyles((theme) => ({
   },
   chatAvatar: {
     backgroundColor: theme.palette.primary.main,
-    width: 40,
-    height: 40,
-    fontSize: "0.95rem",
+    width: 36,
+    height: 36,
+    fontSize: "0.88rem",
     fontWeight: 600,
     transition: "transform 0.15s ease, box-shadow 0.15s ease",
     "&:hover": {
@@ -267,14 +267,14 @@ const useStyles = makeStyles((theme) => ({
   },
   chatName: {
     fontWeight: 600,
-    fontSize: "0.88rem",
+    fontSize: "0.84rem",
     color: theme.palette.text.primary,
     whiteSpace: "nowrap",
     overflow: "hidden",
     textOverflow: "ellipsis",
   },
   chatLastMsg: {
-    fontSize: "0.78rem",
+    fontSize: "0.74rem",
     color: theme.palette.text.secondary,
     whiteSpace: "nowrap",
     overflow: "hidden",
@@ -299,7 +299,7 @@ const useStyles = makeStyles((theme) => ({
   },
   activeChatHeader: {
     backgroundColor: theme.palette.background.paper,
-    padding: theme.spacing(1.2, 2),
+    padding: theme.spacing(0.75, 1.4),
     borderBottom: "1px solid rgba(0, 0, 0, 0.08)",
     display: "flex",
     alignItems: "center",
@@ -309,9 +309,9 @@ const useStyles = makeStyles((theme) => ({
   },
   activeChatAvatar: {
     backgroundColor: theme.palette.primary.main,
-    width: 44,
-    height: 44,
-    fontSize: "1.05rem",
+    width: 38,
+    height: 38,
+    fontSize: "0.95rem",
     fontWeight: 700,
     transition: "transform 0.15s ease, box-shadow 0.15s ease",
     "&:hover": {
@@ -321,17 +321,17 @@ const useStyles = makeStyles((theme) => ({
   },
   filterToolbar: {
     backgroundColor: theme.palette.background.paper,
-    padding: theme.spacing(0.8, 1.5),
+    padding: theme.spacing(0.45, 1.1),
     borderBottom: "1px solid rgba(0, 0, 0, 0.08)",
     display: "flex",
     alignItems: "center",
-    gap: theme.spacing(1.2),
+    gap: theme.spacing(0.7),
     flexWrap: "wrap",
     boxShadow: "0 1px 3px rgba(0,0,0,0.04)",
     zIndex: 5,
   },
   filterItem: {
-    minWidth: 130,
+    minWidth: 116,
   },
   deletedSwitch: {
     color: "#dc2626 !important",
