@@ -243,7 +243,7 @@ const LoggedInLayout = ({ children }) => {
           </div>
           <Divider style={isWhatsappControl ? { backgroundColor: "rgba(255, 255, 255, 0.1)" } : undefined} />
           <List>
-            <MainListItems drawerClose={drawerClose} />
+            <MainListItems drawerClose={drawerClose} collapsed={!isDrawerExpanded} />
           </List>
           <Divider style={isWhatsappControl ? { backgroundColor: "rgba(255, 255, 255, 0.1)" } : undefined} />
         </Drawer>

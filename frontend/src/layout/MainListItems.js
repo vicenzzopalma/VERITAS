@@ -104,7 +104,7 @@ const useStyles = makeStyles((theme) => ({
 }));
 
 function ListItemLink(props) {
-  const { icon, primary, to, className, isWhatsappControl, active } = props;
+  const { icon, primary, to, className, isWhatsappControl, active, collapsed } = props;
 
   const renderLink = React.useMemo(
     () =>
@@ -123,7 +123,7 @@ function ListItemLink(props) {
         style={
           isWhatsappControl
             ? {
-                borderRadius: active ? "0 8px 8px 0" : "8px",
+                borderRadius: active ? "0 14px 14px 0" : "14px",
                 margin: active ? "3px 8px 3px 0" : "3px 8px",
                 backgroundColor: active ? "rgba(88, 101, 242, 0.28)" : "transparent",
                 borderLeft: active ? "4px solid #5865f2" : "4px solid transparent",
@@ -159,26 +159,28 @@ function ListItemLink(props) {
               : icon}
           </ListItemIcon>
         ) : null}
-        <ListItemText
-          primary={primary}
-          primaryTypographyProps={{
-            style: isWhatsappControl
-              ? {
-                  color: "#ffffff",
-                  fontWeight: active ? 700 : 500,
-                  fontSize: "0.92rem",
-                  fontFamily: "'Outfit', sans-serif",
-                }
-              : undefined,
-          }}
-        />
+        {!collapsed && (
+          <ListItemText
+            primary={primary}
+            primaryTypographyProps={{
+              style: isWhatsappControl
+                ? {
+                    color: "#ffffff",
+                    fontWeight: active ? 700 : 500,
+                    fontSize: "0.92rem",
+                    fontFamily: "'Outfit', sans-serif",
+                  }
+                : undefined,
+            }}
+          />
+        )}
       </ListItem>
     </li>
   );
 }
 
 const MainListItems = (props) => {
-  const { drawerClose } = props;
+  const { drawerClose, collapsed = false } = props;
   const classes = useStyles();
   const location = useLocation();
   const isWhatsappControl = location.pathname.startsWith("/whatsapp-control");
@@ -229,6 +231,7 @@ const MainListItems = (props) => {
           className={getItemClass("/whatsapp-control")}
           isWhatsappControl={true}
           active={true}
+          collapsed={collapsed}
         />
         {user.canAccessConnections && (
           <ListItemLink
@@ -238,6 +241,7 @@ const MainListItems = (props) => {
             className={getItemClass("/connections")}
             isWhatsappControl={true}
             active={location.pathname === "/connections"}
+            collapsed={collapsed}
           />
         )}
         <Divider style={{ margin: "12px 0", backgroundColor: "rgba(255, 255, 255, 0.1)" }} />
