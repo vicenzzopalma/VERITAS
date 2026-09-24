@@ -86,6 +86,8 @@ interface Session extends WASocket {
 
 const sessions = new Map<number, Session>();
 const stores = new Map<number, Store>();
+const initializingSessions = new Set<number>();
+const reconnectTimers = new Map<number, NodeJS.Timeout>();
 
 export const getSessionStatus = (whatsappId: number): string | undefined => {
   const session = sessions.get(whatsappId);
@@ -951,6 +953,12 @@ export const getWbot = (sessionId: number): Session => {
 };
 
 const removeSession = async (whatsappId: number): Promise<void> => {
+  const reconnectTimer = reconnectTimers.get(whatsappId);
+  if (reconnectTimer) {
+    clearTimeout(reconnectTimer);
+    reconnectTimers.delete(whatsappId);
+  }
+
   await flushPendingCredsSave(whatsappId);
 
   const wbot = sessions.get(whatsappId);
@@ -994,7 +1002,7 @@ let cachedWaVersion: WAVersion | undefined;
 let cachedWaVersionTime = 0;
 const WA_VERSION_CACHE_TTL = 24 * 60 * 60 * 1000;
 
-const init = async (whatsapp: Whatsapp): Promise<void> => {
+const initializeSession = async (whatsapp: Whatsapp): Promise<void> => {
   const sessionId = whatsapp.id;
   const io = getIO();
 
@@ -1587,11 +1595,17 @@ const init = async (whatsapp: Whatsapp): Promise<void> => {
         statusCode
       });
 
-      await sleep(delay);
-      const freshWhatsapp = await Whatsapp.findByPk(sessionId);
-      if (freshWhatsapp && freshWhatsapp.status === "OPENING") {
-        init(freshWhatsapp);
-      }
+      if (reconnectTimers.has(sessionId)) return;
+
+      const reconnectTimer = setTimeout(async () => {
+        reconnectTimers.delete(sessionId);
+
+        const freshWhatsapp = await Whatsapp.findByPk(sessionId);
+        if (freshWhatsapp && freshWhatsapp.status === "OPENING") {
+          await init(freshWhatsapp);
+        }
+      }, delay);
+      reconnectTimers.set(sessionId, reconnectTimer);
     }
 
     if (connection === "open") {
@@ -1842,6 +1856,25 @@ const init = async (whatsapp: Whatsapp): Promise<void> => {
       })
     );
   });
+};
+
+const init = async (whatsapp: Whatsapp): Promise<void> => {
+  const sessionId = whatsapp.id;
+
+  if (initializingSessions.has(sessionId)) {
+    logger.warn({
+      info: "Ignoring duplicate WhatsApp session initialization",
+      sessionId
+    });
+    return;
+  }
+
+  initializingSessions.add(sessionId);
+  try {
+    await initializeSession(whatsapp);
+  } finally {
+    initializingSessions.delete(sessionId);
+  }
 };
 
 const logout = async (sessionId: number): Promise<void> => {

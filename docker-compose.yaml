@@ -14,10 +14,11 @@ services:
       - PORT=6002
       - BACKEND_URL=${BACKEND_URL:-http://localhost:6002}
       - FRONTEND_URL=${FRONTEND_URL:-http://localhost:6001}
-      - JWT_SECRET=${JWT_SECRET:-veritas_jwt_super_secret_key_2026}
-      - JWT_REFRESH_SECRET=${JWT_REFRESH_SECRET:-veritas_jwt_refresh_super_secret_2026}
-      - ENCRYPTION_KEY=${ENCRYPTION_KEY:-veritas_master_encryption_vault_key}
+      - JWT_SECRET=${JWT_SECRET:?JWT_SECRET must be configured}
+      - JWT_REFRESH_SECRET=${JWT_REFRESH_SECRET:?JWT_REFRESH_SECRET must be configured}
+      - ENCRYPTION_KEY=${ENCRYPTION_KEY:?ENCRYPTION_KEY must be configured}
       - DB_DIALECT=${DB_DIALECT:-sqlite}
+      - CORS_ORIGINS=${CORS_ORIGINS:-http://localhost:6001}
     ports:
       - "${BACKEND_PORT:-6002}:6002"
     volumes:

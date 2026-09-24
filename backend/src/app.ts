@@ -17,6 +17,10 @@ import { globalLimiter } from "./middleware/rateLimiter";
 Sentry.init({ dsn: process.env.SENTRY_DSN });
 
 const app = express();
+const allowedOrigins = (process.env.CORS_ORIGINS || process.env.FRONTEND_URL || "")
+  .split(",")
+  .map(origin => origin.trim())
+  .filter(Boolean);
 
 // 1. Security Headers com Helmet e Content Security Policy (CSP) sob medida
 app.use(
@@ -49,8 +53,12 @@ app.use(
   cors({
     credentials: true,
     origin: (origin, callback) => {
-      // Permite localhost, túneis Cloudflare e requisições sem origin (ex: server-side proxy)
-      callback(null, origin || process.env.FRONTEND_URL);
+      if (!origin || allowedOrigins.includes(origin)) {
+        callback(null, true);
+        return;
+      }
+
+      callback(new Error("Origin is not allowed by CORS"));
     }
   })
 );

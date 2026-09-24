@@ -28,7 +28,7 @@ const App = () => {
   );
 
   useEffect(() => {
-    const i18nlocale = localStorage.getItem("i18nextLng");
+    const i18nlocale = localStorage.getItem("i18nextLng") || "pt-BR";
     const browserLocale =
       i18nlocale.substring(0, 2) + i18nlocale.substring(3, 5);
 

@@ -19,7 +19,16 @@ async function start() {
     // Garantir usuário admin padrão
     const adminCount = await User.count({ where: { email: "admin@whaticket.com" } });
     if (adminCount === 0) {
-      const passwordHash = await bcrypt.hash("admin", 8);
+      const defaultAdminPassword =
+        process.env.DEFAULT_ADMIN_PASSWORD ||
+        (process.env.NODE_ENV === "production" ? undefined : "admin");
+      if (!defaultAdminPassword) {
+        throw new Error(
+          "DEFAULT_ADMIN_PASSWORD must be configured before creating the default admin"
+        );
+      }
+
+      const passwordHash = await bcrypt.hash(defaultAdminPassword, 12);
       await User.create({
         name: "Administrador",
         email: "admin@whaticket.com",
@@ -27,7 +36,7 @@ async function start() {
         profile: "admin",
         tokenVersion: 0
       });
-      logger.info("Default admin user created (admin@whaticket.com / admin)");
+      logger.info("Default admin user created from configured credentials");
     }
 
     // Configurações padrão
@@ -47,6 +56,7 @@ async function start() {
     }
   } catch (err) {
     logger.error({ info: "Database sync error", err });
+    throw err;
   }
 
   const server = app.listen(PORT, () => {
@@ -55,7 +65,7 @@ async function start() {
 
   initIO(server);
   initRedis();
-  StartAllWhatsAppsSessions();
+  await StartAllWhatsAppsSessions();
   gracefulShutdown(server);
 }
 
