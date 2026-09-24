@@ -53,7 +53,7 @@ const initRecorder = async () => {
 
 const useStyles = makeStyles(theme => ({
   mainWrapper: {
-    background: theme.palette.type === "dark" ? "#172033" : "#eee",
+    background: theme.palette.type === "dark" ? "#202c33" : "#eee",
     display: "flex",
     flexDirection: "column",
     alignItems: "center",
@@ -66,7 +66,7 @@ const useStyles = makeStyles(theme => ({
   },
 
   newMessageBox: {
-    background: theme.palette.type === "dark" ? "#172033" : "#eee",
+    background: theme.palette.type === "dark" ? "#202c33" : "#eee",
     width: "100%",
     display: "flex",
     padding: "7px",
@@ -76,7 +76,7 @@ const useStyles = makeStyles(theme => ({
   messageInputWrapper: {
     padding: 6,
     marginRight: 7,
-    background: theme.palette.type === "dark" ? "#1e293b" : "#fff",
+    background: theme.palette.type === "dark" ? "#2a3942" : "#fff",
     display: "flex",
     borderRadius: 20,
     flex: 1,
@@ -103,7 +103,7 @@ const useStyles = makeStyles(theme => ({
     position: "relative",
     justifyContent: "space-between",
     alignItems: "center",
-    backgroundColor: theme.palette.type === "dark" ? "#172033" : "#eee",
+    backgroundColor: theme.palette.type === "dark" ? "#202c33" : "#eee",
     borderTop: `1px solid ${theme.palette.type === "dark" ? "rgba(148, 163, 184, 0.18)" : "rgba(0, 0, 0, 0.12)"}`,
   },
 

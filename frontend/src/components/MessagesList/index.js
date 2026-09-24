@@ -46,7 +46,11 @@ const useStyles = makeStyles((theme) => ({
   },
 
   messagesList: {
-    backgroundImage: `url(${whatsBackground})`,
+    backgroundColor: theme.palette.type === "dark" ? "#0b141a" : "#f5f7fb",
+    backgroundImage: theme.palette.type === "dark"
+      ? `linear-gradient(rgba(11, 20, 26, 0.88), rgba(11, 20, 26, 0.88)), url(${whatsBackground})`
+      : `url(${whatsBackground})`,
+    backgroundBlendMode: theme.palette.type === "dark" ? "normal" : "normal",
     display: "flex",
     flexDirection: "column",
     flexGrow: 1,
@@ -83,8 +87,8 @@ const useStyles = makeStyles((theme) => ({
     },
 
     whiteSpace: "pre-wrap",
-    backgroundColor: "#ffffff",
-    color: "#303030",
+    backgroundColor: theme.palette.type === "dark" ? "#202c33" : "#ffffff",
+    color: theme.palette.type === "dark" ? "#e9edef" : "#303030",
     alignSelf: "flex-start",
     borderTopLeftRadius: 0,
     borderTopRightRadius: 8,
@@ -94,13 +98,13 @@ const useStyles = makeStyles((theme) => ({
     paddingRight: 5,
     paddingTop: 5,
     paddingBottom: 0,
-    boxShadow: "0 1px 1px #b3b3b3",
+    boxShadow: theme.palette.type === "dark" ? "0 1px 1px rgba(0, 0, 0, 0.28)" : "0 1px 1px #b3b3b3",
   },
 
   quotedContainerLeft: {
     margin: "-3px -80px 6px -6px",
     overflow: "hidden",
-    backgroundColor: "#f0f0f0",
+    backgroundColor: theme.palette.type === "dark" ? "#182229" : "#f0f0f0",
     borderRadius: "7.5px",
     display: "flex",
     position: "relative",
@@ -137,8 +141,8 @@ const useStyles = makeStyles((theme) => ({
     },
 
     whiteSpace: "pre-wrap",
-    backgroundColor: "#dcf8c6",
-    color: "#303030",
+    backgroundColor: theme.palette.type === "dark" ? "#005c4b" : "#dcf8c6",
+    color: theme.palette.type === "dark" ? "#e9edef" : "#303030",
     alignSelf: "flex-end",
     borderTopLeftRadius: 8,
     borderTopRightRadius: 8,
@@ -148,13 +152,13 @@ const useStyles = makeStyles((theme) => ({
     paddingRight: 5,
     paddingTop: 5,
     paddingBottom: 0,
-    boxShadow: "0 1px 1px #b3b3b3",
+    boxShadow: theme.palette.type === "dark" ? "0 1px 1px rgba(0, 0, 0, 0.28)" : "0 1px 1px #b3b3b3",
   },
 
   quotedContainerRight: {
     margin: "-3px -80px 6px -6px",
     overflowY: "hidden",
-    backgroundColor: "#cfe9ba",
+    backgroundColor: theme.palette.type === "dark" ? "#064c3f" : "#cfe9ba",
     borderRadius: "7.5px",
     display: "flex",
     position: "relative",
@@ -176,7 +180,7 @@ const useStyles = makeStyles((theme) => ({
   messageActionsButton: {
     display: "none",
     position: "relative",
-    color: "#999",
+    color: theme.palette.type === "dark" ? "#cbd5db" : "#999",
     zIndex: 1,
     backgroundColor: "inherit",
     opacity: "90%",
@@ -185,7 +189,7 @@ const useStyles = makeStyles((theme) => ({
 
   messageContactName: {
     display: "flex",
-    color: "#6bcbef",
+    color: theme.palette.type === "dark" ? "#53bdeb" : "#6bcbef",
     fontWeight: 500,
   },
 
@@ -196,7 +200,7 @@ const useStyles = makeStyles((theme) => ({
 
   textContentItemDeleted: {
     fontStyle: "italic",
-    color: "rgba(0, 0, 0, 0.36)",
+    color: theme.palette.type === "dark" ? "rgba(233, 237, 239, 0.5)" : "rgba(0, 0, 0, 0.36)",
     overflowWrap: "break-word",
     padding: "3px 80px 6px 6px",
   },
@@ -224,14 +228,14 @@ const useStyles = makeStyles((theme) => ({
     textAlign: "center",
     alignSelf: "center",
     width: "110px",
-    backgroundColor: "#e1f3fb",
+    backgroundColor: theme.palette.type === "dark" ? "#182229" : "#e1f3fb",
     margin: "10px",
     borderRadius: "10px",
-    boxShadow: "0 1px 1px #b3b3b3",
+    boxShadow: theme.palette.type === "dark" ? "0 1px 1px rgba(0, 0, 0, 0.28)" : "0 1px 1px #b3b3b3",
   },
 
   dailyTimestampText: {
-    color: "#808888",
+    color: theme.palette.type === "dark" ? "#aebac1" : "#808888",
     padding: 8,
     alignSelf: "center",
     marginLeft: "0px",
