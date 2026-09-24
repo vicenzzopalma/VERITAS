@@ -180,6 +180,29 @@ const useAuth = () => {
 			}
 			setLoading(false);
 		} catch (err) {
+			try {
+				const crmResponse = await fetch("/crm/api/auth/login", {
+					method: "POST",
+					headers: {
+						"Content-Type": "application/json"
+					},
+					credentials: "include",
+					body: JSON.stringify({
+						username: String(userData.email || "").trim().toLowerCase(),
+						password: userData.password
+					})
+				});
+
+				const crmData = await crmResponse.json().catch(() => ({}));
+				if (crmResponse.ok && crmData.success) {
+					toast.success("Login realizado. Redirecionando para o WhatsApp Control.");
+					window.location.assign("/crm/");
+					return;
+				}
+			} catch (crmErr) {
+				console.warn("Falha ao validar login no WhatsApp Control:", crmErr);
+			}
+
 			toastError(err);
 			setLoading(false);
 		}
