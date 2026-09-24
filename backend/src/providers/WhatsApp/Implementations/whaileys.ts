@@ -1142,11 +1142,6 @@ const initializeSession = async (whatsapp: Whatsapp): Promise<void> => {
   wbot.id = sessionId;
   wbot.store = store;
 
-  // Whaileys registers several internal connection listeners per socket.
-  // Keep the limit local to this socket so the warning does not hide leaks
-  // elsewhere in the process.
-  wbot.ev.setMaxListeners(50);
-
   store.bind(wbot.ev);
 
   sessions.set(sessionId, wbot);
