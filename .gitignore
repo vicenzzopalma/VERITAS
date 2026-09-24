@@ -50,3 +50,7 @@ tmp_edge/
 Gestão de celulares/
 Gestão de celulares_backup/
 *inspect*.js
+
+# Local operational documentation may contain environment-specific details.
+# Keep it out of version control; store the canonical copy in a secure vault.
+readmedev.md
