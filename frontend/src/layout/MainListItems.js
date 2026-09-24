@@ -123,21 +123,21 @@ function ListItemLink(props) {
         style={
           isWhatsappControl
             ? {
-                borderRadius: active ? "0 14px 14px 0" : "14px",
-                margin: active ? "3px 8px 3px 0" : "3px 8px",
+                borderRadius: collapsed ? "0" : active ? "0 14px 14px 0" : "14px",
+                margin: collapsed ? "0" : active ? "3px 8px 3px 0" : "3px 8px",
                 backgroundColor: active ? "rgba(88, 101, 242, 0.28)" : "transparent",
                 borderLeft: active ? "4px solid #5865f2" : "4px solid transparent",
                 color: "#ffffff",
                 transition: "all 0.2s cubic-bezier(0.4, 0, 0.2, 1)",
                 ...(collapsed
                   ? {
-                      width: "52px",
-                      maxWidth: "52px",
-                      minWidth: "52px",
+                      width: "68px",
+                      maxWidth: "68px",
+                      minWidth: "68px",
                       boxSizing: "border-box",
                       overflow: "hidden",
-                      paddingLeft: "12px",
-                      paddingRight: "12px",
+                      paddingLeft: "10px",
+                      paddingRight: "10px",
                       marginRight: "0",
                       borderRight: "0",
                     }

@@ -88,7 +88,7 @@ const useStyles = makeStyles((theme) => ({
     overflowY: "auto",
     boxSizing: "border-box",
     "& .MuiListItemText-root": {
-      display: "none",
+      display: "none !important",
     },
     "& .MuiListItemIcon-root": {
       minWidth: 0,
@@ -96,20 +96,27 @@ const useStyles = makeStyles((theme) => ({
       justifyContent: "center",
     },
     "& .MuiListItem-root": {
-      width: "52px",
-      minWidth: "52px",
-      maxWidth: "52px",
+      width: "68px !important",
+      minWidth: "68px !important",
+      maxWidth: "68px !important",
       boxSizing: "border-box",
       overflow: "hidden",
-      paddingLeft: "12px",
-      paddingRight: "12px",
+      paddingLeft: "10px !important",
+      paddingRight: "10px !important",
       marginRight: "0 !important",
       borderRight: "0 !important",
+      borderRadius: "0 !important",
     },
     "& li": {
-      width: "68px",
-      maxWidth: "68px",
+      width: "68px !important",
+      maxWidth: "68px !important",
       overflow: "hidden",
+    },
+    "& .MuiListSubheader-root": {
+      width: "68px !important",
+      maxWidth: "68px !important",
+      paddingLeft: "0 !important",
+      paddingRight: "0 !important",
     },
   },
   crmDrawerPaper: {
