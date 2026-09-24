@@ -9,8 +9,7 @@ import ShowWhatsAppService from "../services/WhatsappService/ShowWhatsAppService
 import UpdateWhatsAppService from "../services/WhatsappService/UpdateWhatsAppService";
 import { whatsappProvider } from "../providers/WhatsApp";
 import {
-  canAccessWhatsapp,
-  isWhatsappControlUser
+  canAccessWhatsapp
 } from "../services/WhatsappService/WhatsappAccessPolicy";
 
 interface WhatsappData {
@@ -44,10 +43,7 @@ export const store = async (req: Request, res: Response): Promise<Response> => {
     humanDelay
   }: WhatsappData = req.body;
 
-  if (
-    isWhatsappControlUser(req.user) &&
-    !canAccessWhatsapp(req.user, { sector: sector || "" })
-  ) {
+  if (!canAccessWhatsapp(req.user, { sector: sector || "" })) {
     return res.status(403).json({ error: "ERR_NO_PERMISSION" });
   }
 

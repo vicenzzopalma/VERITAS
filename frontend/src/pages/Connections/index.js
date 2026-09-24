@@ -190,12 +190,12 @@ const Connections = () => {
 
 	const { whatsApps, loading, fetchWhatsApps } = useContext(WhatsAppsContext);
 	const { user } = useContext(AuthContext);
-	const isWhatsappControl = user?.profile === "whatsapp_control";
-	const allowedSectors = isWhatsappControl
-		? (user.connectionSectors && user.connectionSectors.length
-			? user.connectionSectors
-			: ["PA FIXA 1", "PA FIXA 2"])
-		: null;
+	const isRestrictedUser = user?.profile !== "admin";
+	const allowedSectors = isRestrictedUser && user?.canAccessConnections
+		? user.connectionSectors || []
+		: isRestrictedUser
+			? []
+			: null;
 	const [whatsAppModalOpen, setWhatsAppModalOpen] = useState(false);
 	const [qrModalOpen, setQrModalOpen] = useState(false);
 	const [selectedWhatsApp, setSelectedWhatsApp] = useState(null);

@@ -1,4 +1,4 @@
-import { QueryInterface, DataTypes } from "sequelize";
+import { QueryInterface, DataTypes, Op } from "sequelize";
 
 const defaultSectors = ["PA FIXA 1", "PA FIXA 2"];
 
@@ -8,7 +8,7 @@ module.exports = {
       await queryInterface.addColumn("Users", "canAccessConnections", {
         type: DataTypes.BOOLEAN,
         allowNull: false,
-        defaultValue: true
+        defaultValue: false
       });
     } catch (e) {
       // Column may already exist on installations initialized from the model.
@@ -18,7 +18,7 @@ module.exports = {
       await queryInterface.addColumn("Users", "connectionSectors", {
         type: DataTypes.JSON,
         allowNull: false,
-        defaultValue: defaultSectors
+        defaultValue: []
       });
     } catch (e) {
       // Column may already exist on installations initialized from the model.
@@ -31,6 +31,11 @@ module.exports = {
         connectionSectors: defaultSectors
       },
       { profile: "whatsapp_control" }
+    );
+    await queryInterface.bulkUpdate(
+      "Users",
+      { canAccessConnections: false, connectionSectors: [] },
+      { profile: { [Op.ne]: "whatsapp_control" } }
     );
   },
 

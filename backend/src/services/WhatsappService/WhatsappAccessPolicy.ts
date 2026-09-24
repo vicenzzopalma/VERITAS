@@ -9,20 +9,17 @@ export type WhatsappAccessUser = {
   connectionSectors?: string[];
 };
 
-export const isWhatsappControlUser = (user?: WhatsappAccessUser): boolean =>
-  String(user?.profile || "").toLowerCase() === "whatsapp_control";
-
 export const canAccessWhatsapp = (
   user: WhatsappAccessUser | undefined,
   whatsapp: Pick<Whatsapp, "sector">
 ): boolean =>
-  !isWhatsappControlUser(user) ||
+  String(user?.profile || "").toLowerCase() === "admin" ||
   (user?.canAccessConnections === true &&
     (user.connectionSectors || []).includes(whatsapp.sector || ""));
 
 export const getWhatsappAccessWhere = (user?: WhatsappAccessUser) =>
-  isWhatsappControlUser(user) && user?.canAccessConnections
+  String(user?.profile || "").toLowerCase() === "admin"
+    ? undefined
+    : user?.canAccessConnections
     ? { sector: { [Op.in]: user.connectionSectors || [] } }
-    : isWhatsappControlUser(user)
-      ? { sector: { [Op.in]: [] } }
-    : undefined;
+    : { sector: { [Op.in]: [] } };

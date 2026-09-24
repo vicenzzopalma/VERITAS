@@ -52,11 +52,11 @@ class User extends Model<User> {
   @Column
   status: string;
 
-  @Default(true)
+  @Default(false)
   @Column
   canAccessConnections: boolean;
 
-  @Default(["PA FIXA 1", "PA FIXA 2"])
+  @Default([])
   @Column(DataType.JSON)
   connectionSectors: string[];
 
