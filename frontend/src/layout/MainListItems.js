@@ -115,7 +115,7 @@ function ListItemLink(props) {
   );
 
   return (
-    <li>
+    <li style={collapsed ? { width: "68px", maxWidth: "68px", overflow: "hidden" } : undefined}>
       <ListItem
         button
         component={renderLink}
@@ -129,6 +129,16 @@ function ListItemLink(props) {
                 borderLeft: active ? "4px solid #5865f2" : "4px solid transparent",
                 color: "#ffffff",
                 transition: "all 0.2s cubic-bezier(0.4, 0, 0.2, 1)",
+                ...(collapsed
+                  ? {
+                      width: "52px",
+                      maxWidth: "52px",
+                      minWidth: "52px",
+                      overflow: "hidden",
+                      paddingLeft: "12px",
+                      paddingRight: "12px",
+                    }
+                  : {}),
               }
             : undefined
         }
@@ -139,7 +149,9 @@ function ListItemLink(props) {
               isWhatsappControl
                 ? {
                     color: active ? "#818cf8" : "#ffffff",
-                    minWidth: 42,
+                    minWidth: collapsed ? 0 : 42,
+                    width: collapsed ? "100%" : undefined,
+                    justifyContent: collapsed ? "center" : undefined,
                   }
                 : undefined
             }

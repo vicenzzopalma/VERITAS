@@ -92,6 +92,19 @@ const useStyles = makeStyles((theme) => ({
       width: "100%",
       justifyContent: "center",
     },
+    "& .MuiListItem-root": {
+      width: "52px",
+      minWidth: "52px",
+      maxWidth: "52px",
+      overflow: "hidden",
+      paddingLeft: "12px",
+      paddingRight: "12px",
+    },
+    "& li": {
+      width: "68px",
+      maxWidth: "68px",
+      overflow: "hidden",
+    },
   },
   crmDrawerPaper: {
     backgroundColor: "#0c0d14 !important",

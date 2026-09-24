@@ -62,7 +62,13 @@ const Settings = () => {
 				setSettings(prevState => {
 					const aux = [...prevState];
 					const settingIndex = aux.findIndex(s => s.key === data.setting.key);
-					aux[settingIndex].value = data.setting.value;
+					if (settingIndex === -1) {
+						return [...aux, data.setting];
+					}
+					aux[settingIndex] = {
+						...aux[settingIndex],
+						value: data.setting.value
+					};
 					return aux;
 				});
 			}
@@ -88,8 +94,8 @@ const Settings = () => {
 	};
 
 	const getSettingValue = key => {
-		const { value } = settings.find(s => s.key === key);
-		return value;
+		const setting = settings.find(s => s.key === key);
+		return setting ? setting.value : "";
 	};
 
 	return (
@@ -127,7 +133,7 @@ const Settings = () => {
 				<Paper className={classes.paper}>
 					<TextField
 						id="api-token-setting"
-						readonly
+						readOnly
 						label="Token Api"
 						margin="dense"
 						variant="outlined"

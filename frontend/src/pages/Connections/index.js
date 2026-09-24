@@ -211,7 +211,7 @@ const Connections = () => {
 		confirmationModalInitialState
 	);
 
-	const [selectedSector, setSelectedSector] = useState(isWhatsappControl ? "TODOS" : "TODOS");
+	const [selectedSector, setSelectedSector] = useState("TODOS");
 	const [searchParam, setSearchParam] = useState("");
 	const [crmChips, setCrmChips] = useState([]);
 	const [nowTime, setNowTime] = useState(Date.now());
