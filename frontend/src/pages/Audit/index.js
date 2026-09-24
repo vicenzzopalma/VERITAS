@@ -200,6 +200,21 @@ const useStyles = makeStyles((theme) => ({
   },
   deviceCardContent: {
     padding: "6px 10px !important",
+    width: "100%",
+    boxSizing: "border-box",
+    "& svg": {
+      flexShrink: 0,
+    },
+  },
+  deviceName: {
+    minWidth: 0,
+    flex: 1,
+    overflow: "hidden",
+    textOverflow: "ellipsis",
+    whiteSpace: "nowrap",
+    display: "block",
+    lineHeight: 1.25,
+    paddingRight: 6,
   },
   mainContent: {
     display: "flex",
@@ -1186,10 +1201,16 @@ const Audit = () => {
                 onClick={() => setSelectedDevice(device)}
               >
                 <CardActionArea className={classes.deviceCardContent}>
-                  <Box display="flex" alignItems="center" justifyContent="space-between">
-                    <Typography variant="subtitle2" style={{ fontWeight: 600, color: isSelected ? "#0284c7" : "inherit" }}>
-                      📱 {device.name}
-                    </Typography>
+                  <Box display="flex" alignItems="center" width="100%" minWidth={0}>
+                    <Tooltip title={device.name || "Dispositivo"} placement="top">
+                      <Typography
+                        variant="subtitle2"
+                        className={classes.deviceName}
+                        style={{ fontWeight: 600, color: isSelected ? "#0284c7" : "inherit" }}
+                      >
+                        📱 {device.name}
+                      </Typography>
+                    </Tooltip>
                     {isConnected ? (
                       <Tooltip title="Conectado e Operando">
                         <OnlineIcon style={{ color: "#10b981", fontSize: 16 }} />
