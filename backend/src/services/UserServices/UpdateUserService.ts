@@ -12,6 +12,8 @@ interface UserData {
   status?: string;
   queueIds?: number[];
   whatsappId?: number;
+  canAccessConnections?: boolean;
+  connectionSectors?: string[];
 }
 
 interface Request {
@@ -54,7 +56,9 @@ const UpdateUserService = async ({
     status,
     name,
     queueIds = [],
-    whatsappId
+    whatsappId,
+    canAccessConnections,
+    connectionSectors
   } = userData;
 
   try {
@@ -69,7 +73,9 @@ const UpdateUserService = async ({
     profile,
     status,
     name,
-    whatsappId: whatsappId ? whatsappId : null
+    whatsappId: whatsappId ? whatsappId : null,
+    ...(canAccessConnections !== undefined && { canAccessConnections }),
+    ...(connectionSectors !== undefined && { connectionSectors })
   });
 
   await user.$set("queues", queueIds);

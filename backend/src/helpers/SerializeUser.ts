@@ -8,6 +8,8 @@ interface SerializedUser {
   email: string;
   profile: string;
   status: string;
+  canAccessConnections: boolean;
+  connectionSectors: string[];
   whatsappId?: number;
   queues: Queue[];
   whatsapp: Whatsapp;
@@ -20,9 +22,10 @@ export const SerializeUser = (user: User): SerializedUser => {
     email: user.email,
     profile: user.profile,
     status: user.status,
+    canAccessConnections: user.canAccessConnections,
+    connectionSectors: user.connectionSectors || [],
     whatsappId: user.whatsappId,
     queues: user.queues,
     whatsapp: user.whatsapp
   };
 };
-

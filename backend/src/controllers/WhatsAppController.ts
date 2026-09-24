@@ -8,6 +8,10 @@ import ListWhatsAppsService from "../services/WhatsappService/ListWhatsAppsServi
 import ShowWhatsAppService from "../services/WhatsappService/ShowWhatsAppService";
 import UpdateWhatsAppService from "../services/WhatsappService/UpdateWhatsAppService";
 import { whatsappProvider } from "../providers/WhatsApp";
+import {
+  canAccessWhatsapp,
+  isWhatsappControlUser
+} from "../services/WhatsappService/WhatsappAccessPolicy";
 
 interface WhatsappData {
   name: string;
@@ -22,7 +26,7 @@ interface WhatsappData {
 }
 
 export const index = async (req: Request, res: Response): Promise<Response> => {
-  const whatsapps = await ListWhatsAppsService();
+  const whatsapps = await ListWhatsAppsService(req.user);
 
   return res.status(200).json(whatsapps);
 };
@@ -39,6 +43,13 @@ export const store = async (req: Request, res: Response): Promise<Response> => {
     proxyUrl,
     humanDelay
   }: WhatsappData = req.body;
+
+  if (
+    isWhatsappControlUser(req.user) &&
+    !canAccessWhatsapp(req.user, { sector: sector || "" })
+  ) {
+    return res.status(403).json({ error: "ERR_NO_PERMISSION" });
+  }
 
   const { whatsapp, oldDefaultWhatsapp } = await CreateWhatsAppService({
     name,
@@ -74,6 +85,9 @@ export const show = async (req: Request, res: Response): Promise<Response> => {
   const { whatsappId } = req.params;
 
   const whatsapp = await ShowWhatsAppService(whatsappId);
+  if (!canAccessWhatsapp(req.user, whatsapp)) {
+    return res.status(403).json({ error: "ERR_NO_PERMISSION" });
+  }
 
   return res.status(200).json(whatsapp);
 };
@@ -84,6 +98,11 @@ export const update = async (
 ): Promise<Response> => {
   const { whatsappId } = req.params;
   const whatsappData = req.body;
+  const currentWhatsapp = await ShowWhatsAppService(whatsappId);
+
+  if (!canAccessWhatsapp(req.user, currentWhatsapp)) {
+    return res.status(403).json({ error: "ERR_NO_PERMISSION" });
+  }
 
   const { whatsapp, oldDefaultWhatsapp } = await UpdateWhatsAppService({
     whatsappData,
@@ -111,6 +130,11 @@ export const remove = async (
   res: Response
 ): Promise<Response> => {
   const { whatsappId } = req.params;
+  const currentWhatsapp = await ShowWhatsAppService(whatsappId);
+
+  if (!canAccessWhatsapp(req.user, currentWhatsapp)) {
+    return res.status(403).json({ error: "ERR_NO_PERMISSION" });
+  }
 
   await DeleteWhatsAppService(whatsappId);
   whatsappProvider.removeSession(+whatsappId);

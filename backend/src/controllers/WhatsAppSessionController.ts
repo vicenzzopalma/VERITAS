@@ -5,10 +5,14 @@ import { StartWhatsAppSession } from "../services/WbotServices/StartWhatsAppSess
 import UpdateWhatsAppService from "../services/WhatsappService/UpdateWhatsAppService";
 import ClearWppSessionKeys from "../services/WppKeyServices/ClearWppSessionKeys";
 import { getIO } from "../libs/socket";
+import { canAccessWhatsapp } from "../services/WhatsappService/WhatsappAccessPolicy";
 
 const store = async (req: Request, res: Response): Promise<Response> => {
   const { whatsappId } = req.params;
   const whatsapp = await ShowWhatsAppService(whatsappId);
+  if (!canAccessWhatsapp(req.user, whatsapp)) {
+    return res.status(403).json({ error: "ERR_NO_PERMISSION" });
+  }
 
   StartWhatsAppSession(whatsapp);
 
@@ -18,6 +22,10 @@ const store = async (req: Request, res: Response): Promise<Response> => {
 const update = async (req: Request, res: Response): Promise<Response> => {
   const { whatsappId } = req.params;
   const idNumber = Number(whatsappId);
+  const currentWhatsapp = await ShowWhatsAppService(whatsappId);
+  if (!canAccessWhatsapp(req.user, currentWhatsapp)) {
+    return res.status(403).json({ error: "ERR_NO_PERMISSION" });
+  }
 
   // Remove sessao ativa em memoria e limpa qualquer listener
   try {
@@ -43,6 +51,9 @@ const remove = async (req: Request, res: Response): Promise<Response> => {
   const { whatsappId } = req.params;
   const idNumber = Number(whatsappId);
   const whatsapp = await ShowWhatsAppService(whatsappId);
+  if (!canAccessWhatsapp(req.user, whatsapp)) {
+    return res.status(403).json({ error: "ERR_NO_PERMISSION" });
+  }
 
   try {
     await whatsappProvider.logout(whatsapp.id);

@@ -93,6 +93,7 @@ import ConfirmationModal from "../../components/ConfirmationModal";
 import QrcodeModal from "../../components/QrcodeModal";
 import { i18n } from "../../translate/i18n";
 import { WhatsAppsContext } from "../../context/WhatsApp/WhatsAppsContext";
+import { AuthContext } from "../../context/Auth/AuthContext";
 import toastError from "../../errors/toastError";
 
 const useStyles = makeStyles(theme => ({
@@ -188,6 +189,13 @@ const Connections = () => {
 	const classes = useStyles();
 
 	const { whatsApps, loading, fetchWhatsApps } = useContext(WhatsAppsContext);
+	const { user } = useContext(AuthContext);
+	const isWhatsappControl = user?.profile === "whatsapp_control";
+	const allowedSectors = isWhatsappControl
+		? (user.connectionSectors && user.connectionSectors.length
+			? user.connectionSectors
+			: ["PA FIXA 1", "PA FIXA 2"])
+		: null;
 	const [whatsAppModalOpen, setWhatsAppModalOpen] = useState(false);
 	const [qrModalOpen, setQrModalOpen] = useState(false);
 	const [selectedWhatsApp, setSelectedWhatsApp] = useState(null);
@@ -203,7 +211,7 @@ const Connections = () => {
 		confirmationModalInitialState
 	);
 
-	const [selectedSector, setSelectedSector] = useState("TODOS");
+	const [selectedSector, setSelectedSector] = useState(isWhatsappControl ? "TODOS" : "TODOS");
 	const [searchParam, setSearchParam] = useState("");
 	const [crmChips, setCrmChips] = useState([]);
 	const [nowTime, setNowTime] = useState(Date.now());
@@ -322,17 +330,21 @@ const Connections = () => {
 		whatsApps?.forEach(w => {
 			if (w.sector) presentSectors.add(w.sector);
 		});
-		return Array.from(new Set([...defaultOrder, ...presentSectors]));
-	}, [whatsApps]);
+		const sectors = Array.from(new Set([...defaultOrder, ...presentSectors]));
+		return allowedSectors ? sectors.filter(sector => allowedSectors.includes(sector)) : sectors;
+	}, [whatsApps, allowedSectors]);
 
 	const sectorCounts = React.useMemo(() => {
-		const counts = { TODOS: whatsApps?.length || 0 };
-		whatsApps?.forEach(w => {
+		const visibleWhatsApps = allowedSectors
+			? (whatsApps || []).filter(w => allowedSectors.includes(w.sector || ""))
+			: whatsApps || [];
+		const counts = { TODOS: visibleWhatsApps.length };
+		visibleWhatsApps.forEach(w => {
 			const sec = w.sector || "Junior";
 			counts[sec] = (counts[sec] || 0) + 1;
 		});
 		return counts;
-	}, [whatsApps]);
+	}, [whatsApps, allowedSectors]);
 
 	const getStatusPriority = status => {
 		if (status === "qrcode") return 1; // Prioridade Máxima: QR pronto na tela
@@ -343,7 +355,9 @@ const Connections = () => {
 	};
 
 	const filteredWhatsApps = React.useMemo(() => {
-		let list = whatsApps || [];
+		let list = allowedSectors
+			? (whatsApps || []).filter(w => allowedSectors.includes(w.sector || ""))
+			: whatsApps || [];
 		if (selectedSector !== "TODOS") {
 			list = list.filter(w => (w.sector || "Junior") === selectedSector);
 		}
@@ -376,7 +390,7 @@ const Connections = () => {
 			}
 			return (a.name || "").localeCompare(b.name || "");
 		});
-	}, [whatsApps, selectedSector, searchParam, getMatchedChip]);
+	}, [whatsApps, selectedSector, searchParam, getMatchedChip, allowedSectors]);
 
 	const handleStartWhatsAppSession = async whatsAppId => {
 		try {

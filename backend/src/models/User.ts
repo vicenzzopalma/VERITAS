@@ -52,6 +52,14 @@ class User extends Model<User> {
   @Column
   status: string;
 
+  @Default(true)
+  @Column
+  canAccessConnections: boolean;
+
+  @Default(["PA FIXA 1", "PA FIXA 2"])
+  @Column(DataType.JSON)
+  connectionSectors: string[];
+
   @ForeignKey(() => Whatsapp)
   @Column
   whatsappId: number;
@@ -84,7 +92,7 @@ class User extends Model<User> {
   };
 
   public toJSON(): any {
-    const values = { ...this.get() };
+    const values = this.get() as Partial<User>;
     delete values.password;
     delete values.passwordHash;
     delete values.tokenVersion;

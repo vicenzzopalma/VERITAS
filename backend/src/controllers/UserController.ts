@@ -27,7 +27,7 @@ export const index = async (req: Request, res: Response): Promise<Response> => {
 };
 
 export const store = async (req: Request, res: Response): Promise<Response> => {
-  const { email, password, name, queueIds, whatsappId } = req.body;
+  const { email, password, name, queueIds, whatsappId, canAccessConnections, connectionSectors } = req.body;
   let { profile, status } = req.body;
 
   if (
@@ -52,7 +52,9 @@ export const store = async (req: Request, res: Response): Promise<Response> => {
     profile: profile || "user",
     status: status || "active",
     queueIds,
-    whatsappId
+    whatsappId,
+    canAccessConnections,
+    connectionSectors
   });
 
   const io = getIO();
@@ -81,10 +83,10 @@ export const update = async (
   }
 
   const { userId } = req.params;
-  const { email, password, name, profile, queueIds, whatsappId, status } = req.body;
+  const { email, password, name, profile, queueIds, whatsappId, status, canAccessConnections, connectionSectors } = req.body;
 
   const user = await UpdateUserService({
-    userData: { email, password, name, profile, queueIds, whatsappId, status },
+    userData: { email, password, name, profile, queueIds, whatsappId, status, canAccessConnections, connectionSectors },
     userId
   });
 

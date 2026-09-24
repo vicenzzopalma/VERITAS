@@ -35,7 +35,12 @@ const Route = ({ component: Component, isPrivate = false, ...rest }) => {
 
   // Bloqueio rigoroso de rota para usuários originários do Whatsapp Control
   // Não permite ver, enxergar ou usar nenhuma outra tela do Veritas
-  if (isAuth && user?.profile === "whatsapp_control" && rest.path !== "/whatsapp-control") {
+  if (
+    isAuth &&
+    user?.profile === "whatsapp_control" &&
+    rest.path !== "/whatsapp-control" &&
+    (!user.canAccessConnections || rest.path !== "/connections")
+  ) {
     return (
       <Redirect to={{ pathname: "/whatsapp-control" }} />
     );

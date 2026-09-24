@@ -218,7 +218,7 @@ const MainListItems = (props) => {
     return undefined;
   };
 
-  // Se o usuário for do perfil Whatsapp Control, ele NÃO PODE enxergar nem usar o restante do Veritas
+  // O perfil Whatsapp Control acessa o CRM e as conexões do setor PA FIXA.
   if (user?.profile === "whatsapp_control") {
     return (
       <div onClick={drawerClose} className={classes.crmMenuContainer}>
@@ -230,6 +230,16 @@ const MainListItems = (props) => {
           isWhatsappControl={true}
           active={true}
         />
+        {user.canAccessConnections && (
+          <ListItemLink
+            to="/connections"
+            primary="Conexões"
+            icon={<SyncAltIcon />}
+            className={getItemClass("/connections")}
+            isWhatsappControl={true}
+            active={location.pathname === "/connections"}
+          />
+        )}
         <Divider style={{ margin: "12px 0", backgroundColor: "rgba(255, 255, 255, 0.1)" }} />
         <li>
           <ListItem

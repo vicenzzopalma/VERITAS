@@ -15,6 +15,8 @@ import {
 	InputLabel,
 	MenuItem,
 	FormControl,
+	FormControlLabel,
+	Checkbox,
 	TextField,
 	InputAdornment,
 	IconButton
@@ -73,6 +75,16 @@ const UserSchema = Yup.object().shape({
 	email: Yup.string().email("Invalid email").required("Required"),
 });
 
+const CONNECTION_SECTORS = [
+	"PA FIXA 1",
+	"PA FIXA 2",
+	"Junior",
+	"Senior",
+	"Pesquisa",
+	"Comercial",
+	"Jurídico"
+];
+
 const UserModal = ({ open, onClose, userId }) => {
 	const classes = useStyles();
 
@@ -81,7 +93,9 @@ const UserModal = ({ open, onClose, userId }) => {
 		email: "",
 		password: "",
 		profile: "user",
-		status: "active"
+		status: "active",
+		canAccessConnections: false,
+		connectionSectors: CONNECTION_SECTORS
 	};
 
 	const { user: loggedInUser } = useContext(AuthContext);
@@ -160,7 +174,7 @@ const UserModal = ({ open, onClose, userId }) => {
 						}, 400);
 					}}
 				>
-					{({ touched, errors, isSubmitting }) => (
+					{({ touched, errors, isSubmitting, values }) => (
 						<Form>
 							<DialogContent dividers>
 								<div className={classes.multFieldLine}>
@@ -235,6 +249,7 @@ const UserModal = ({ open, onClose, userId }) => {
 														<MenuItem value="admin">Admin</MenuItem>
 														<MenuItem value="user">User</MenuItem>
 														<MenuItem value="operator">Operador WhatsApp (Tela Dedicada)</MenuItem>
+														<MenuItem value="whatsapp_control">Gestor WhatsApp Control</MenuItem>
 													</Field>
 												</>
 											)}
@@ -280,6 +295,46 @@ const UserModal = ({ open, onClose, userId }) => {
 										/>
 									)}
 								/>
+								{values.profile === "whatsapp_control" && (
+									<Can
+										role={loggedInUser.profile}
+										perform="user-modal:editProfile"
+										yes={() => (
+											<>
+												<FormControlLabel
+													control={
+														<Field
+															as={Checkbox}
+															color="primary"
+															name="canAccessConnections"
+														/>
+													}
+													label="Permitir acesso à aba Conexões"
+												/>
+												{values.canAccessConnections && (
+													<FormControl variant="outlined" margin="dense" fullWidth>
+														<InputLabel id="connection-sectors-label">
+															Setores permitidos
+														</InputLabel>
+														<Field
+															as={Select}
+															multiple
+															name="connectionSectors"
+															label="Setores permitidos"
+															labelId="connection-sectors-label"
+														>
+															{CONNECTION_SECTORS.map(sector => (
+																<MenuItem key={sector} value={sector}>
+																	{sector}
+																</MenuItem>
+															))}
+														</Field>
+													</FormControl>
+												)}
+											</>
+										)}
+									/>
+								)}
 								<Can
 									role={loggedInUser.profile}
 									perform="user-modal:editQueues"

@@ -3,6 +3,7 @@ import { Request, Response, NextFunction } from "express";
 
 import AppError from "../errors/AppError";
 import authConfig from "../config/auth";
+import User from "../models/User";
 
 interface TokenPayload {
   id: string;
@@ -12,7 +13,7 @@ interface TokenPayload {
   exp: number;
 }
 
-const isAuth = (req: Request, res: Response, next: NextFunction): void => {
+const isAuth = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   const authHeader = req.headers.authorization;
   let token = "";
 
@@ -32,10 +33,19 @@ const isAuth = (req: Request, res: Response, next: NextFunction): void => {
   try {
     const decoded = verify(token, authConfig.secret);
     const { id, profile } = decoded as TokenPayload;
+    const user = await User.findByPk(id, {
+      attributes: ["id", "profile", "canAccessConnections", "connectionSectors"]
+    });
+
+    if (!user) {
+      throw new AppError("ERR_SESSION_EXPIRED", 401);
+    }
 
     req.user = {
       id,
-      profile
+      profile,
+      canAccessConnections: user.canAccessConnections,
+      connectionSectors: user.connectionSectors || []
     };
   } catch (err) {
     throw new AppError(
