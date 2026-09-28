@@ -230,6 +230,39 @@ const assertUnique = (sessionId: number) => {
   }
 };
 
+const saveSessionCredsImmediate = async (
+  sessionId: number,
+  creds: AuthenticationCreds
+) => {
+  try {
+    const updateData: Partial<Whatsapp> = {
+      session: JSON.stringify(creds, BufferJSON.replacer)
+    };
+
+    if (creds?.me?.id) {
+      updateData.qrcode = "";
+      const rawNumber = creds.me.id.split(":")[0].replace(/\D/g, "");
+      if (rawNumber) {
+        updateData.number = rawNumber;
+      }
+    }
+
+    await Whatsapp.update(updateData, { where: { id: sessionId } });
+
+    logger.debug({
+      info: "Creds immediately saved to database",
+      sessionId,
+      hasMe: Boolean(creds?.me?.id)
+    });
+  } catch (err) {
+    logger.error({
+      info: "Error immediately saving creds to database",
+      sessionId,
+      err
+    });
+  }
+};
+
 const saveSessionCreds = async (
   whatsapp: Whatsapp,
   creds: AuthenticationCreds
@@ -248,7 +281,7 @@ const saveSessionCreds = async (
       }
     }
 
-    await whatsapp.update(updateData);
+    await Whatsapp.update(updateData, { where: { id: whatsapp.id } });
 
     logger.debug({
       info: "Creds saved to database",
@@ -309,18 +342,25 @@ const debouncedSaveCreds = (
 const useSessionAuthState = async (whatsapp: Whatsapp) => {
   const sessionId = whatsapp.id;
 
+  let freshWhatsapp = await Whatsapp.findByPk(sessionId, {
+    attributes: ["id", "session", "status", "number"]
+  });
+
+  const sessionRaw = freshWhatsapp?.session || whatsapp.session;
+
   let creds: AuthenticationCreds;
   try {
-    creds = whatsapp.session
-      ? JSON.parse(whatsapp.session, BufferJSON.reviver)
+    creds = sessionRaw
+      ? JSON.parse(sessionRaw, BufferJSON.reviver)
       : initAuthCreds();
   } catch {
     creds = initAuthCreds();
   }
 
-  // Se o registro no banco não possui creds.me.id e não está CONECTADO,
-  // reinicia as credenciais limpas para que o Baileys emita um QR code novo e válido
-  if (!creds?.me?.id && whatsapp.status !== "CONNECTED") {
+  // Se o registro no banco não possui creds.me.id e nem creds.account,
+  // e não está CONECTADO, reinicia as credenciais limpas para gerar um QR code novo e válido
+  const currentStatus = freshWhatsapp?.status || whatsapp.status;
+  if (!creds?.me?.id && !creds?.account && currentStatus !== "CONNECTED") {
     creds = initAuthCreds();
   }
 
@@ -1141,7 +1181,7 @@ const initializeSession = async (whatsapp: Whatsapp): Promise<void> => {
         jid === "status@broadcast"
       );
     },
-    syncFullHistory: true,
+    syncFullHistory: false,
     version: waVersionToUse,
     msgRetryCounterMap,
     markOnlineOnConnect: false,
@@ -1187,8 +1227,12 @@ const initializeSession = async (whatsapp: Whatsapp): Promise<void> => {
 
   sessions.set(sessionId, wbot);
 
-  wbot.ev.on("creds.update", () => {
-    debouncedSaveCreds(whatsapp, state.creds);
+  wbot.ev.on("creds.update", async (update: any) => {
+    if (update?.me?.id || update?.account) {
+      await saveSessionCredsImmediate(sessionId, state.creds);
+    } else {
+      debouncedSaveCreds(whatsapp, state.creds);
+    }
   });
 
   // Fila sequencial de sincronização de histórico retroativo (1 conversa por vez - últimas 24h)
@@ -1585,27 +1629,31 @@ const initializeSession = async (whatsapp: Whatsapp): Promise<void> => {
         statusCode === 515
       ) {
         logger.info({
-          info: "Restart required (QR Code pareado com sucesso). Reconectando imediatamente...",
+          info: "Restart required (QR Code pareado com sucesso). Reconectando com nova identidade...",
           sessionId
         });
 
         await flushPendingCredsSave(sessionId);
+        await saveSessionCredsImmediate(sessionId, state.creds);
         await removeSession(sessionId);
 
-        try {
-          const freshWhatsapp = await Whatsapp.findByPk(sessionId);
-          if (freshWhatsapp) {
-            await init(freshWhatsapp);
+        // Grace period de 1500ms para permitir que os servidores da Meta completem o registro do novo par de chaves
+        setTimeout(async () => {
+          try {
+            const freshWhatsapp = await Whatsapp.findByPk(sessionId);
+            if (freshWhatsapp) {
+              await init(freshWhatsapp);
+            }
+          } catch (err515) {
+            logger.error({ info: "Falha ao reiniciar sessão após 515", sessionId, err: err515 });
+            await whatsapp.update({ status: "DISCONNECTED", retries: 0 });
+            const updatedWhatsapp = await Whatsapp.findByPk(sessionId);
+            if (updatedWhatsapp) {
+              io.emit("whatsappSession", { action: "update", session: updatedWhatsapp });
+              io.emit("whatsapp", { action: "update", whatsapp: updatedWhatsapp });
+            }
           }
-        } catch (err515) {
-          logger.error({ info: "Falha ao reiniciar sessão após 515", sessionId, err: err515 });
-          await whatsapp.update({ status: "DISCONNECTED", retries: 0 });
-          const updatedWhatsapp = await Whatsapp.findByPk(sessionId);
-          if (updatedWhatsapp) {
-            io.emit("whatsappSession", { action: "update", session: updatedWhatsapp });
-            io.emit("whatsapp", { action: "update", whatsapp: updatedWhatsapp });
-          }
-        }
+        }, 1500);
         return;
       }
 

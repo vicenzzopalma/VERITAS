@@ -80,12 +80,52 @@ export const store = async (req: Request, res: Response): Promise<Response> => {
   return res.status(200).json(whatsapp);
 };
 
+const startingQrSessions = new Set<number>();
+
 export const show = async (req: Request, res: Response): Promise<Response> => {
   const { whatsappId } = req.params;
 
   const whatsapp = await ShowWhatsAppService(whatsappId);
   if (!canAccessWhatsapp(req.user, whatsapp)) {
     return res.status(403).json({ error: "ERR_NO_PERMISSION" });
+  }
+
+  // Se o WhatsApp não está conectado, garante que exista uma sessão Baileys viva
+  // para gerar um QR code novo e válido quando o modal for aberto no frontend
+  if (whatsapp.status !== "CONNECTED") {
+    const idNum = Number(whatsappId);
+    let isLive = false;
+    try {
+      const liveness = await whatsappProvider.checkSessionLiveness?.(idNum);
+      if (liveness?.healthy || liveness?.status === "OPENING") {
+        isLive = true;
+      }
+    } catch {}
+
+    const qrAgeMs = whatsapp.updatedAt
+      ? Date.now() - new Date(whatsapp.updatedAt).getTime()
+      : 999999;
+    const isQrStale = !whatsapp.qrcode || qrAgeMs > 45000;
+
+    if ((!isLive || isQrStale) && !startingQrSessions.has(idNum)) {
+      startingQrSessions.add(idNum);
+      (async () => {
+        try {
+          if (isQrStale && whatsapp.qrcode) {
+            await whatsapp.update({ qrcode: "", status: "OPENING" });
+          }
+          await StartWhatsAppSession(whatsapp);
+        } catch (err) {
+          // silencia erros transitórios
+        } finally {
+          setTimeout(() => startingQrSessions.delete(idNum), 5000);
+        }
+      })();
+
+      if (isQrStale) {
+        whatsapp.qrcode = "";
+      }
+    }
   }
 
   return res.status(200).json(whatsapp);

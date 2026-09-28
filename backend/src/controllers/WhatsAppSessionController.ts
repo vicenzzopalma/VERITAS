@@ -15,6 +15,11 @@ const store = async (req: Request, res: Response): Promise<Response> => {
     return res.status(403).json({ error: "ERR_NO_PERMISSION" });
   }
 
+  // Se o aparelho não possui credenciais ou está iniciando pareamento, limpa QR code anterior
+  if (!whatsapp.session || whatsapp.session.length < 10) {
+    await whatsapp.update({ qrcode: "", status: "OPENING" });
+  }
+
   StartWhatsAppSession(whatsapp);
 
   return res.status(200).json({ message: "Starting session." });

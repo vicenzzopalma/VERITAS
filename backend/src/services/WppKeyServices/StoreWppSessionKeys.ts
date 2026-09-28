@@ -88,8 +88,7 @@ export const StoreWppSessionKeysBatch = async (
     });
   }
 
-  // Gravação em lote dentro de UMA única transação no SQLite
-  // Reduz 50-100 operações de lock para apenas 1 único commit atômico
+  // Gravação em lote dentro de transação com retries automáticos
   const executeBatch = async () => {
     await sequelize.transaction(async t => {
       for (const item of formattedItems) {
@@ -98,27 +97,35 @@ export const StoreWppSessionKeysBatch = async (
     });
   };
 
-  try {
-    await executeBatch();
-  } catch (err: any) {
-    if (err?.message?.includes("SQLITE_BUSY") || err?.code === "SQLITE_BUSY") {
-      try {
-        await new Promise(res => setTimeout(res, 150));
-        await executeBatch();
-        return;
-      } catch (retryErr) {
-        logger.warn({
-          info: "Retry batch keys store failed",
-          count: items.length,
-          err: retryErr
-        });
+  let success = false;
+  let lastErr: any;
+  for (let attempt = 1; attempt <= 5; attempt++) {
+    try {
+      await executeBatch();
+      success = true;
+      break;
+    } catch (err: any) {
+      lastErr = err;
+      const isLock =
+        err?.message?.includes("SQLITE_BUSY") ||
+        err?.code === "SQLITE_BUSY" ||
+        err?.name === "SequelizeTimeoutError";
+
+      if (isLock && attempt < 5) {
+        await new Promise(res =>
+          setTimeout(res, attempt * 120 + Math.floor(Math.random() * 80))
+        );
+      } else {
+        break;
       }
     }
+  }
 
+  if (!success) {
     logger.error({
-      info: "Error storing batch keys in database",
+      info: "Error storing batch keys in database after retries",
       count: items.length,
-      err
+      err: lastErr
     });
   }
 };

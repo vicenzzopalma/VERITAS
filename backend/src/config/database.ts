@@ -16,12 +16,34 @@ const config = {
   dialectOptions: {
     busyTimeout: 60000
   },
-  transactionType: "IMMEDIATE",
   pool: {
-    max: 20,
-    min: 2,
+    max: 10,
+    min: 1,
     acquire: 60000,
     idle: 10000
+  },
+  retry: {
+    max: 10,
+    match: [
+      /SQLITE_BUSY/,
+      /database is locked/
+    ]
+  },
+  hooks: {
+    afterConnect: (connection, config) => {
+      try {
+        if (typeof connection.configure === "function") {
+          connection.configure("busyTimeout", 60000);
+        }
+        if (typeof connection.run === "function") {
+          connection.run("PRAGMA busy_timeout = 60000;");
+          connection.run("PRAGMA journal_mode = WAL;");
+          connection.run("PRAGMA synchronous = NORMAL;");
+          connection.run("PRAGMA cache_size = -131072;");
+          connection.run("PRAGMA temp_store = MEMORY;");
+        }
+      } catch (e) {}
+    }
   }
 };
 

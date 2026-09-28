@@ -51,6 +51,7 @@ export const StartAllWhatsAppsSessions = async (): Promise<{
         // Define status como 'qrcode' para exibir imediatamente o botão de QR Code no frontend
         await whatsapp.update({
           status: "qrcode",
+          qrcode: "",
           retries: 0
         });
         qrCount++;
