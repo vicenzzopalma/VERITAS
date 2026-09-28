@@ -1548,11 +1548,14 @@ const initializeSession = async (whatsapp: Whatsapp): Promise<void> => {
         (lastDisconnect?.error as Error)?.message ||
         "";
 
+      const hasCredsMe = Boolean(state.creds?.me?.id);
+      const hasAccount = Boolean(state.creds?.account);
+
       try {
-        require("fs").appendFileSync(require("path").join(process.cwd(), "disconnect_debug.log"), `[${new Date().toISOString()}] Session ${sessionId} (${whatsapp.name}) CLOSED! statusCode=${statusCode}, error=${errorMessage}\n`);
+        require("fs").appendFileSync(require("path").join(process.cwd(), "disconnect_debug.log"), `[${new Date().toISOString()}] Session ${sessionId} (${whatsapp.name}) CLOSED! statusCode=${statusCode}, error=${errorMessage}, hasCredsMe=${hasCredsMe}, hasAccount=${hasAccount}\n`);
       } catch {}
 
-      console.error(`[WHAILEYS DISCONNECT] Session ${sessionId} (${whatsapp.name}) CLOSED! statusCode=${statusCode}, error=${errorMessage}`);
+      console.error(`[WHAILEYS DISCONNECT] Session ${sessionId} (${whatsapp.name}) CLOSED! statusCode=${statusCode}, error=${errorMessage}, hasCredsMe=${hasCredsMe}, hasAccount=${hasAccount}`);
 
       if (errorMessage === "Intentional Logout") {
         await whatsapp.update({
@@ -1624,31 +1627,60 @@ const initializeSession = async (whatsapp: Whatsapp): Promise<void> => {
         statusCode === 515
       ) {
         logger.info({
-          info: "Restart required (QR Code pareado com sucesso). Reconectando com nova identidade...",
-          sessionId
+          info: "Restart required (515). Reconectando com credenciais pareadas...",
+          sessionId,
+          hasCredsMe,
+          hasAccount,
+          credsMe: state.creds?.me?.id || "none"
         });
 
+        // CRÍTICO: salvar credenciais ANTES de qualquer operação de limpeza
         await flushPendingCredsSave(sessionId);
         await saveSessionCredsImmediate(sessionId, state.creds);
+
+        // Marcar como OPENING para feedback visual imediato
+        await whatsapp.update({ status: "OPENING", qrcode: "", retries: 0 });
+        const openingW = await Whatsapp.findByPk(sessionId);
+        if (openingW) {
+          io.emit("whatsappSession", { action: "update", session: openingW });
+          io.emit("whatsapp", { action: "update", whatsapp: openingW });
+        }
+
         await removeSession(sessionId);
 
-        // Grace period de 1500ms para permitir que os servidores da Meta completem o registro do novo par de chaves
+        // Grace period de 3000ms para permitir que os servidores da Meta
+        // completem o registro do novo par de chaves (1500ms era insuficiente)
         setTimeout(async () => {
           try {
             const freshWhatsapp = await Whatsapp.findByPk(sessionId);
-            if (freshWhatsapp) {
-              await init(freshWhatsapp);
+            if (!freshWhatsapp) {
+              logger.error({ info: "515 restart: whatsapp record not found", sessionId });
+              return;
             }
+
+            logger.info({
+              info: "515 restart: Iniciando reconexão com credenciais salvas",
+              sessionId,
+              hasSession: Boolean(freshWhatsapp.session && freshWhatsapp.session.length > 10),
+              status: freshWhatsapp.status
+            });
+
+            await init(freshWhatsapp);
           } catch (err515) {
             logger.error({ info: "Falha ao reiniciar sessão após 515", sessionId, err: err515 });
-            await whatsapp.update({ status: "DISCONNECTED", retries: 0 });
-            const updatedWhatsapp = await Whatsapp.findByPk(sessionId);
-            if (updatedWhatsapp) {
-              io.emit("whatsappSession", { action: "update", session: updatedWhatsapp });
-              io.emit("whatsapp", { action: "update", whatsapp: updatedWhatsapp });
-            }
+            try {
+              await Whatsapp.update(
+                { status: "DISCONNECTED", retries: 0 },
+                { where: { id: sessionId } }
+              );
+              const updatedWhatsapp = await Whatsapp.findByPk(sessionId);
+              if (updatedWhatsapp) {
+                io.emit("whatsappSession", { action: "update", session: updatedWhatsapp });
+                io.emit("whatsapp", { action: "update", whatsapp: updatedWhatsapp });
+              }
+            } catch {}
           }
-        }, 1500);
+        }, 3000);
         return;
       }
 
@@ -2621,20 +2653,25 @@ export const checkSessionLiveness = async (
   }
 
   const ws = wbot.ws as any;
-  if (!ws || ws.readyState !== 1) {
-    return {
-      healthy: false,
-      status: "OPENING",
-      reason: `WEBSOCKET_CONNECTING (readyState=${ws ? ws.readyState : "null"})`
-    };
+  if (!ws) {
+    return { healthy: false, status: "DISCONNECTED", reason: "NO_WEBSOCKET_INSTANCE" };
   }
 
-  if (!wbot.user?.id) {
-    return { healthy: false, status: "OPENING", reason: "USER_CREDENTIALS_INITIALIZING" };
+  // Se o WebSocket está em processo de handshake/conexão (readyState === 0), está saudável e em progresso!
+  if (ws.readyState === 0) {
+    return { healthy: true, status: "OPENING", reason: "WEBSOCKET_CONNECTING" };
   }
 
-  return { healthy: true, status: "CONNECTED" };
+  // Se está aberto (readyState === 1)
+  if (ws.readyState === 1) {
+    return { healthy: true, status: "CONNECTED" };
+  }
+
+  // readyState === 2 (CLOSING) ou 3 (CLOSED)
+  return { healthy: false, status: "DISCONNECTED", reason: `WEBSOCKET_CLOSED (readyState=${ws.readyState})` };
 };
+
+const lastWatchdogReconnect = new Map<number, number>();
 
 export const reconcileAllSessionsLiveness = async (): Promise<{
   checked: number;
@@ -2648,9 +2685,13 @@ export const reconcileAllSessionsLiveness = async (): Promise<{
   const details: any[] = [];
   let healthy = 0;
   let reconnecting = 0;
+  const now = Date.now();
 
   for (const whatsapp of allWhatsapps) {
-    // Checar apenas aparelhos que possuem credenciais/chaves salvas
+    // Aparelhos em status qrcode ou sem chaves não devem ser reiniciados pelo watchdog
+    if (whatsapp.status === "qrcode") continue;
+
+    // Checar se possui credenciais/chaves salvas
     const hasKeys =
       (await WppKey.count({ where: { connectionId: whatsapp.id } })) > 0 ||
       Boolean(whatsapp.session && whatsapp.session.trim().length > 10);
@@ -2660,7 +2701,7 @@ export const reconcileAllSessionsLiveness = async (): Promise<{
     const res = await checkSessionLiveness(whatsapp.id);
     if (res.healthy) {
       healthy++;
-      if (whatsapp.status !== "CONNECTED") {
+      if (res.status === "CONNECTED" && whatsapp.status !== "CONNECTED") {
         await whatsapp.update({ status: "CONNECTED", retries: 0 });
         const io = getIO();
         const updatedWhatsapp = await Whatsapp.findByPk(whatsapp.id);
@@ -2670,29 +2711,40 @@ export const reconcileAllSessionsLiveness = async (): Promise<{
         }
       }
     } else {
+      // Cooldown de 5 minutos por sessão para evitar tempestade de reconexão
+      const lastAttempt = lastWatchdogReconnect.get(whatsapp.id) || 0;
+      if (now - lastAttempt < 300000) {
+        continue;
+      }
+      lastWatchdogReconnect.set(whatsapp.id, now);
+
       reconnecting++;
       logger.info({
-        info: `[Liveness Watchdog] Auto-cura: reconectando WhatsApp #${whatsapp.id} (${whatsapp.name}). Motivo: ${res.reason}`,
+        info: `[Liveness Watchdog] Auto-cura: agendando reconexão suave do WhatsApp #${whatsapp.id} (${whatsapp.name}). Motivo: ${res.reason}`,
         whatsappId: whatsapp.id
       });
 
-      try {
-        await whatsapp.update({ status: "OPENING" });
-        const io = getIO();
-        const updatedWhatsapp = await Whatsapp.findByPk(whatsapp.id);
-        if (updatedWhatsapp) {
-          io.emit("whatsappSession", { action: "update", session: updatedWhatsapp });
-          io.emit("whatsapp", { action: "update", whatsapp: updatedWhatsapp });
-        }
+      // Dispara a reconexão em background de forma assíncrona espaçada (sem travar o event loop)
+      const delayMs = reconnecting * 2000;
+      setTimeout(async () => {
+        try {
+          await whatsapp.update({ status: "OPENING" });
+          const io = getIO();
+          const updatedWhatsapp = await Whatsapp.findByPk(whatsapp.id);
+          if (updatedWhatsapp) {
+            io.emit("whatsappSession", { action: "update", session: updatedWhatsapp });
+            io.emit("whatsapp", { action: "update", whatsapp: updatedWhatsapp });
+          }
 
-        await init(whatsapp);
-      } catch (err) {
-        logger.error({
-          info: "[Liveness Watchdog] Erro ao auto-curar sessão",
-          whatsappId: whatsapp.id,
-          err
-        });
-      }
+          await init(whatsapp);
+        } catch (err) {
+          logger.error({
+            info: "[Liveness Watchdog] Erro ao auto-curar sessão",
+            whatsappId: whatsapp.id,
+            err
+          });
+        }
+      }, delayMs);
 
       details.push({
         id: whatsapp.id,
