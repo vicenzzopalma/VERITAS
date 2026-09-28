@@ -277,7 +277,17 @@ const Users = () => {
                 <TableRow key={user.id}>
                   <TableCell align="center">{user.name}</TableCell>
                   <TableCell align="center">{user.email}</TableCell>
-                  <TableCell align="center">{user.profile}</TableCell>
+                  <TableCell align="center">
+                    {user.profile === "admin"
+                      ? "Admin"
+                      : user.profile === "operator"
+                      ? "Operador WhatsApp"
+                      : user.profile === "whatsapp_control"
+                      ? "Gestor WhatsApp Control (Baixo)"
+                      : user.profile === "whatsapp_control_high"
+                      ? "Gestor WhatsApp Control (Alto)"
+                      : user.profile || "User"}
+                  </TableCell>
                   <TableCell align="center">{user.whatsapp?.name || "-"}</TableCell>
                   <TableCell align="center">
                     {user.status === "pending" ? (

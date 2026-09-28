@@ -3,6 +3,12 @@ const rules = {
 		static: [],
 	},
 
+	whatsapp_control_high: {
+		static: [
+			"audit:view",
+		],
+	},
+
 	operator: {
 		static: [],
 	},

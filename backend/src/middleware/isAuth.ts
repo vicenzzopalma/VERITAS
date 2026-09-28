@@ -4,6 +4,7 @@ import { Request, Response, NextFunction } from "express";
 import AppError from "../errors/AppError";
 import authConfig from "../config/auth";
 import User from "../models/User";
+import { normalizeConnectionSectors } from "../services/WhatsappService/WhatsappAccessPolicy";
 
 interface TokenPayload {
   id: string;
@@ -41,11 +42,14 @@ const isAuth = async (req: Request, res: Response, next: NextFunction): Promise<
       throw new AppError("ERR_SESSION_EXPIRED", 401);
     }
 
+    const userProfile = user.profile || profile;
+    const isManager = userProfile === "whatsapp_control" || userProfile === "whatsapp_control_high";
+
     req.user = {
       id,
-      profile,
-      canAccessConnections: user.canAccessConnections,
-      connectionSectors: user.connectionSectors || []
+      profile: userProfile,
+      canAccessConnections: isManager ? true : Boolean(user.canAccessConnections),
+      connectionSectors: normalizeConnectionSectors(user.connectionSectors)
     };
   } catch (err) {
     throw new AppError(

@@ -3,6 +3,11 @@ import Message from "../../models/Message";
 import Ticket from "../../models/Ticket";
 import Contact from "../../models/Contact";
 import Whatsapp from "../../models/Whatsapp";
+import { getSearchTerms } from "../../helpers/searchTermHelper";
+import {
+  getWhatsappAccessWhere,
+  WhatsappAccessUser
+} from "../WhatsappService/WhatsappAccessPolicy";
 
 interface Request {
   whatsappId?: string | number;
@@ -14,6 +19,7 @@ interface Request {
   mediaType?: string;
   pageNumber?: string | number;
   limit?: number;
+  user?: WhatsappAccessUser;
 }
 
 interface Response {
@@ -32,7 +38,8 @@ const ListAuditMessagesService = async ({
   onlyDeleted,
   mediaType,
   pageNumber = 1,
-  limit = 2000
+  limit = 2000,
+  user
 }: Request): Promise<Response> => {
   const isFetchAll = limit === -1 || limit >= 50000;
   const actualLimit = isFetchAll ? 50000 : Math.max(1, Number(limit));
@@ -58,14 +65,37 @@ const ListAuditMessagesService = async ({
     ticketWhereConditions.whatsappId = Number(whatsappId);
   }
 
+  const whatsappWhere = getWhatsappAccessWhere(user);
+  if (whatsappWhere) {
+    const allowedWhats = await Whatsapp.findAll({
+      where: whatsappWhere,
+      attributes: ["id"]
+    });
+    const allowedIds = allowedWhats.map((w) => w.id);
+    if (ticketWhereConditions.whatsappId) {
+      if (!allowedIds.includes(Number(ticketWhereConditions.whatsappId))) {
+        return { messages: [], count: 0, hasMore: false, totalDeleted: 0 };
+      }
+    } else {
+      ticketWhereConditions.whatsappId = { [Op.in]: allowedIds };
+    }
+  }
+
   if (onlyDeleted === true || onlyDeleted === "true") {
     whereConditions.isDeleted = true;
   }
 
   if (search && search.trim()) {
-    whereConditions.body = {
-      [Op.like]: `%${search.trim()}%`
-    };
+    const searchTerms = getSearchTerms(search);
+    if (searchTerms.length > 0) {
+      whereConditions[Op.or] = searchTerms.map((term) => ({
+        body: { [Op.like]: `%${term}%` }
+      }));
+    } else {
+      whereConditions.body = {
+        [Op.like]: `%${search.trim()}%`
+      };
+    }
   }
 
   const parseDateFilter = (val: string, isEnd: boolean): Date => {
@@ -98,24 +128,41 @@ const ListAuditMessagesService = async ({
   }
 
   if (mediaType && mediaType !== "all") {
+    if (mediaType !== "vcard") {
+      whereConditions.mediaUrl = { [Op.ne]: null };
+    }
+
     if (mediaType === "audio") {
       whereConditions[Op.or] = [
         { mediaType: { [Op.like]: "%audio%" } },
         { mediaType: "voice" },
-        { mediaType: "ptt" }
+        { mediaType: "ptt" },
+        { mediaUrl: { [Op.like]: "%.ogg%" } },
+        { mediaUrl: { [Op.like]: "%.mp3%" } }
       ];
     } else if (mediaType === "image") {
       whereConditions[Op.or] = [
-        { mediaType: { [Op.like]: "%image%" } }
+        { mediaType: { [Op.like]: "%image%" } },
+        { mediaUrl: { [Op.like]: "%.jpg%" } },
+        { mediaUrl: { [Op.like]: "%.jpeg%" } },
+        { mediaUrl: { [Op.like]: "%.png%" } },
+        { mediaUrl: { [Op.like]: "%.webp%" } }
       ];
     } else if (mediaType === "video") {
       whereConditions[Op.or] = [
-        { mediaType: { [Op.like]: "%video%" } }
+        { mediaType: { [Op.like]: "%video%" } },
+        { mediaUrl: { [Op.like]: "%.mp4%" } }
       ];
     } else if (mediaType === "document") {
       whereConditions[Op.or] = [
         { mediaType: { [Op.like]: "%document%" } },
-        { mediaType: { [Op.like]: "%pdf%" } }
+        { mediaType: { [Op.like]: "%pdf%" } },
+        { mediaType: { [Op.like]: "%application%" } },
+        { mediaUrl: { [Op.like]: "%.pdf%" } },
+        { mediaUrl: { [Op.like]: "%comprovante%" } },
+        { mediaUrl: { [Op.like]: "%.doc%" } },
+        { mediaUrl: { [Op.like]: "%.xls%" } },
+        { body: { [Op.like]: "%comprovante%" } }
       ];
     } else if (mediaType === "vcard") {
       whereConditions.mediaType = "vcard";

@@ -13,14 +13,28 @@ import AppError from "./errors/AppError";
 import routes from "./routes";
 import { logger } from "./utils/logger";
 import { globalLimiter } from "./middleware/rateLimiter";
+import { publicMediaHandler } from "./utils/publicMediaHandler";
 
 Sentry.init({ dsn: process.env.SENTRY_DSN });
 
 const app = express();
-const allowedOrigins = (process.env.CORS_ORIGINS || process.env.FRONTEND_URL || "")
+const configuredOrigins = (process.env.CORS_ORIGINS || process.env.FRONTEND_URL || "")
   .split(",")
   .map(origin => origin.trim())
   .filter(Boolean);
+const allowedOrigins = Array.from(new Set([
+  "https://veritas.realess.com.br",
+  "http://veritas.realess.com.br",
+  "http://localhost:3000",
+  "http://localhost:6001",
+  "http://127.0.0.1:3000",
+  "http://127.0.0.1:6001",
+  ...configuredOrigins
+]));
+
+app.get("/health", (_req: Request, res: Response) => {
+  return res.status(200).json({ status: "ok" });
+});
 
 // 1. Security Headers com Helmet e Content Security Policy (CSP) sob medida
 app.use(
@@ -72,9 +86,11 @@ app.use(express.json({ limit: "10mb" }));
 app.use(express.urlencoded({ extended: true, limit: "10mb" }));
 app.use(Sentry.Handlers.requestHandler());
 
-// 5. Servir Arquivos Estáticos com Headers de Segurança
+// 5. Servir Arquivos Estáticos e Mídias com Detecção Inteligente e Headers de Segurança
+app.use("/public", publicMediaHandler);
 app.use("/public", express.static(uploadConfig.directory, {
   maxAge: "1d",
+  dotfiles: "allow",
   setHeaders: (res) => {
     res.setHeader("X-Content-Type-Options", "nosniff");
     res.setHeader("Cross-Origin-Resource-Policy", "cross-origin");

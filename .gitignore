@@ -54,3 +54,6 @@ Gestão de celulares_backup/
 # Local operational documentation may contain environment-specific details.
 # Keep it out of version control; store the canonical copy in a secure vault.
 readmedev.md
+image.png
+iniciar_webcam_celular.bat
+webcam_autorotate.py

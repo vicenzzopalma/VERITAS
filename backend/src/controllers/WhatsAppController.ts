@@ -1,6 +1,9 @@
 import { Request, Response } from "express";
 import { getIO } from "../libs/socket";
 import { StartWhatsAppSession } from "../services/WbotServices/StartWhatsAppSession";
+import { StartAllWhatsAppsSessions } from "../services/WbotServices/StartAllWhatsAppsSessions";
+import AppError from "../errors/AppError";
+import Whatsapp from "../models/Whatsapp";
 
 import CreateWhatsAppService from "../services/WhatsappService/CreateWhatsAppService";
 import DeleteWhatsAppService from "../services/WhatsappService/DeleteWhatsAppService";
@@ -181,6 +184,11 @@ export const syncAudit = async (
 ): Promise<Response> => {
   const { whatsappId } = req.params;
 
+  const whatsapp = await Whatsapp.findByPk(whatsappId);
+  if (!whatsapp || !canAccessWhatsapp(req.user, whatsapp)) {
+    throw new AppError("ERR_NO_PERMISSION", 403);
+  }
+
   if (whatsappProvider.reconcileSessionHistory) {
     const result = await whatsappProvider.reconcileSessionHistory(+whatsappId);
     return res.status(200).json({
@@ -197,6 +205,10 @@ export const syncAllAudit = async (
   req: Request,
   res: Response
 ): Promise<Response> => {
+  if (String(req.user?.profile || "").toLowerCase() !== "admin") {
+    throw new AppError("ERR_NO_PERMISSION", 403);
+  }
+
   if (whatsappProvider.reconcileAllSessionsHistory) {
     const result = await whatsappProvider.reconcileAllSessionsHistory();
     return res.status(200).json({
@@ -208,3 +220,27 @@ export const syncAllAudit = async (
 
   return res.status(200).json({ success: true, message: "Provedor não suporta reconciliação global" });
 };
+
+export const checkLiveness = async (
+  req: Request,
+  res: Response
+): Promise<Response> => {
+  if (whatsappProvider.reconcileAllSessionsLiveness) {
+    const result = await whatsappProvider.reconcileAllSessionsLiveness();
+    return res.status(200).json({
+      success: true,
+      ...result
+    });
+  }
+
+  return res.status(200).json({ success: true, message: "Provedor não suporta verificação de liveness" });
+};
+
+export const startAllSessions = async (
+  req: Request,
+  res: Response
+): Promise<Response> => {
+  StartAllWhatsAppsSessions().catch(() => {});
+  return res.status(200).json({ message: "Iniciando reconexão de todas as sessões." });
+};
+

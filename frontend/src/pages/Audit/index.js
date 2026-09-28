@@ -54,6 +54,8 @@ import {
   Person as PersonIcon,
   SyncAlt as SyncAltIcon,
   History as HistoryIcon,
+  Visibility as VisibilityIcon,
+  OpenInNew as OpenInNewIcon,
 } from "@material-ui/icons";
 import { format, parseISO } from "date-fns";
 import { useHistory } from "react-router-dom";
@@ -471,6 +473,30 @@ const useStyles = makeStyles((theme) => ({
     backgroundColor: theme.palette.type === "dark" ? "#0f172a" : "#ffffff",
     borderBottom: `1px solid ${theme.palette.type === "dark" ? "#334155" : "#e2e8f0"}`,
   },
+  docCardActions: {
+    display: "flex",
+    alignItems: "center",
+    gap: 6,
+    padding: "6px 10px",
+    backgroundColor: theme.palette.type === "dark" ? "#0f172a" : "#f1f5f9",
+    borderTop: `1px solid ${theme.palette.type === "dark" ? "#334155" : "#e2e8f0"}`,
+  },
+  docActionBtn: {
+    textTransform: "none",
+    fontSize: "0.72rem",
+    fontWeight: 600,
+    padding: "2px 8px",
+    borderRadius: 6,
+  },
+  docActionBtnSec: {
+    textTransform: "none",
+    fontSize: "0.72rem",
+    fontWeight: 600,
+    padding: "2px 8px",
+    borderRadius: 6,
+    color: "#0284c7",
+    borderColor: "#0284c7",
+  },
   pdfPreviewWrapper: {
     position: "relative",
     height: 160,
@@ -521,6 +547,54 @@ const useStyles = makeStyles((theme) => ({
     gap: theme.spacing(1.5),
   },
 }));
+
+const resolveMediaCategory = (msg) => {
+  if (!msg || !msg.mediaUrl) return "none";
+  const url = (msg.mediaUrl || "").toLowerCase();
+  const type = (msg.mediaType || "").toLowerCase();
+  const body = (msg.body || "").toLowerCase();
+
+  if (
+    type === "image" ||
+    url.match(/\.(jpeg|jpg|gif|png|webp)($|\?)/i) ||
+    body.match(/\.(jpeg|jpg|gif|png|webp)($|\?)/i) ||
+    url.includes("pps.whatsapp.net")
+  ) {
+    return "image";
+  }
+
+  if (
+    type.includes("audio") ||
+    type === "voice" ||
+    type === "ptt" ||
+    url.match(/\.(ogg|mp3|wav|m4a|aac)($|\?)/i)
+  ) {
+    return "audio";
+  }
+
+  if (
+    type.includes("video") ||
+    url.match(/\.(mp4|webm|mkv|mov)($|\?)/i)
+  ) {
+    return "video";
+  }
+
+  return "document";
+};
+
+const getCleanMediaName = (msg) => {
+  if (!msg) return "Arquivo";
+  let name = msg.body && msg.body !== msg.mediaUrl ? msg.body : msg.mediaUrl ? msg.mediaUrl.split("/").pop() : "Arquivo";
+  if (name.startsWith(".")) {
+    name = name.replace(/^\.+/, "");
+  }
+  if (name.toLowerCase().includes("comprovante")) {
+    if (name.length > 35 && (name.includes("-") || name.includes("_"))) {
+      return "Comprovante de Pagamento (Anexo)";
+    }
+  }
+  return name;
+};
 
 const Audit = () => {
   const classes = useStyles();
@@ -996,7 +1070,7 @@ const Audit = () => {
             <TextField
               size="small"
               variant="outlined"
-              placeholder="🔍 Localizar número em qualquer celular..."
+              placeholder="🔍 Buscar palavra, número ou contato..."
               value={globalSearchInput}
               onChange={handleGlobalSearchChange}
               onKeyDown={(e) => {
@@ -1048,7 +1122,7 @@ const Audit = () => {
                   <Box p={2.5} textAlign="center" display="flex" flexDirection="column" alignItems="center" justifyContent="center">
                     <CircularProgress size={22} style={{ color: "#0284c7" }} />
                     <Typography variant="caption" style={{ marginTop: 8, color: "#64748b", fontWeight: 600 }}>
-                      Buscando número em todos os aparelhos...
+                      Buscando em todos os aparelhos e mensagens...
                     </Typography>
                   </Box>
                 ) : globalResults.length === 0 ? (
@@ -1057,7 +1131,7 @@ const Audit = () => {
                       Nenhum resultado encontrado nos aparelhos.
                     </Typography>
                     <Typography variant="caption" color="textSecondary">
-                      Verifique se o número foi digitado corretamente.
+                      Tente outra palavra, número, contato ou nome de aparelho.
                     </Typography>
                   </Box>
                 ) : (
@@ -1724,84 +1798,152 @@ const Audit = () => {
                         </div>
                       )}
 
-                      {/* Mídia: Foto / Imagem */}
-                      {message.mediaUrl && (message.mediaType === "image" || message.mediaUrl.match(/\.(jpeg|jpg|gif|png|webp)$/i)) && (
-                        <div>
-                          <img
-                            src={message.mediaUrl}
-                            alt="Arquivo"
-                            className={classes.mediaPreview}
-                            onClick={() => handleOpenMediaModal(message.mediaUrl, "image", message.body)}
-                          />
-                        </div>
-                      )}
+                      {/* Renderização Inteligente de Mídias e Comprovantes */}
+                      {(() => {
+                        const mediaCategory = resolveMediaCategory(message);
+                        const cleanMediaName = getCleanMediaName(message);
 
-                      {/* Mídia: Áudio */}
-                      {message.mediaUrl && (message.mediaType?.includes("audio") || message.mediaUrl.match(/\.(ogg|mp3|wav|m4a)$/i)) && (
-                        <div style={{ margin: "4px 0" }}>
-                          <audio controls style={{ width: "100%", maxWidth: 280, height: 38 }}>
-                            <source src={message.mediaUrl} type="audio/ogg" />
-                            <source src={message.mediaUrl} type="audio/mp4" />
-                            <source src={message.mediaUrl} type="audio/mpeg" />
-                            <source src={message.mediaUrl} type="audio/wav" />
-                            Seu navegador não suporta áudio.
-                          </audio>
-                        </div>
-                      )}
-
-                      {/* Mídia: Documento / Boleto / PDF */}
-                      {message.mediaUrl && (message.mediaType?.includes("document") || message.mediaUrl.match(/\.(pdf|doc|docx|xlsx|zip)$/i)) && (
-                        message.mediaUrl.toLowerCase().includes(".pdf") ? (
-                          <div
-                            className={classes.pdfCard}
-                            onClick={() => handleOpenMediaModal(message.mediaUrl, "application/pdf", message.body)}
-                          >
-                            <div className={classes.pdfCardHeader}>
-                              <PictureAsPdfIcon style={{ color: "#ef4444", fontSize: 28, marginRight: 8 }} />
-                              <div style={{ overflow: "hidden", flexGrow: 1 }}>
-                                <Typography variant="subtitle2" noWrap style={{ fontWeight: 600, fontSize: "0.82rem" }}>
-                                  {message.body && message.body !== message.mediaUrl ? message.body : message.mediaUrl.split("/").pop()}
-                                </Typography>
-                                <Typography variant="caption" style={{ color: "#64748b", fontSize: "0.72rem", display: "block" }}>
-                                  Documento PDF • Clique para expandir
-                                </Typography>
-                              </div>
-                            </div>
-                            <div className={classes.pdfPreviewWrapper}>
-                              <iframe
-                                src={`${message.mediaUrl}#toolbar=0&navpanes=0&scrollbar=0&view=FitH`}
-                                title="PDF Preview"
-                                className={classes.pdfMiniIframe}
+                        if (mediaCategory === "image") {
+                          return (
+                            <div style={{ marginTop: 6, marginBottom: 6 }}>
+                              <img
+                                src={message.mediaUrl}
+                                alt={cleanMediaName}
+                                className={classes.mediaPreview}
+                                onClick={() => handleOpenMediaModal(message.mediaUrl, "image", cleanMediaName)}
+                                onError={(e) => {
+                                  e.target.style.display = "none";
+                                  const fallback = e.target.nextElementSibling;
+                                  if (fallback) fallback.style.display = "flex";
+                                }}
                               />
-                              <div className={classes.pdfOverlayHover}>
-                                <Typography variant="caption" style={{ color: "#ffffff", fontWeight: 700, backgroundColor: "rgba(0,0,0,0.65)", padding: "4px 10px", borderRadius: 20 }}>
-                                  🔍 Visualizar em Popup
+                              <div
+                                style={{
+                                  display: "none",
+                                  alignItems: "center",
+                                  gap: 8,
+                                  padding: "8px 12px",
+                                  backgroundColor: "rgba(2, 132, 199, 0.08)",
+                                  borderRadius: 8,
+                                  cursor: "pointer",
+                                  marginTop: 4
+                                }}
+                                onClick={() => handleOpenMediaModal(message.mediaUrl, "image", cleanMediaName)}
+                              >
+                                <ImageIcon style={{ color: "#0284c7" }} />
+                                <Typography variant="caption" style={{ fontWeight: 600, color: "#0284c7" }}>
+                                  {cleanMediaName} • Clique para visualizar foto
                                 </Typography>
                               </div>
                             </div>
-                          </div>
-                        ) : (
-                          <div style={{ margin: "6px 0" }}>
-                            <Button
-                              variant="outlined"
-                              size="small"
-                              color="primary"
-                              startIcon={<DocumentIcon />}
-                              onClick={() => handleOpenMediaModal(message.mediaUrl, message.mediaType, message.body)}
-                              style={{ textTransform: "none", borderRadius: 6 }}
-                            >
-                              {message.body && message.body !== message.mediaUrl ? message.body : "Visualizar Documento"}
-                            </Button>
-                          </div>
-                        )
-                      )}
+                          );
+                        }
 
-                      {/* Texto Principal */}
-                      {(!message.mediaUrl || message.mediaType === "chat" || (message.body && !message.body.includes(".pdf") && !message.body.includes(".ogg"))) && (
-                        <Typography variant="body2" style={{ whiteSpace: "pre-wrap", lineHeight: 1.4 }}>
-                          {message.body}
-                        </Typography>
-                      )}
+                        if (mediaCategory === "audio") {
+                          return (
+                            <div style={{ margin: "4px 0" }}>
+                              <audio controls style={{ width: "100%", maxWidth: 280, height: 38 }}>
+                                <source src={message.mediaUrl} type="audio/ogg" />
+                                <source src={message.mediaUrl} type="audio/mp4" />
+                                <source src={message.mediaUrl} type="audio/mpeg" />
+                                <source src={message.mediaUrl} type="audio/wav" />
+                                Seu navegador não suporta áudio.
+                              </audio>
+                            </div>
+                          );
+                        }
+
+                        if (mediaCategory === "video") {
+                          return (
+                            <div style={{ margin: "4px 0" }}>
+                              <video
+                                src={message.mediaUrl}
+                                controls
+                                style={{ maxWidth: "100%", maxHeight: 240, borderRadius: 8 }}
+                                onClick={() => handleOpenMediaModal(message.mediaUrl, "video", cleanMediaName)}
+                              />
+                            </div>
+                          );
+                        }
+
+                        if (mediaCategory === "document") {
+                          return (
+                            <div className={classes.pdfCard}>
+                              <div
+                                className={classes.pdfCardHeader}
+                                onClick={() => handleOpenMediaModal(message.mediaUrl, "application/pdf", cleanMediaName)}
+                              >
+                                <PictureAsPdfIcon style={{ color: "#ef4444", fontSize: 30, marginRight: 8, flexShrink: 0 }} />
+                                <div style={{ overflow: "hidden", flexGrow: 1 }}>
+                                  <Typography variant="subtitle2" noWrap style={{ fontWeight: 600, fontSize: "0.83rem" }}>
+                                    {cleanMediaName}
+                                  </Typography>
+                                  <Typography variant="caption" style={{ color: "#64748b", fontSize: "0.72rem", display: "block" }}>
+                                    Documento / Comprovante • Clique para expandir
+                                  </Typography>
+                                </div>
+                              </div>
+                              <div className={classes.docCardActions}>
+                                <Button
+                                  size="small"
+                                  variant="contained"
+                                  color="primary"
+                                  startIcon={<VisibilityIcon style={{ fontSize: 15 }} />}
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleOpenMediaModal(message.mediaUrl, "application/pdf", cleanMediaName);
+                                  }}
+                                  className={classes.docActionBtn}
+                                >
+                                  Visualizar
+                                </Button>
+                                <Button
+                                  size="small"
+                                  variant="outlined"
+                                  startIcon={<OpenInNewIcon style={{ fontSize: 15 }} />}
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    window.open(message.mediaUrl, "_blank");
+                                  }}
+                                  className={classes.docActionBtnSec}
+                                >
+                                  Nova Aba
+                                </Button>
+                                <IconButton
+                                  size="small"
+                                  title="Baixar Arquivo"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    const link = document.createElement("a");
+                                    link.href = message.mediaUrl;
+                                    link.download = cleanMediaName;
+                                    link.target = "_blank";
+                                    document.body.appendChild(link);
+                                    link.click();
+                                    document.body.removeChild(link);
+                                  }}
+                                  style={{ color: "#475569", marginLeft: "auto" }}
+                                >
+                                  <GetAppIcon fontSize="small" />
+                                </IconButton>
+                              </div>
+                            </div>
+                          );
+                        }
+
+                        return null;
+                      })()}
+
+                      {/* Texto Principal da Mensagem */}
+                      {message.body &&
+                        message.body !== message.mediaUrl &&
+                        !message.body.endsWith(".pdf") &&
+                        !message.body.endsWith(".ogg") &&
+                        !message.body.startsWith(".kfKTb") && (
+                          <Typography variant="body2" style={{ whiteSpace: "pre-wrap", lineHeight: 1.4, marginTop: 4 }}>
+                            {message.body}
+                          </Typography>
+                        )}
 
                       {/* Rodapé: Horário & Status */}
                       <div className={classes.metaFooter}>

@@ -4,14 +4,24 @@ import ListAuditChatsService from "../services/AuditServices/ListAuditChatsServi
 import ListAuditMessagesService from "../services/AuditServices/ListAuditMessagesService";
 import ExportAuditService from "../services/AuditServices/ExportAuditService";
 import SearchGlobalAuditService from "../services/AuditServices/SearchGlobalAuditService";
+import { canAccessWhatsapp } from "../services/WhatsappService/WhatsappAccessPolicy";
+import Whatsapp from "../models/Whatsapp";
+import Ticket from "../models/Ticket";
+import AppError from "../errors/AppError";
 
 export const indexDevices = async (req: Request, res: Response): Promise<Response> => {
-  const devices = await ListAuditDevicesService();
+  const devices = await ListAuditDevicesService({ user: req.user });
   return res.json(devices);
 };
 
 export const listChats = async (req: Request, res: Response): Promise<Response> => {
   const { whatsappId } = req.params;
+
+  const whatsapp = await Whatsapp.findByPk(whatsappId);
+  if (!whatsapp || !canAccessWhatsapp(req.user, whatsapp)) {
+    throw new AppError("ERR_NO_PERMISSION", 403);
+  }
+
   const { search, pageNumber, limit } = req.query as {
     search?: string;
     pageNumber?: string;
@@ -36,7 +46,8 @@ export const searchGlobal = async (req: Request, res: Response): Promise<Respons
 
   const results = await SearchGlobalAuditService({
     search: search || "",
-    limit: limit ? Number(limit) : 20
+    limit: limit ? Number(limit) : 20,
+    user: req.user
   });
 
   return res.json(results);
@@ -65,6 +76,22 @@ export const listMessages = async (req: Request, res: Response): Promise<Respons
     limit?: string;
   };
 
+  if (whatsappId) {
+    const whatsapp = await Whatsapp.findByPk(whatsappId);
+    if (!whatsapp || !canAccessWhatsapp(req.user, whatsapp)) {
+      throw new AppError("ERR_NO_PERMISSION", 403);
+    }
+  }
+
+  if (ticketId) {
+    const ticket = await Ticket.findByPk(ticketId, {
+      include: [{ model: Whatsapp, as: "whatsapp" }]
+    });
+    if (!ticket || !ticket.whatsapp || !canAccessWhatsapp(req.user, ticket.whatsapp)) {
+      throw new AppError("ERR_NO_PERMISSION", 403);
+    }
+  }
+
   const result = await ListAuditMessagesService({
     whatsappId,
     ticketId,
@@ -74,7 +101,8 @@ export const listMessages = async (req: Request, res: Response): Promise<Respons
     onlyDeleted,
     mediaType,
     pageNumber,
-    limit: limit ? Number(limit) : 2000
+    limit: limit ? Number(limit) : 2000,
+    user: req.user
   });
 
   return res.json(result);
@@ -111,6 +139,22 @@ export const exportAudit = async (req: Request, res: Response): Promise<void> =>
     download?: string;
   };
 
+  if (whatsappId) {
+    const whatsapp = await Whatsapp.findByPk(whatsappId);
+    if (!whatsapp || !canAccessWhatsapp(req.user, whatsapp)) {
+      throw new AppError("ERR_NO_PERMISSION", 403);
+    }
+  } else if (ticketId) {
+    const ticket = await Ticket.findByPk(ticketId, {
+      include: [{ model: Whatsapp, as: "whatsapp" }]
+    });
+    if (!ticket || !ticket.whatsapp || !canAccessWhatsapp(req.user, ticket.whatsapp)) {
+      throw new AppError("ERR_NO_PERMISSION", 403);
+    }
+  } else if (String(req.user?.profile || "").toLowerCase() !== "admin") {
+    throw new AppError("ERR_NO_PERMISSION", 403);
+  }
+
   const { filename, contentType, data } = await ExportAuditService({
     whatsappId,
     ticketId,
@@ -137,4 +181,3 @@ export const exportAudit = async (req: Request, res: Response): Promise<void> =>
   );
   res.send(data);
 };
-

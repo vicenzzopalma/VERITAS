@@ -9,6 +9,7 @@ import User from "../../models/User";
 import ShowUserService from "../UserServices/ShowUserService";
 import Whatsapp from "../../models/Whatsapp";
 import { getPhoneSearchVariants } from "../../helpers/phoneSearchHelper";
+import { getSearchTerms } from "../../helpers/searchTermHelper";
 
 interface Request {
   searchParam?: string;
@@ -87,44 +88,57 @@ const ListTicketsService = async ({
 
   if (searchParam) {
     const sanitizedSearchParam = searchParam.toLocaleLowerCase().trim();
-    const cleanNumbersOnly = searchParam.replace(/\D/g, "");
-
-    includeCondition = [
-      ...includeCondition,
-      {
-        model: Message,
-        as: "messages",
-        attributes: ["id", "body"],
-        where: {
-          body: where(
-            fn("LOWER", col("messages.body")),
-            "LIKE",
-            `%${sanitizedSearchParam}%`
-          )
-        },
-        required: false,
-        duplicating: false
-      }
-    ];
-
-    const orMatches: any[] = [
-      {
-        "$contact.name$": where(
-          fn("LOWER", col("contact.name")),
-          "LIKE",
-          `%${sanitizedSearchParam}%`
-        )
-      },
-      {
-        lastMessage: where(
-          fn("LOWER", col("lastMessage")),
-          "LIKE",
-          `%${sanitizedSearchParam}%`
-        )
-      }
-    ];
-
+    const searchTerms = getSearchTerms(searchParam);
     const phoneVariants = getPhoneSearchVariants(searchParam);
+
+    const searchLikeConditions = searchTerms.length > 0
+      ? searchTerms.map((term) => ({
+          "$contact.name$": where(fn("LOWER", col("contact.name")), "LIKE", `%${term}%`)
+        }))
+      : [];
+
+    const messageLikeConditions = searchTerms.length > 0
+      ? searchTerms.map((term) => ({
+          body: where(fn("LOWER", col("messages.body")), "LIKE", `%${term}%`)
+        }))
+      : [];
+
+    if (searchTerms.length > 0) {
+      includeCondition = [
+        ...includeCondition,
+        {
+          model: Message,
+          as: "messages",
+          attributes: ["id", "body"],
+          where: {
+            [Op.or]: messageLikeConditions
+          },
+          required: false,
+          duplicating: false
+        }
+      ];
+    }
+
+    const orMatches: any[] = [];
+
+    if (searchTerms.length > 0) {
+      for (const term of searchTerms) {
+        orMatches.push({
+          "$contact.name$": where(fn("LOWER", col("contact.name")), "LIKE", `%${term}%`)
+        });
+        orMatches.push({
+          lastMessage: where(fn("LOWER", col("lastMessage")), "LIKE", `%${term}%`)
+        });
+      }
+    } else {
+      orMatches.push({
+        "$contact.name$": where(fn("LOWER", col("contact.name")), "LIKE", `%${sanitizedSearchParam}%`)
+      });
+      orMatches.push({
+        lastMessage: where(fn("LOWER", col("lastMessage")), "LIKE", `%${sanitizedSearchParam}%`)
+      });
+    }
+
     for (const variant of phoneVariants) {
       orMatches.push({ "$contact.number$": { [Op.like]: `%${variant}%` } });
       orMatches.push({ "$contact.lid$": { [Op.like]: `%${variant}%` } });

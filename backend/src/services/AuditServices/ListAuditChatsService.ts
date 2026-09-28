@@ -4,6 +4,7 @@ import Ticket from "../../models/Ticket";
 import Contact from "../../models/Contact";
 import Message from "../../models/Message";
 import { getPhoneSearchVariants } from "../../helpers/phoneSearchHelper";
+import { getSearchTerms } from "../../helpers/searchTermHelper";
 
 interface Request {
   whatsappId: number | string;
@@ -40,6 +41,7 @@ const ListAuditChatsService = async ({
   const offset = limit * (page - 1);
 
   const cleanSearch = (search || "").trim().toLowerCase();
+  const searchTerms = getSearchTerms(search || "");
 
   let ticketWhere: any = {
     whatsappId: Number(whatsappId),
@@ -50,28 +52,32 @@ const ListAuditChatsService = async ({
 
   const contactOrConditions: any[] = [];
   if (cleanSearch) {
-    contactOrConditions.push({
-      [Op.and]: [
-        where(fn("LOWER", col("contact.name")), "LIKE", `%${cleanSearch}%`),
-        where(fn("LENGTH", col("contact.name")), { [Op.lte]: 13 })
-      ]
-    });
+    const searchPatterns = searchTerms.length > 0 ? searchTerms : [cleanSearch];
 
-    const phoneVariants = getPhoneSearchVariants(search);
-    for (const variant of phoneVariants) {
+    for (const term of searchPatterns) {
       contactOrConditions.push({
         [Op.and]: [
-          { "$contact.number$": { [Op.like]: `%${variant}%` } },
-          where(fn("LENGTH", col("contact.number")), { [Op.lte]: 13 })
+          where(fn("LOWER", col("contact.name")), "LIKE", `%${term}%`),
+          where(fn("LENGTH", col("contact.name")), { [Op.lte]: 13 })
         ]
       });
-    }
 
-    const isShortDigits = /^\d{1,5}$/.test(cleanSearch);
-    if (!isShortDigits) {
-      contactOrConditions.push(
-        where(fn("LOWER", col("lastMessage")), "LIKE", `%${cleanSearch}%`)
-      );
+      const phoneVariants = getPhoneSearchVariants(term);
+      for (const variant of phoneVariants) {
+        contactOrConditions.push({
+          [Op.and]: [
+            { "$contact.number$": { [Op.like]: `%${variant}%` } },
+            where(fn("LENGTH", col("contact.number")), { [Op.lte]: 13 })
+          ]
+        });
+      }
+
+      const isShortDigits = /^\d{1,5}$/.test(term);
+      if (!isShortDigits) {
+        contactOrConditions.push(
+          where(fn("LOWER", col("lastMessage")), "LIKE", `%${term}%`)
+        );
+      }
     }
 
     ticketWhere = {

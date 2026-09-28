@@ -19,7 +19,9 @@ import {
 	Checkbox,
 	TextField,
 	InputAdornment,
-	IconButton
+	IconButton,
+	Chip,
+	FormHelperText
   } from '@material-ui/core';
 
 import { Visibility, VisibilityOff } from '@material-ui/icons';
@@ -95,7 +97,7 @@ const UserModal = ({ open, onClose, userId }) => {
 		profile: "user",
 		status: "active",
 		canAccessConnections: false,
-		connectionSectors: CONNECTION_SECTORS
+		connectionSectors: []
 	};
 
 	const { user: loggedInUser } = useContext(AuthContext);
@@ -111,8 +113,24 @@ const UserModal = ({ open, onClose, userId }) => {
 			if (!userId) return;
 			try {
 				const { data } = await api.get(`/users/${userId}`);
+				let sectors = data.connectionSectors;
+				if (typeof sectors === "string") {
+					try {
+						sectors = JSON.parse(sectors);
+					} catch {
+						sectors = [];
+					}
+				}
+				if (!Array.isArray(sectors)) {
+					sectors = [];
+				}
 				setUser(prevState => {
-					return { ...prevState, ...data };
+					return {
+						...prevState,
+						...data,
+						canAccessConnections: Boolean(data.canAccessConnections),
+						connectionSectors: sectors
+					};
 				});
 				const userQueueIds = data.queues?.map(queue => queue.id);
 				setSelectedQueueIds(userQueueIds);
@@ -135,7 +153,33 @@ const UserModal = ({ open, onClose, userId }) => {
 			toast.error("Selecione a conexão do WhatsApp para o Operador.");
 			return;
 		}
-		const userData = { ...values, whatsappId: whatsappId || null, queueIds: selectedQueueIds };
+
+		const isManager = values.profile === "whatsapp_control" || values.profile === "whatsapp_control_high";
+		let connectionSectors = values.connectionSectors;
+		if (typeof connectionSectors === "string") {
+			try {
+				connectionSectors = JSON.parse(connectionSectors);
+			} catch {
+				connectionSectors = [connectionSectors];
+			}
+		}
+		if (!Array.isArray(connectionSectors)) {
+			connectionSectors = [];
+		}
+
+		if (isManager && connectionSectors.length === 0) {
+			toast.error("Selecione pelo menos um setor de responsabilidade para o Gestor.");
+			return;
+		}
+
+		const userData = {
+			...values,
+			canAccessConnections: isManager ? true : Boolean(values.canAccessConnections),
+			connectionSectors,
+			whatsappId: whatsappId || null,
+			queueIds: selectedQueueIds
+		};
+
 		try {
 			if (userId) {
 				await api.put(`/users/${userId}`, userData);
@@ -249,7 +293,8 @@ const UserModal = ({ open, onClose, userId }) => {
 														<MenuItem value="admin">Admin</MenuItem>
 														<MenuItem value="user">User</MenuItem>
 														<MenuItem value="operator">Operador WhatsApp (Tela Dedicada)</MenuItem>
-														<MenuItem value="whatsapp_control">Gestor WhatsApp Control</MenuItem>
+														<MenuItem value="whatsapp_control">Gestor WhatsApp Control (Baixo)</MenuItem>
+														<MenuItem value="whatsapp_control_high">Gestor WhatsApp Control (Alto)</MenuItem>
 													</Field>
 												</>
 											)}
@@ -295,33 +340,31 @@ const UserModal = ({ open, onClose, userId }) => {
 										/>
 									)}
 								/>
-								{values.profile === "whatsapp_control" && (
+								{values.profile !== "admin" && (
 									<Can
 										role={loggedInUser.profile}
 										perform="user-modal:editProfile"
-										yes={() => (
-											<>
-												<FormControlLabel
-													control={
-														<Field
-															as={Checkbox}
-															color="primary"
-															name="canAccessConnections"
-														/>
-													}
-													label="Permitir acesso à aba Conexões"
-												/>
-												{values.canAccessConnections && (
-													<FormControl variant="outlined" margin="dense" fullWidth>
+										yes={() => {
+											const isManager = values.profile === "whatsapp_control" || values.profile === "whatsapp_control_high";
+											if (isManager) {
+												return (
+													<FormControl variant="outlined" margin="dense" fullWidth style={{ marginTop: 10 }}>
 														<InputLabel id="connection-sectors-label">
-															Setores permitidos
+															Setor(es) sob responsabilidade
 														</InputLabel>
 														<Field
 															as={Select}
 															multiple
 															name="connectionSectors"
-															label="Setores permitidos"
+															label="Setor(es) sob responsabilidade"
 															labelId="connection-sectors-label"
+															renderValue={(selected) => (
+																<div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
+																	{(Array.isArray(selected) ? selected : []).map((val) => (
+																		<Chip key={val} label={val} size="small" color="primary" />
+																	))}
+																</div>
+															)}
 														>
 															{CONNECTION_SECTORS.map(sector => (
 																<MenuItem key={sector} value={sector}>
@@ -329,10 +372,57 @@ const UserModal = ({ open, onClose, userId }) => {
 																</MenuItem>
 															))}
 														</Field>
+														<FormHelperText style={{ color: "#6366f1", fontWeight: 500 }}>
+															{values.profile === "whatsapp_control_high"
+																? "Gestor Alto: terá acesso às Conexões e Auditoria apenas dos celulares destes setores."
+																: "Gestor Baixo: terá acesso às Conexões apenas dos celulares destes setores."}
+														</FormHelperText>
 													</FormControl>
-												)}
-											</>
-										)}
+												);
+											}
+
+											return (
+												<>
+													<FormControlLabel
+														control={
+															<Field
+																as={Checkbox}
+																color="primary"
+																name="canAccessConnections"
+															/>
+														}
+														label="Permitir acesso à aba Conexões"
+													/>
+													{values.canAccessConnections && (
+														<FormControl variant="outlined" margin="dense" fullWidth>
+															<InputLabel id="connection-sectors-label">
+																Setores permitidos
+															</InputLabel>
+															<Field
+																as={Select}
+																multiple
+																name="connectionSectors"
+																label="Setores permitidos"
+																labelId="connection-sectors-label"
+																renderValue={(selected) => (
+																	<div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
+																		{(Array.isArray(selected) ? selected : []).map((val) => (
+																			<Chip key={val} label={val} size="small" />
+																		))}
+																	</div>
+																)}
+															>
+																{CONNECTION_SECTORS.map(sector => (
+																	<MenuItem key={sector} value={sector}>
+																		{sector}
+																	</MenuItem>
+																))}
+															</Field>
+														</FormControl>
+													)}
+												</>
+											);
+										}}
 									/>
 								)}
 								<Can

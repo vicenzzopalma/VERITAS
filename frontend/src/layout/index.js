@@ -89,6 +89,15 @@ const useStyles = makeStyles((theme) => ({
     boxSizing: "border-box",
     "& .MuiListItemText-root": {
       display: "none !important",
+      visibility: "hidden !important",
+      opacity: "0 !important",
+      width: "0 !important",
+      overflow: "hidden !important",
+      whiteSpace: "nowrap !important",
+    },
+    "& .MuiListItemText-primary": {
+      display: "none !important",
+      visibility: "hidden !important",
     },
     "& .MuiListItemIcon-root": {
       minWidth: 0,
@@ -189,23 +198,18 @@ const useStyles = makeStyles((theme) => ({
 const LoggedInLayout = ({ children }) => {
   const classes = useStyles();
   const location = useLocation();
+  const { user, handleLogout, loading } = useContext(AuthContext);
 
-  if (location.pathname.startsWith("/live")) {
-    return <>{children}</>;
-  }
-
-  const isWhatsappControl = location.pathname.startsWith("/whatsapp-control");
+  const isWhatsappControl = location.pathname.startsWith("/whatsapp-control") || user?.profile === "whatsapp_control" || user?.profile === "whatsapp_control_high";
 
   const [userModalOpen, setUserModalOpen] = useState(false);
   const [anchorEl, setAnchorEl] = useState(null);
   const [menuOpen, setMenuOpen] = useState(false);
-  const { handleLogout, loading } = useContext(AuthContext);
 
   // Menu Retrátil por Hover
   const [drawerHovered, setDrawerHovered] = useState(false);
   const isDrawerExpanded = drawerHovered;
 
-  const { user } = useContext(AuthContext);
   const { darkMode, toggleTheme } = useThemeContext();
 
   const handleMenu = (event) => {

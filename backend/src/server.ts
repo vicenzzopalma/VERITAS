@@ -1,4 +1,4 @@
-﻿import gracefulShutdown from "http-graceful-shutdown";
+import gracefulShutdown from "http-graceful-shutdown";
 import app from "./app";
 import { initIO } from "./libs/socket";
 import { logger } from "./utils/logger";
@@ -8,6 +8,7 @@ import sequelize from "./database";
 import User from "./models/User";
 import Setting from "./models/Setting";
 import bcrypt from "bcryptjs";
+import { whatsappProvider } from "./providers/WhatsApp";
 
 const PORT = process.env.PORT || 8080;
 
@@ -66,6 +67,8 @@ async function start() {
   initIO(server);
   initRedis();
   await StartAllWhatsAppsSessions();
+  whatsappProvider.setSystemReady?.(true);
+  whatsappProvider.startLivenessWatchdog?.();
   gracefulShutdown(server);
 }
 

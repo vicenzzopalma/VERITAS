@@ -4,6 +4,7 @@ import "react-toastify/dist/ReactToastify.css";
 
 import { createTheme, ThemeProvider } from "@material-ui/core/styles";
 import { ptBR } from "@material-ui/core/locale";
+import MaintenanceScreen from "./components/MaintenanceScreen";
 
 const App = () => {
   const [locale, setLocale] = useState();
@@ -97,6 +98,7 @@ const App = () => {
   return (
     <ThemeProvider theme={theme}>
       <Routes />
+      <MaintenanceScreen />
     </ThemeProvider>
   );
 };

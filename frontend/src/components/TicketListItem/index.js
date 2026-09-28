@@ -58,10 +58,16 @@ const useStyles = makeStyles(theme => ({
 	contactNameWrapper: {
 		display: "flex",
 		justifyContent: "space-between",
+		alignItems: "center",
+		minWidth: 0,
+		width: "100%",
+		overflow: "hidden",
 	},
 
 	lastMessageTime: {
 		justifySelf: "flex-end",
+		flex: "none",
+		marginLeft: 6,
 	},
 
 	closedBadge: {
@@ -73,6 +79,11 @@ const useStyles = makeStyles(theme => ({
 
 	contactLastMessage: {
 		paddingRight: 20,
+		minWidth: 0,
+		flex: 1,
+		overflow: "hidden",
+		textOverflow: "ellipsis",
+		whiteSpace: "nowrap",
 	},
 
 	newMessagesCount: {
@@ -113,6 +124,25 @@ const useStyles = makeStyles(theme => ({
 		paddingRight: 5,
 		borderRadius: 10,
 		fontSize: "0.9em"
+		,
+		maxWidth: "calc(100% - 38px)",
+		overflow: "hidden",
+		textOverflow: "ellipsis",
+		whiteSpace: "nowrap",
+	},
+	ticketListItem: {
+		minWidth: 0,
+		overflow: "hidden",
+		"& .MuiListItemText-root": {
+			minWidth: 0,
+			overflow: "hidden",
+		},
+		"& .MuiListItemText-primary, & .MuiListItemText-secondary": {
+			display: "block",
+			minWidth: 0,
+			width: "100%",
+			overflow: "hidden",
+		},
 	},
 }));
 
@@ -165,6 +195,7 @@ const TicketListItem = ({ ticket }) => {
 				selected={ticketId && +ticketId === ticket.id}
 				className={clsx(classes.ticket, {
 					[classes.pendingTicket]: ticket.status === "pending",
+					[classes.ticketListItem]: true,
 				})}
 			>
 				<Tooltip
@@ -189,6 +220,8 @@ const TicketListItem = ({ ticket }) => {
 								component="span"
 								variant="body2"
 								color="textPrimary"
+								style={{ minWidth: 0, flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}
+								title={getContactDisplayName(ticket.contact)}
 							>
 								{getContactDisplayName(ticket.contact)}
 							</Typography>
@@ -262,4 +295,6 @@ const TicketListItem = ({ ticket }) => {
 	);
 };
 
-export default TicketListItem;
+export default React.memo(TicketListItem, (previous, next) => (
+	previous.ticket === next.ticket
+));

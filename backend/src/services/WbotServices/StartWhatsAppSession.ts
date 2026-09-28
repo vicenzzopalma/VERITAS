@@ -13,6 +13,10 @@ export const StartWhatsAppSession = async (
     action: "update",
     session: whatsapp
   });
+  io.emit("whatsapp", {
+    action: "update",
+    whatsapp
+  });
 
   try {
     console.log("VAI!");

@@ -1,8 +1,11 @@
 import WppKey from "../../models/WppKey";
 import { getRedisClient } from "../../libs/redisStore";
 import { logger } from "../../utils/logger";
+import { clearWppKeysCacheForConnection } from "./wppKeyCache";
 
 const ClearWppSessionKeys = async (connectionId: number): Promise<void> => {
+  clearWppKeysCacheForConnection(connectionId);
+
   const redis = getRedisClient();
   if (redis) {
     try {

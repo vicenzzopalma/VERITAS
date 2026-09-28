@@ -115,13 +115,15 @@ function ListItemLink(props) {
   );
 
   return (
-    <li style={collapsed ? { width: "68px", maxWidth: "68px", overflow: "hidden" } : undefined}>
+    <li style={collapsed ? { width: "68px", maxWidth: "68px", overflow: "hidden", listStyle: "none" } : { listStyle: "none" }}>
       <ListItem
         button
         component={renderLink}
         className={className}
-        style={
-          isWhatsappControl
+        style={{
+          overflow: "hidden",
+          whiteSpace: "nowrap",
+          ...(isWhatsappControl
             ? {
                 borderRadius: collapsed ? "0" : active ? "0 14px 14px 0" : "14px",
                 margin: collapsed ? "0" : active ? "3px 8px 3px 0" : "3px 8px",
@@ -143,21 +145,27 @@ function ListItemLink(props) {
                     }
                   : {}),
               }
-            : undefined
-        }
+            : (collapsed
+                ? {
+                    width: "68px",
+                    maxWidth: "68px",
+                    minWidth: "68px",
+                    boxSizing: "border-box",
+                    overflow: "hidden",
+                    paddingLeft: "10px",
+                    paddingRight: "10px",
+                  }
+                : {})),
+        }}
       >
         {icon ? (
           <ListItemIcon
-            style={
-              isWhatsappControl
-                ? {
-                    color: active ? "#818cf8" : "#ffffff",
-                    minWidth: collapsed ? 0 : 42,
-                    width: collapsed ? "100%" : undefined,
-                    justifyContent: collapsed ? "center" : undefined,
-                  }
-                : undefined
-            }
+            style={{
+              minWidth: collapsed ? 0 : 42,
+              width: collapsed ? "100%" : undefined,
+              justifyContent: collapsed ? "center" : undefined,
+              color: isWhatsappControl ? (active ? "#818cf8" : "#ffffff") : undefined,
+            }}
           >
             {React.isValidElement(icon)
               ? React.cloneElement(icon, {
@@ -178,14 +186,22 @@ function ListItemLink(props) {
           <ListItemText
             primary={primary}
             primaryTypographyProps={{
+              noWrap: true,
               style: isWhatsappControl
                 ? {
                     color: "#ffffff",
                     fontWeight: active ? 700 : 500,
                     fontSize: "0.92rem",
                     fontFamily: "'Outfit', sans-serif",
+                    whiteSpace: "nowrap",
+                    overflow: "hidden",
+                    textOverflow: "ellipsis",
                   }
-                : undefined,
+                : {
+                    whiteSpace: "nowrap",
+                    overflow: "hidden",
+                    textOverflow: "ellipsis",
+                  },
             }}
           />
         )}
@@ -198,9 +214,9 @@ const MainListItems = (props) => {
   const { drawerClose, collapsed = false } = props;
   const classes = useStyles();
   const location = useLocation();
-  const isWhatsappControl = location.pathname.startsWith("/whatsapp-control");
-  const { whatsApps } = useContext(WhatsAppsContext);
   const { user, handleLogout } = useContext(AuthContext);
+  const { whatsApps } = useContext(WhatsAppsContext);
+  const isWhatsappControl = location.pathname.startsWith("/whatsapp-control") || user?.profile === "whatsapp_control" || user?.profile === "whatsapp_control_high";
   const [connectionWarning, setConnectionWarning] = useState(false);
 
   useEffect(() => {
@@ -235,8 +251,9 @@ const MainListItems = (props) => {
     return undefined;
   };
 
-  // O perfil Whatsapp Control acessa o CRM e as conexões do setor PA FIXA.
-  if (user?.profile === "whatsapp_control") {
+  // O perfil Whatsapp Control acessa o CRM, as conexões e auditoria conforme o nível (baixo vs alto).
+  if (user?.profile === "whatsapp_control" || user?.profile === "whatsapp_control_high") {
+    const isHigh = user?.profile === "whatsapp_control_high";
     return (
       <div onClick={drawerClose} className={classes.crmMenuContainer}>
         <ListItemLink
@@ -245,17 +262,26 @@ const MainListItems = (props) => {
           icon={<PhoneAndroidIcon />}
           className={getItemClass("/whatsapp-control")}
           isWhatsappControl={true}
-          active={true}
+          active={location.pathname === "/whatsapp-control"}
           collapsed={collapsed}
         />
-        {user.canAccessConnections && (
+        <ListItemLink
+          to="/connections"
+          primary="Conexões"
+          icon={<SyncAltIcon />}
+          className={getItemClass("/connections")}
+          isWhatsappControl={true}
+          active={location.pathname === "/connections"}
+          collapsed={collapsed}
+        />
+        {isHigh && (
           <ListItemLink
-            to="/connections"
-            primary="Conexões"
-            icon={<SyncAltIcon />}
-            className={getItemClass("/connections")}
+            to="/audit"
+            primary="Auditoria"
+            icon={<SecurityOutlinedIcon />}
+            className={getItemClass("/audit")}
             isWhatsappControl={true}
-            active={location.pathname === "/connections"}
+            active={location.pathname === "/audit"}
             collapsed={collapsed}
           />
         )}
@@ -287,6 +313,42 @@ const MainListItems = (props) => {
     );
   }
 
+  if (user?.profile === "operator") {
+    return (
+      <div onClick={drawerClose}>
+        <ListItemLink
+          to="/live"
+          primary="Atendimento"
+          icon={<QuestionAnswerOutlinedIcon />}
+          active={location.pathname.startsWith("/live")}
+          collapsed={collapsed}
+        />
+        <Divider style={{ margin: "12px 0" }} />
+        <li>
+          <ListItem
+            button
+            onClick={handleLogout}
+            style={collapsed ? {
+              width: "68px",
+              maxWidth: "68px",
+              minWidth: "68px",
+              boxSizing: "border-box",
+              overflow: "hidden",
+              paddingLeft: "10px",
+              paddingRight: "10px",
+              marginRight: "0",
+            } : undefined}
+          >
+            <ListItemIcon style={collapsed ? { minWidth: 0, width: "100%", justifyContent: "center" } : undefined}>
+              <ExitToAppIcon />
+            </ListItemIcon>
+            {!collapsed && <ListItemText primary="Sair" />}
+          </ListItem>
+        </li>
+      </div>
+    );
+  }
+
   return (
     <div onClick={drawerClose} className={isWhatsappControl ? classes.crmMenuContainer : undefined}>
       {/* 1. Whatsapp Control EM PRIMEIRO */}
@@ -297,6 +359,7 @@ const MainListItems = (props) => {
         className={getItemClass("/whatsapp-control")}
         isWhatsappControl={isWhatsappControl}
         active={location.pathname === "/whatsapp-control"}
+        collapsed={collapsed}
       />
 
       {/* 2. Auditoria */}
@@ -311,6 +374,7 @@ const MainListItems = (props) => {
             className={getItemClass("/audit")}
             isWhatsappControl={isWhatsappControl}
             active={location.pathname === "/audit"}
+            collapsed={collapsed}
           />
         )}
       />
@@ -327,6 +391,7 @@ const MainListItems = (props) => {
         className={getItemClass("/connections")}
         isWhatsappControl={isWhatsappControl}
         active={location.pathname === "/connections"}
+        collapsed={collapsed}
       />
 
       {/* 4. Tickets */}
@@ -337,6 +402,7 @@ const MainListItems = (props) => {
         className={getItemClass("/tickets")}
         isWhatsappControl={isWhatsappControl}
         active={location.pathname === "/tickets"}
+        collapsed={collapsed}
       />
 
       {/* 5. Contatos */}
@@ -347,6 +413,7 @@ const MainListItems = (props) => {
         className={getItemClass("/contacts")}
         isWhatsappControl={isWhatsappControl}
         active={location.pathname === "/contacts"}
+        collapsed={collapsed}
       />
 
       {/* 6. Respostas Rápidas */}
@@ -357,6 +424,7 @@ const MainListItems = (props) => {
         className={getItemClass("/quickAnswers")}
         isWhatsappControl={isWhatsappControl}
         active={location.pathname === "/quickAnswers"}
+        collapsed={collapsed}
       />
 
       {/* 7. Dashboard EMBAIXO DE RESPOSTAS RÁPIDAS */}
@@ -367,6 +435,7 @@ const MainListItems = (props) => {
         className={getItemClass("/")}
         isWhatsappControl={isWhatsappControl}
         active={location.pathname === "/"}
+        collapsed={collapsed}
       />
 
       {/* 8. Administração */}
@@ -376,24 +445,26 @@ const MainListItems = (props) => {
         yes={() => (
           <>
             <Divider style={isWhatsappControl ? { backgroundColor: "rgba(255, 255, 255, 0.1)" } : undefined} />
-            <ListSubheader
-              inset
-              style={
-                isWhatsappControl
-                  ? {
-                      color: "#94a3b8",
-                      backgroundColor: "transparent",
-                      fontWeight: 700,
-                      fontSize: "0.72rem",
-                      textTransform: "uppercase",
-                      letterSpacing: "0.08em",
-                      fontFamily: "'Outfit', sans-serif",
-                    }
-                  : undefined
-              }
-            >
-              {i18n.t("mainDrawer.listItems.administration")}
-            </ListSubheader>
+            {!collapsed && (
+              <ListSubheader
+                inset
+                style={
+                  isWhatsappControl
+                    ? {
+                        color: "#94a3b8",
+                        backgroundColor: "transparent",
+                        fontWeight: 700,
+                        fontSize: "0.72rem",
+                        textTransform: "uppercase",
+                        letterSpacing: "0.08em",
+                        fontFamily: "'Outfit', sans-serif",
+                      }
+                    : undefined
+                }
+              >
+                {i18n.t("mainDrawer.listItems.administration")}
+              </ListSubheader>
+            )}
             <ListItemLink
               to="/users"
               primary={i18n.t("mainDrawer.listItems.users")}
@@ -401,6 +472,7 @@ const MainListItems = (props) => {
               className={getItemClass("/users")}
               isWhatsappControl={isWhatsappControl}
               active={location.pathname === "/users"}
+              collapsed={collapsed}
             />
             <ListItemLink
               to="/queues"
@@ -409,6 +481,7 @@ const MainListItems = (props) => {
               className={getItemClass("/queues")}
               isWhatsappControl={isWhatsappControl}
               active={location.pathname === "/queues"}
+              collapsed={collapsed}
             />
             <ListItemLink
               to="/settings"
@@ -417,6 +490,7 @@ const MainListItems = (props) => {
               className={getItemClass("/settings")}
               isWhatsappControl={isWhatsappControl}
               active={location.pathname === "/settings"}
+              collapsed={collapsed}
             />
           </>
         )}

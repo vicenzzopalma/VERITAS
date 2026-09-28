@@ -17,6 +17,7 @@ import DescriptionIcon from "@material-ui/icons/Description";
 import PrintIcon from "@material-ui/icons/Print";
 import ZoomInIcon from "@material-ui/icons/ZoomIn";
 import ZoomOutIcon from "@material-ui/icons/ZoomOut";
+import OpenInNewIcon from "@material-ui/icons/OpenInNew";
 
 const useStyles = makeStyles(theme => ({
   dialogPaper: {
@@ -111,25 +112,39 @@ const MediaViewerModal = ({ open, onClose, mediaUrl, mediaType, title }) => {
 
   if (!open || !mediaUrl) return null;
 
-  const isPdf =
-    mediaType?.includes("pdf") ||
-    mediaUrl?.toLowerCase().endsWith(".pdf") ||
-    (mediaType?.includes("document") && mediaUrl?.toLowerCase().includes(".pdf"));
+  const urlLower = (mediaUrl || "").toLowerCase();
+  const typeLower = (mediaType || "").toLowerCase();
+  const titleLower = (title || "").toLowerCase();
 
   const isImage =
-    mediaType?.startsWith("image") ||
-    mediaUrl?.match(/\.(jpeg|jpg|gif|png|webp)($|\?)/i) ||
-    mediaUrl?.includes("pps.whatsapp.net");
+    typeLower.startsWith("image") ||
+    urlLower.match(/\.(jpeg|jpg|gif|png|webp)($|\?)/i) ||
+    urlLower.includes("pps.whatsapp.net");
 
   const isVideo =
-    mediaType?.startsWith("video") ||
-    mediaUrl?.match(/\.(mp4|webm|mkv|mov)($|\?)/i);
+    typeLower.startsWith("video") ||
+    urlLower.match(/\.(mp4|webm|mkv|mov)($|\?)/i);
 
   const isAudio =
-    mediaType?.startsWith("audio") ||
-    mediaUrl?.match(/\.(ogg|mp3|wav|m4a|aac)($|\?)/i);
+    typeLower.startsWith("audio") ||
+    urlLower.match(/\.(ogg|mp3|wav|m4a|aac)($|\?)/i);
 
-  const fileName = title || mediaUrl.split("/").pop() || "Arquivo";
+  const isPdf =
+    !isImage &&
+    !isVideo &&
+    !isAudio &&
+    (typeLower.includes("pdf") ||
+      typeLower.includes("application") ||
+      typeLower.includes("document") ||
+      urlLower.includes(".pdf") ||
+      urlLower.includes("comprovante") ||
+      titleLower.includes("comprovante") ||
+      titleLower.includes(".pdf"));
+
+  let fileName = title || mediaUrl.split("/").pop() || "Arquivo";
+  if (fileName.startsWith(".")) {
+    fileName = fileName.replace(/^\.+/, "");
+  }
 
   const handleDownload = () => {
     const link = document.createElement("a");
@@ -195,6 +210,12 @@ const MediaViewerModal = ({ open, onClose, mediaUrl, mediaType, title }) => {
               </IconButton>
             </Tooltip>
           )}
+
+          <Tooltip title="Abrir em Nova Aba">
+            <IconButton size="small" onClick={() => window.open(mediaUrl, "_blank")} style={{ color: "#0284c7" }}>
+              <OpenInNewIcon fontSize="small" />
+            </IconButton>
+          </Tooltip>
 
           <Tooltip title="Baixar Arquivo">
             <IconButton size="small" onClick={handleDownload}>

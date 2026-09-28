@@ -84,16 +84,42 @@ const processLocationMessage = (
 
 const saveMediaFile = async (mediaPayload: MediaPayload): Promise<string> => {
   const randomId = makeRandomId(5);
-  const { filename: originalFilename } = mediaPayload;
+  const { filename: originalFilename, mimetype } = mediaPayload;
+
+  const mimeExtMap: Record<string, string> = {
+    "application/pdf": "pdf",
+    "image/jpeg": "jpeg",
+    "image/jpg": "jpg",
+    "image/png": "png",
+    "image/webp": "webp",
+    "audio/ogg": "ogg",
+    "audio/mp4": "mp4",
+    "audio/mpeg": "mp3",
+    "video/mp4": "mp4"
+  };
+  const cleanMime = (mimetype || "").split(";")[0].trim().toLowerCase();
+  let defaultExt = mimeExtMap[cleanMime] || cleanMime.split("/")[1] || "bin";
+  if (defaultExt === "vnd.openxmlformats-officedocument.wordprocessingml.document") defaultExt = "docx";
+  if (defaultExt === "vnd.openxmlformats-officedocument.spreadsheetml.sheet") defaultExt = "xlsx";
 
   let filename: string;
   if (!originalFilename) {
-    const [extension] = mediaPayload.mimetype.split("/")[1].split(";");
-    filename = `${randomId}-${new Date().getTime()}.${extension}`;
+    filename = `${randomId}-${Date.now()}.${defaultExt}`;
   } else {
-    const baseName = originalFilename.split(".").slice(0, -1).join(".");
-    const extension = originalFilename.split(".").slice(-1)[0];
-    filename = `${baseName}.${randomId}.${extension}`;
+    const cleanOriginal = originalFilename.replace(/^[\s.]+/, "").trim();
+    const dotIndex = cleanOriginal.lastIndexOf(".");
+    if (dotIndex > 0) {
+      const baseName = cleanOriginal.substring(0, dotIndex).replace(/[^a-zA-Z0-9_-]/g, "_").substring(0, 50) || "doc";
+      const ext = cleanOriginal.substring(dotIndex + 1).toLowerCase() || defaultExt;
+      filename = `${baseName}.${randomId}.${ext}`;
+    } else {
+      const baseName = cleanOriginal.replace(/[^a-zA-Z0-9_-]/g, "_").substring(0, 50) || "comprovante";
+      filename = `${baseName}.${randomId}.${defaultExt}`;
+    }
+  }
+
+  if (filename.startsWith(".")) {
+    filename = `media_${filename.replace(/^\.+/, "")}`;
   }
 
   try {
@@ -291,8 +317,26 @@ export const handleMessage = async (
       const filename = await saveMediaFile(mediaPayload);
       messageData.mediaUrl = filename;
       messageData.body = processedMessage.body || filename;
-      const [mediaType] = mediaPayload.mimetype.split("/");
-      messageData.mediaType = mediaType;
+
+      const mimeLower = (mediaPayload.mimetype || "").toLowerCase();
+      if (mimeLower.includes("image")) {
+        messageData.mediaType = "image";
+      } else if (mimeLower.includes("audio") || mimeLower.includes("ogg")) {
+        messageData.mediaType = "audio";
+      } else if (mimeLower.includes("video")) {
+        messageData.mediaType = "video";
+      } else if (
+        mimeLower.includes("pdf") ||
+        mimeLower.includes("document") ||
+        mimeLower.includes("application") ||
+        mimeLower.includes("sheet") ||
+        mimeLower.includes("excel")
+      ) {
+        messageData.mediaType = "document";
+      } else {
+        const [mediaType] = mediaPayload.mimetype.split("/");
+        messageData.mediaType = mediaType;
+      }
     }
 
     let lastMessageText = "";

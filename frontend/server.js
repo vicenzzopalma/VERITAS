@@ -17,6 +17,22 @@ const BACKEND_PORT = 6002;
 const CRM_PORT = 3000;
 const BUILD_DIR = path.join(__dirname, "build");
 
+const backendAgent = new http.Agent({
+    keepAlive: true,
+    keepAliveMsecs: 15000,
+    maxSockets: 500,
+    maxFreeSockets: 100,
+    timeout: 120000
+});
+
+const crmAgent = new http.Agent({
+    keepAlive: true,
+    keepAliveMsecs: 15000,
+    maxSockets: 200,
+    maxFreeSockets: 50,
+    timeout: 120000
+});
+
 const MIME_TYPES = {
     ".html": "text/html",
     ".js": "text/javascript",
@@ -155,7 +171,8 @@ const server = http.createServer((req, res) => {
             port: CRM_PORT,
             path: targetPath,
             method: req.method,
-            headers: crmHeaders
+            headers: crmHeaders,
+            agent: crmAgent
         }, (crmRes) => {
             const respHeaders = { ...crmRes.headers };
             // Se o CRM tentar redirecionar (302) para a raiz ou login, reescreve para /crm/
@@ -173,8 +190,10 @@ const server = http.createServer((req, res) => {
 
         crmReq.on("error", (err) => {
             console.error("Erro no Proxy do Whatsapp Control (CRM):", err.message);
-            res.writeHead(502, { "Content-Type": "application/json" });
-            res.end(JSON.stringify({ error: "Whatsapp Control indisponível no momento" }));
+            if (!res.headersSent) {
+                res.writeHead(502, { "Content-Type": "application/json" });
+                res.end(JSON.stringify({ error: "Whatsapp Control indisponível no momento" }));
+            }
         });
 
         if (req.method === "GET" || req.method === "HEAD") {
@@ -206,7 +225,8 @@ const server = http.createServer((req, res) => {
         port: BACKEND_PORT,
         path: req.url,
         method: req.method,
-        headers: proxyHeaders
+        headers: proxyHeaders,
+        agent: backendAgent
     }, (proxyRes) => {
         res.writeHead(proxyRes.statusCode, proxyRes.headers);
         proxyRes.pipe(res, { end: true });
@@ -214,8 +234,10 @@ const server = http.createServer((req, res) => {
 
     proxyReq.on("error", (err) => {
         console.error("Erro no Proxy:", err.message);
-        res.writeHead(502, { "Content-Type": "application/json" });
-        res.end(JSON.stringify({ error: "Backend indisponível" }));
+        if (!res.headersSent) {
+            res.writeHead(502, { "Content-Type": "application/json" });
+            res.end(JSON.stringify({ error: "Backend indisponível" }));
+        }
     });
 
     if (req.method === "GET" || req.method === "HEAD") {

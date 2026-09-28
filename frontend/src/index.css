@@ -142,6 +142,37 @@ select,
   font-weight: 600 !important;
 }
 
+/*
+ * Keep the visual language intact on older machines while reducing the
+ * number of expensive paint operations (large shadows, blur and transitions).
+ */
+.veritas-low-performance *,
+.veritas-low-performance *::before,
+.veritas-low-performance *::after {
+  animation-duration: 0.001ms !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: 0.001ms !important;
+}
+
+.veritas-low-performance {
+  scroll-behavior: auto;
+}
+
+.veritas-low-performance .MuiPaper-root {
+  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.08) !important;
+}
+
+.veritas-low-performance .MuiBackdrop-root {
+  backdrop-filter: none !important;
+}
+
+.veritas-low-performance [class*="ticket"],
+.veritas-low-performance [class*="chatItem"],
+.veritas-low-performance [class*="deviceCard"] {
+  content-visibility: auto;
+  contain-intrinsic-size: 72px;
+}
+
 @media (max-width: 720px) {
   .MuiToolbar-root {
     padding-left: 14px !important;

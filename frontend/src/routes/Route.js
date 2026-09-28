@@ -20,7 +20,7 @@ const Route = ({ component: Component, isPrivate = false, ...rest }) => {
   if (isAuth && !isPrivate) {
     let defaultPath = "/";
     if (user?.profile === "operator") defaultPath = "/live";
-    if (user?.profile === "whatsapp_control") defaultPath = "/whatsapp-control";
+    if (user?.profile === "whatsapp_control" || user?.profile === "whatsapp_control_high") defaultPath = "/whatsapp-control";
     return (
       <Redirect to={{ pathname: defaultPath, state: { from: rest.location } }} />
     );
@@ -34,16 +34,23 @@ const Route = ({ component: Component, isPrivate = false, ...rest }) => {
   }
 
   // Bloqueio rigoroso de rota para usuários originários do Whatsapp Control
-  // Não permite ver, enxergar ou usar nenhuma outra tela do Veritas
+  // Gestor Baixo: apenas /whatsapp-control e /connections (se canAccessConnections)
+  // Gestor Alto: /whatsapp-control, /connections (se canAccessConnections) e /audit
   if (
     isAuth &&
-    user?.profile === "whatsapp_control" &&
-    rest.path !== "/whatsapp-control" &&
-    (!user.canAccessConnections || rest.path !== "/connections")
+    (user?.profile === "whatsapp_control" || user?.profile === "whatsapp_control_high")
   ) {
-    return (
-      <Redirect to={{ pathname: "/whatsapp-control" }} />
-    );
+    const isHigh = user?.profile === "whatsapp_control_high";
+    const allowed =
+      rest.path === "/whatsapp-control" ||
+      rest.path === "/connections" ||
+      (isHigh && rest.path === "/audit");
+
+    if (!allowed) {
+      return (
+        <Redirect to={{ pathname: "/whatsapp-control" }} />
+      );
+    }
   }
 
   return (

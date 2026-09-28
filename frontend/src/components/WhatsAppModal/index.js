@@ -28,6 +28,7 @@ import api from "../../services/api";
 import { i18n } from "../../translate/i18n";
 import toastError from "../../errors/toastError";
 import QueueSelect from "../QueueSelect";
+import { AuthContext } from "../../context/Auth/AuthContext";
 
 const OFFICIAL_SECTORS = [
 	"Junior",
@@ -191,6 +192,12 @@ const CrmChipSelector = ({ sector, setFieldValue }) => {
 const WhatsAppModal = ({ open, onClose, whatsAppId }) => {
 	const classes = useStyles();
 	const { fetchWhatsApps } = useContext(WhatsAppsContext);
+	const { user } = useContext(AuthContext);
+	const isManager = user?.profile === "whatsapp_control" || user?.profile === "whatsapp_control_high";
+	const isRestrictedUser = user?.profile !== "admin";
+	const availableSectors = isRestrictedUser && (isManager || user?.canAccessConnections)
+		? (user?.connectionSectors && user.connectionSectors.length > 0 ? user.connectionSectors : OFFICIAL_SECTORS)
+		: OFFICIAL_SECTORS;
 	const initialState = {
 		name: "",
 		greetingMessage: "",
@@ -335,12 +342,12 @@ const WhatsAppModal = ({ open, onClose, whatsAppId }) => {
 													<MenuItem value="" disabled>
 														<em>Selecione o setor...</em>
 													</MenuItem>
-													{OFFICIAL_SECTORS.map(s => (
+													{availableSectors.map(s => (
 														<MenuItem key={s} value={s}>
 															{s}
 														</MenuItem>
 													))}
-													{!OFFICIAL_SECTORS.includes(values.sector) && values.sector && (
+													{!availableSectors.includes(values.sector) && values.sector && (
 														<MenuItem key={values.sector} value={values.sector}>
 															{values.sector} (Personalizado)
 														</MenuItem>
@@ -350,6 +357,7 @@ const WhatsAppModal = ({ open, onClose, whatsAppId }) => {
 													<FormHelperText>{errors.sector}</FormHelperText>
 												)}
 											</FormControl>
+											{!isManager && (
 											<Button
 												variant="outlined"
 												size="small"
@@ -359,6 +367,7 @@ const WhatsAppModal = ({ open, onClose, whatsAppId }) => {
 											>
 												+ Novo
 											</Button>
+											)}
 										</div>
 									) : (
 										<div style={{ display: "flex", gap: 8, alignItems: "center" }}>

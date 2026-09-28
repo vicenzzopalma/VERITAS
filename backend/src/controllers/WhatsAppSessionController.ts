@@ -2,6 +2,7 @@ import { Request, Response } from "express";
 import { whatsappProvider } from "../providers/WhatsApp";
 import ShowWhatsAppService from "../services/WhatsappService/ShowWhatsAppService";
 import { StartWhatsAppSession } from "../services/WbotServices/StartWhatsAppSession";
+import { StartAllWhatsAppsSessions } from "../services/WbotServices/StartAllWhatsAppsSessions";
 import UpdateWhatsAppService from "../services/WhatsappService/UpdateWhatsAppService";
 import ClearWppSessionKeys from "../services/WppKeyServices/ClearWppSessionKeys";
 import { getIO } from "../libs/socket";
@@ -37,12 +38,14 @@ const update = async (req: Request, res: Response): Promise<Response> => {
   // Limpa todas as chaves criptograficas antigas (WppKeys no SQLite e Redis)
   await ClearWppSessionKeys(idNumber);
 
-  const { whatsapp } = await UpdateWhatsAppService({
-    whatsappId,
-    whatsappData: { session: "", qrcode: "", retries: 0 }
+  await currentWhatsapp.update({
+    session: "",
+    qrcode: "",
+    retries: 0,
+    status: "OPENING"
   });
 
-  StartWhatsAppSession(whatsapp);
+  StartWhatsAppSession(currentWhatsapp);
 
   return res.status(200).json({ message: "Starting session." });
 };
@@ -82,4 +85,9 @@ const remove = async (req: Request, res: Response): Promise<Response> => {
   return res.status(200).json({ message: "Session disconnected." });
 };
 
-export default { store, remove, update };
+const startAll = async (req: Request, res: Response): Promise<Response> => {
+  StartAllWhatsAppsSessions().catch(() => {});
+  return res.status(200).json({ message: "Iniciando reconexão de todas as sessões." });
+};
+
+export default { store, remove, update, startAll };

@@ -3,6 +3,7 @@ import * as Yup from "yup";
 import AppError from "../../errors/AppError";
 import { SerializeUser } from "../../helpers/SerializeUser";
 import User from "../../models/User";
+import { syncUserToCrm } from "./SyncUserToCrmService";
 
 interface UserData {
   email?: string;
@@ -81,6 +82,17 @@ const UpdateUserService = async ({
   await user.$set("queues", queueIds);
 
   await user.reload();
+
+  try {
+    await syncUserToCrm({
+      email: user.email,
+      name: user.name,
+      profile: user.profile,
+      connectionSectors: user.connectionSectors
+    });
+  } catch (syncErr) {
+    console.error("[UpdateUserService] Erro no syncUserToCrm:", syncErr);
+  }
 
   return SerializeUser(user);
 };

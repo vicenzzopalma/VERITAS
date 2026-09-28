@@ -12,7 +12,21 @@ const config = {
   database: process.env.DB_NAME,
   username: process.env.DB_USER,
   password: process.env.DB_PASS,
-  logging: false
+  logging: false,
+  dialectOptions: {
+    busyTimeout: 60000
+  },
+  transactionType: "IMMEDIATE",
+  pool: {
+    max: 20,
+    min: 2,
+    acquire: 60000,
+    idle: 10000
+  },
+  retry: {
+    max: 5,
+    timeout: 3000
+  }
 };
 
 if (config.dialect !== "sqlite") {
@@ -20,3 +34,4 @@ if (config.dialect !== "sqlite") {
 }
 
 module.exports = config;
+

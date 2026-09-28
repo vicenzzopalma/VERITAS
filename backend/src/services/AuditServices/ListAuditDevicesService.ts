@@ -4,6 +4,10 @@ import Message from "../../models/Message";
 import { Op } from "sequelize";
 import sequelize from "../../database";
 import { getSessionStatus } from "../../providers/WhatsApp/Implementations/whaileys";
+import {
+  getWhatsappAccessWhere,
+  WhatsappAccessUser
+} from "../WhatsappService/WhatsappAccessPolicy";
 
 export interface AuditDeviceResponse {
   id: number;
@@ -22,10 +26,22 @@ export interface AuditDeviceResponse {
   updatedAt: Date;
 }
 
-const ListAuditDevicesService = async (): Promise<AuditDeviceResponse[]> => {
+interface Request {
+  user?: WhatsappAccessUser;
+}
+
+const ListAuditDevicesService = async ({ user }: Request = {}): Promise<AuditDeviceResponse[]> => {
+  const whatsappWhere = getWhatsappAccessWhere(user);
+
   const whatsapps = await Whatsapp.findAll({
+    where: whatsappWhere,
     order: [["name", "ASC"]]
   });
+
+  const allowedIds = whatsapps.map((w) => w.id);
+  if (allowedIds.length === 0) {
+    return [];
+  }
 
   const [stats]: any = await sequelize.query(`
     SELECT 
@@ -37,6 +53,7 @@ const ListAuditDevicesService = async (): Promise<AuditDeviceResponse[]> => {
       max(m.createdAt) as lastActivity
     FROM Tickets t
     LEFT JOIN Messages m ON m.ticketId = t.id
+    WHERE t.whatsappId IN (${allowedIds.join(",")})
     GROUP BY t.whatsappId;
   `);
 

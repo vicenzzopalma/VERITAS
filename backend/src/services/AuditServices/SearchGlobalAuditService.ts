@@ -4,10 +4,16 @@ import Contact from "../../models/Contact";
 import Whatsapp from "../../models/Whatsapp";
 import Message from "../../models/Message";
 import { getPhoneSearchVariants } from "../../helpers/phoneSearchHelper";
+import { getSearchTerms } from "../../helpers/searchTermHelper";
+import {
+  getWhatsappAccessWhere,
+  WhatsappAccessUser
+} from "../WhatsappService/WhatsappAccessPolicy";
 
 interface Request {
   search: string;
   limit?: number;
+  user?: WhatsappAccessUser;
 }
 
 export interface GlobalSearchResult {
@@ -24,7 +30,8 @@ export interface GlobalSearchResult {
 
 const SearchGlobalAuditService = async ({
   search = "",
-  limit = 50
+  limit = 50,
+  user
 }: Request): Promise<GlobalSearchResult[]> => {
   const cleanSearch = (search || "").trim().toLowerCase();
 
@@ -32,22 +39,84 @@ const SearchGlobalAuditService = async ({
     return [];
   }
 
+  const whatsappWhere = getWhatsappAccessWhere(user);
+  let allowedWhatsappIds: number[] | null = null;
+  if (whatsappWhere) {
+    const allowedWhats = await Whatsapp.findAll({
+      where: whatsappWhere,
+      attributes: ["id"]
+    });
+    allowedWhatsappIds = allowedWhats.map((w) => w.id);
+    if (allowedWhatsappIds.length === 0) {
+      return [];
+    }
+  }
+
+  const searchTerms = getSearchTerms(search);
   const isShortDigits = /^\d{1,5}$/.test(cleanSearch);
 
-  const orConditions: any[] = [
-    {
+  const orConditions: any[] = [];
+  const messageConditions = searchTerms.map((term) => ({
+    body: { [Op.like]: `%${term}%` }
+  }));
+
+  const matchingMessages = messageConditions.length > 0
+    ? await Message.findAll({
+        where: { [Op.or]: messageConditions },
+        attributes: ["ticketId"],
+        include: allowedWhatsappIds
+          ? [
+              {
+                model: Ticket,
+                as: "ticket",
+                where: { whatsappId: { [Op.in]: allowedWhatsappIds } },
+                attributes: []
+              }
+            ]
+          : undefined,
+        raw: true
+      })
+    : [];
+
+  const matchingTicketIds = Array.from(
+    new Set(
+      matchingMessages
+        .map((message: { ticketId?: number }) => Number(message.ticketId))
+        .filter((ticketId) => Number.isFinite(ticketId))
+    )
+  );
+
+  if (searchTerms.length > 0) {
+    for (const term of searchTerms) {
+      orConditions.push({
+        [Op.and]: [
+          where(fn("LOWER", col("contact.name")), "LIKE", `%${term}%`),
+          where(fn("LENGTH", col("contact.name")), { [Op.lte]: 13 })
+        ]
+      });
+
+      orConditions.push(where(fn("LOWER", col("whatsapp.name")), "LIKE", `%${term}%`));
+
+      if (!isShortDigits) {
+        orConditions.push(
+          where(fn("LOWER", col("lastMessage")), "LIKE", `%${term}%`)
+        );
+      }
+    }
+  } else {
+    orConditions.push({
       [Op.and]: [
         where(fn("LOWER", col("contact.name")), "LIKE", `%${cleanSearch}%`),
         where(fn("LENGTH", col("contact.name")), { [Op.lte]: 13 })
       ]
-    },
-    where(fn("LOWER", col("whatsapp.name")), "LIKE", `%${cleanSearch}%`)
-  ];
+    });
+    orConditions.push(where(fn("LOWER", col("whatsapp.name")), "LIKE", `%${cleanSearch}%`));
 
-  if (!isShortDigits) {
-    orConditions.push(
-      where(fn("LOWER", col("lastMessage")), "LIKE", `%${cleanSearch}%`)
-    );
+    if (!isShortDigits) {
+      orConditions.push(
+        where(fn("LOWER", col("lastMessage")), "LIKE", `%${cleanSearch}%`)
+      );
+    }
   }
 
   const phoneVariants = getPhoneSearchVariants(search);
@@ -60,10 +129,19 @@ const SearchGlobalAuditService = async ({
     });
   }
 
+  if (matchingTicketIds.length > 0) {
+    orConditions.push({ id: { [Op.in]: matchingTicketIds } });
+  }
+
+  const ticketWhere: any = {
+    [Op.or]: orConditions
+  };
+  if (allowedWhatsappIds) {
+    ticketWhere.whatsappId = { [Op.in]: allowedWhatsappIds };
+  }
+
   const tickets = await Ticket.findAll({
-    where: {
-      [Op.or]: orConditions
-    },
+    where: ticketWhere,
     include: [
       {
         model: Contact,
@@ -74,8 +152,9 @@ const SearchGlobalAuditService = async ({
         model: Whatsapp,
         as: "whatsapp",
         attributes: ["id", "name", "status"]
-      }
+      },
     ],
+    distinct: true,
     limit,
     order: [["updatedAt", "DESC"]]
   });

@@ -31,8 +31,17 @@ interface ExportResult {
 const getBase64Image = (rawUrl: string | null): string | null => {
   if (!rawUrl) return null;
   try {
-    const cleanName = path.basename(rawUrl);
-    const localFilePath = path.join(uploadConfig.directory, cleanName);
+    let cleanName = path.basename(rawUrl);
+    try {
+      cleanName = decodeURIComponent(cleanName);
+    } catch {}
+
+    let localFilePath = path.join(uploadConfig.directory, cleanName);
+    if (!fs.existsSync(localFilePath) && !cleanName.startsWith(".")) {
+      const dotPath = path.join(uploadConfig.directory, `.${cleanName}`);
+      if (fs.existsSync(dotPath)) localFilePath = dotPath;
+    }
+
     if (fs.existsSync(localFilePath)) {
       const ext = path.extname(cleanName).toLowerCase().replace(".", "");
       let mime = "image/jpeg";
@@ -217,20 +226,41 @@ const ExportAuditService = async ({
   }
 
   if (mediaType && mediaType !== "all") {
+    if (mediaType !== "vcard") {
+      whereConditions.mediaUrl = { [Op.ne]: null };
+    }
+
     if (mediaType === "audio") {
       whereConditions[Op.or] = [
         { mediaType: { [Op.like]: "%audio%" } },
         { mediaType: "voice" },
-        { mediaType: "ptt" }
+        { mediaType: "ptt" },
+        { mediaUrl: { [Op.like]: "%.ogg%" } },
+        { mediaUrl: { [Op.like]: "%.mp3%" } }
       ];
     } else if (mediaType === "image") {
-      whereConditions[Op.or] = [{ mediaType: { [Op.like]: "%image%" } }];
+      whereConditions[Op.or] = [
+        { mediaType: { [Op.like]: "%image%" } },
+        { mediaUrl: { [Op.like]: "%.jpg%" } },
+        { mediaUrl: { [Op.like]: "%.jpeg%" } },
+        { mediaUrl: { [Op.like]: "%.png%" } },
+        { mediaUrl: { [Op.like]: "%.webp%" } }
+      ];
     } else if (mediaType === "video") {
-      whereConditions[Op.or] = [{ mediaType: { [Op.like]: "%video%" } }];
+      whereConditions[Op.or] = [
+        { mediaType: { [Op.like]: "%video%" } },
+        { mediaUrl: { [Op.like]: "%.mp4%" } }
+      ];
     } else if (mediaType === "document") {
       whereConditions[Op.or] = [
         { mediaType: { [Op.like]: "%document%" } },
-        { mediaType: { [Op.like]: "%pdf%" } }
+        { mediaType: { [Op.like]: "%pdf%" } },
+        { mediaType: { [Op.like]: "%application%" } },
+        { mediaUrl: { [Op.like]: "%.pdf%" } },
+        { mediaUrl: { [Op.like]: "%comprovante%" } },
+        { mediaUrl: { [Op.like]: "%.doc%" } },
+        { mediaUrl: { [Op.like]: "%.xls%" } },
+        { body: { [Op.like]: "%comprovante%" } }
       ];
     } else if (mediaType === "vcard") {
       whereConditions.mediaType = "vcard";
@@ -309,7 +339,7 @@ const ExportAuditService = async ({
 
   if (targetProfilePicUrl) {
     try {
-      targetProfilePicBase64 = getBase64Image(targetProfilePicUrl);
+      targetProfilePicBase64 = getBase64Image(targetProfilePicUrl) || targetProfilePicUrl;
     } catch {
       targetProfilePicBase64 = targetProfilePicUrl;
     }
@@ -579,9 +609,21 @@ const ExportAuditService = async ({
             </audio>
           </div>
         `;
-      } else if (m.mediaUrl && (m.mediaType?.includes("document") || m.mediaUrl.match(/\.(pdf|doc|docx|xlsx|zip)$/i))) {
-        const isPdf = m.mediaUrl.toLowerCase().includes(".pdf");
-        const docTitle = m.body && m.body !== m.mediaUrl ? m.body : path.basename(m.mediaUrl);
+      } else if (
+        m.mediaUrl &&
+        (m.mediaType?.includes("document") ||
+          m.mediaType?.includes("application") ||
+          m.mediaUrl.match(/\.(pdf|doc|docx|xlsx|zip)$/i) ||
+          m.mediaUrl.toLowerCase().includes("comprovante") ||
+          m.body?.toLowerCase().includes("comprovante"))
+      ) {
+        const isPdf =
+          m.mediaUrl.toLowerCase().includes(".pdf") ||
+          m.mediaType?.includes("application") ||
+          m.mediaUrl.toLowerCase().includes("comprovante") ||
+          m.body?.toLowerCase().includes("comprovante");
+        let docTitle = m.body && m.body !== m.mediaUrl ? m.body : path.basename(m.mediaUrl);
+        if (docTitle.startsWith(".")) docTitle = docTitle.replace(/^\.+/, "");
         if (isPdf) {
           mediaHtml = `
             <div class="pdfCard">

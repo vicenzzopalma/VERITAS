@@ -3,6 +3,7 @@ import { BufferJSON } from "whaileys";
 import WppKey from "../../models/WppKey";
 import { getRedisClient, getFromRedis } from "../../libs/redisStore";
 import { logger } from "../../utils/logger";
+import { getWppKeyFromCache, setWppKeyInCache } from "./wppKeyCache";
 
 interface GetKeysRequest {
   connectionId: number;
@@ -18,43 +19,64 @@ const GetWppSessionKeys = async ({
   ids
 }: GetKeysRequest): Promise<any> => {
   const data: any = {};
-  const missingIds: string[] = [];
+  const missingFromMemory: string[] = [];
 
+  // 1. Verifica cache em memória ultra rápido
+  for (const id of ids) {
+    const cached = getWppKeyFromCache(connectionId, deviceId, type, id);
+    if (cached !== undefined) {
+      data[id] = cached;
+    } else {
+      missingFromMemory.push(id);
+    }
+  }
+
+  // Se tudo estava no cache de memória, retorna instantaneamente (0ms de I/O)
+  if (missingFromMemory.length === 0) {
+    return data;
+  }
+
+  const missingFromRedis: string[] = [];
   const redis = getRedisClient();
+
   if (redis) {
     await Promise.all(
-      ids.map(async id => {
+      missingFromMemory.map(async id => {
         const key = `wpp:${connectionId}:${deviceId}:${type}:${id}`;
         const stored = await getFromRedis(key);
 
         if (stored) {
           try {
-            data[id] = JSON.parse(stored, BufferJSON.reviver);
+            const parsed = JSON.parse(stored, BufferJSON.reviver);
+            data[id] = parsed;
+            setWppKeyInCache(connectionId, deviceId, type, id, parsed);
           } catch {
-            missingIds.push(id);
+            missingFromRedis.push(id);
           }
         } else {
-          missingIds.push(id);
+          missingFromRedis.push(id);
         }
       })
     );
   } else {
-    missingIds.push(...ids);
+    missingFromRedis.push(...missingFromMemory);
   }
 
-  if (missingIds.length > 0) {
+  if (missingFromRedis.length > 0) {
     try {
       const records = await WppKey.findAll({
         where: {
           connectionId,
           type,
-          keyId: missingIds
+          keyId: missingFromRedis
         }
       });
 
       for (const record of records) {
         try {
-          data[record.keyId] = JSON.parse(record.value, BufferJSON.reviver);
+          const parsed = JSON.parse(record.value, BufferJSON.reviver);
+          data[record.keyId] = parsed;
+          setWppKeyInCache(connectionId, deviceId, type, record.keyId, parsed);
         } catch {
           /* ignore */
         }

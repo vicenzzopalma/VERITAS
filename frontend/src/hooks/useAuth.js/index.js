@@ -173,7 +173,7 @@ const useAuth = () => {
 			toast.success(i18n.t("auth.toasts.success"));
 			if (data.user?.profile === "operator") {
 				history.push("/live");
-			} else if (data.user?.profile === "whatsapp_control") {
+			} else if (data.user?.profile === "whatsapp_control" || data.user?.profile === "whatsapp_control_high") {
 				history.push("/whatsapp-control");
 			} else {
 				history.push("/tickets");

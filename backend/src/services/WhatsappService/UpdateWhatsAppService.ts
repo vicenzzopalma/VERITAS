@@ -77,7 +77,7 @@ const UpdateWhatsAppService = async ({
   const whatsapp = await ShowWhatsAppService(whatsappId);
 
   await whatsapp.update({
-    name,
+    name: name !== undefined ? name : whatsapp.name,
     status,
     session,
     greetingMessage,

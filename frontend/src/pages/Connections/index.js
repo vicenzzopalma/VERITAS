@@ -191,12 +191,13 @@ const Connections = () => {
 
 	const { whatsApps, loading, fetchWhatsApps } = useContext(WhatsAppsContext);
 	const { user } = useContext(AuthContext);
+	const isManager = user?.profile === "whatsapp_control" || user?.profile === "whatsapp_control_high";
 	const isRestrictedUser = user?.profile !== "admin";
-	const allowedSectors = isRestrictedUser && user?.canAccessConnections
-		? user.connectionSectors || []
-		: isRestrictedUser
-			? []
-			: null;
+	const allowedSectors = !isRestrictedUser
+		? null
+		: (isManager || user?.canAccessConnections)
+			? (user?.connectionSectors || [])
+			: [];
 	const [whatsAppModalOpen, setWhatsAppModalOpen] = useState(false);
 	const [qrModalOpen, setQrModalOpen] = useState(false);
 	const [selectedWhatsApp, setSelectedWhatsApp] = useState(null);
@@ -216,6 +217,7 @@ const Connections = () => {
 	const [searchParam, setSearchParam] = useState("");
 	const [crmChips, setCrmChips] = useState([]);
 	const [nowTime, setNowTime] = useState(Date.now());
+	const [reconnectingAll, setReconnectingAll] = useState(false);
 
 	const loadCrmChips = useCallback(async () => {
 		try {
@@ -398,6 +400,18 @@ const Connections = () => {
 			await api.post(`/whatsappsession/${whatsAppId}`);
 		} catch (err) {
 			toastError(err);
+		}
+	};
+
+	const handleReconnectAll = async () => {
+		try {
+			setReconnectingAll(true);
+			await api.post("/whatsappsession/start-all");
+			toast.success("Iniciando reconexão de todos os aparelhos!");
+		} catch (err) {
+			toastError(err);
+		} finally {
+			setTimeout(() => setReconnectingAll(false), 4000);
 		}
 	};
 
@@ -804,6 +818,21 @@ const Connections = () => {
 						}}
 						style={{ minWidth: 260 }}
 					/>
+					<Button
+						variant="contained"
+						disabled={reconnectingAll}
+						onClick={handleReconnectAll}
+						style={{
+							height: 34,
+							borderRadius: 8,
+							fontWeight: 700,
+							marginRight: 8,
+							backgroundColor: reconnectingAll ? "#64748b" : "#059669",
+							color: "#fff",
+						}}
+					>
+						{reconnectingAll ? "Reconectando..." : "Reconectar Todos"}
+					</Button>
 					<Button
 						variant="contained"
 						color="primary"

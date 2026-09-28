@@ -1,4 +1,4 @@
-﻿import Whatsapp from "../../models/Whatsapp";
+import Whatsapp from "../../models/Whatsapp";
 import {
   ProviderMessage,
   ProviderMediaInput,
@@ -43,6 +43,10 @@ export interface WhatsappProvider {
     sessionId: number
   ): Promise<{ totalScanned: number; totalRecovered: number }>;
   reconcileAllSessionsHistory?(): Promise<{ totalScanned: number; totalRecovered: number }>;
+  checkSessionLiveness?(whatsappId: number): Promise<{ healthy: boolean; status: string; reason?: string }>;
+  reconcileAllSessionsLiveness?(): Promise<{ checked: number; healthy: number; disconnected: number; reconnecting?: number; details: any[] }>;
+  startLivenessWatchdog?(): void;
+  setSystemReady?(ready: boolean): void;
 }
 
 const whatsappProvider: WhatsappProvider = WhaileysProvider;

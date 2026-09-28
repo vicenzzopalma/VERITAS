@@ -1,6 +1,6 @@
 import React, { useState, useContext } from "react";
 import { Link as RouterLink } from "react-router-dom";
-import { Visibility, VisibilityOff } from "@material-ui/icons";
+import { Visibility, VisibilityOff, CheckCircle } from "@material-ui/icons";
 import { makeStyles } from "@material-ui/core/styles";
 import { AuthContext } from "../../context/Auth/AuthContext";
 
@@ -198,6 +198,15 @@ const useStyles = makeStyles(() => ({
     color: "rgba(160, 174, 192, 0.6)",
     fontSize: "0.78rem",
     margin: 0,
+    display: "inline-flex",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: "5px",
+  },
+  verificationBadge: {
+    color: "#5865f2",
+    fontSize: "16px",
+    verticalAlign: "middle",
   }
 }));
 
@@ -285,7 +294,11 @@ const Login = () => {
             </RouterLink>
           </div>
           <p className={classes.copyrightText}>
-            Desenvolvido para Realess &copy; 2026
+            <span>Desenvolvido por Vicenzzo Mastronikolis &copy; 2026</span>
+            <CheckCircle
+              className={classes.verificationBadge}
+              titleAccess="Desenvolvedor verificado"
+            />
           </p>
         </div>
       </div>

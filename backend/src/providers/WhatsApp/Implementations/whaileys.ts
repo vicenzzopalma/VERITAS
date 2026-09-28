@@ -42,9 +42,10 @@ import CreateOrUpdateContactService from "../../../services/ContactServices/Crea
 import { getIO } from "../../../libs/socket";
 import { logger } from "../../../utils/logger";
 import AppError from "../../../errors/AppError";
-import StoreWppSessionKeys from "../../../services/WppKeyServices/StoreWppSessionKeys";
+import StoreWppSessionKeys, { StoreWppSessionKeysBatch, StoreKeyRequest } from "../../../services/WppKeyServices/StoreWppSessionKeys";
 import GetWppSessionKeys from "../../../services/WppKeyServices/GetWppSessionKeys";
 import ClearWppSessionKeys from "../../../services/WppKeyServices/ClearWppSessionKeys";
+import WppKey from "../../../models/WppKey";
 import { getRedisClient } from "../../../libs/redisStore";
 import {
   SendMessageOptions,
@@ -88,6 +89,15 @@ const sessions = new Map<number, Session>();
 const stores = new Map<number, Store>();
 const initializingSessions = new Set<number>();
 const reconnectTimers = new Map<number, NodeJS.Timeout>();
+let isSystemReady = false;
+
+export const setSystemReady = (ready: boolean): void => {
+  isSystemReady = ready;
+};
+
+export const getSystemReady = (): boolean => {
+  return isSystemReady;
+};
 
 export const getSessionStatus = (whatsappId: number): string | undefined => {
   const session = sessions.get(whatsappId);
@@ -206,10 +216,17 @@ const assertUnique = (sessionId: number) => {
 
   if (wbot) {
     wbot.ev.removeAllListeners("connection.update");
+    wbot.ev.removeAllListeners("creds.update");
+    try {
+      wbot.ws?.removeAllListeners?.();
+      wbot.ws?.close?.();
+    } catch {}
     sessions.delete(sessionId);
     stores.delete(sessionId);
 
-    wbot.end(undefined);
+    try {
+      wbot.end(undefined);
+    } catch {}
   }
 };
 
@@ -218,11 +235,20 @@ const saveSessionCreds = async (
   creds: AuthenticationCreds
 ) => {
   try {
-    await whatsapp.update({
-      session: JSON.stringify(creds, BufferJSON.replacer),
-      status: "CONNECTED",
-      qrcode: ""
-    });
+    const updateData: Partial<Whatsapp> = {
+      session: JSON.stringify(creds, BufferJSON.replacer)
+    };
+
+    // Apenas se a sessão tiver sido autenticada pelo WhatsApp (creds.me.id existe)
+    if (creds?.me?.id) {
+      updateData.qrcode = "";
+      const rawNumber = creds.me.id.split(":")[0].replace(/\D/g, "");
+      if (rawNumber) {
+        updateData.number = rawNumber;
+      }
+    }
+
+    await whatsapp.update(updateData);
 
     logger.debug({
       info: "Creds saved to database",
@@ -283,9 +309,20 @@ const debouncedSaveCreds = (
 const useSessionAuthState = async (whatsapp: Whatsapp) => {
   const sessionId = whatsapp.id;
 
-  const creds = whatsapp.session
-    ? JSON.parse(whatsapp.session, BufferJSON.reviver)
-    : initAuthCreds();
+  let creds: AuthenticationCreds;
+  try {
+    creds = whatsapp.session
+      ? JSON.parse(whatsapp.session, BufferJSON.reviver)
+      : initAuthCreds();
+  } catch {
+    creds = initAuthCreds();
+  }
+
+  // Se o registro no banco não possui creds.me.id e não está CONECTADO,
+  // reinicia as credenciais limpas para que o Baileys emita um QR code novo e válido
+  if (!creds?.me?.id && whatsapp.status !== "CONNECTED") {
+    creds = initAuthCreds();
+  }
 
   return {
     state: {
@@ -307,24 +344,24 @@ const useSessionAuthState = async (whatsapp: Whatsapp) => {
           const deviceId = jidDecode(creds?.me?.id)?.device || 1;
 
           try {
-            const promises: Promise<void>[] = [];
+            const items: StoreKeyRequest[] = [];
 
             Object.entries(data).forEach(([category, categoryData]) => {
               if (!categoryData) return;
               Object.entries(categoryData).forEach(([id, value]) => {
-                promises.push(
-                  StoreWppSessionKeys({
-                    connectionId: sessionId,
-                    deviceId,
-                    type: category,
-                    id,
-                    value
-                  })
-                );
+                items.push({
+                  connectionId: sessionId,
+                  deviceId,
+                  type: category,
+                  id,
+                  value
+                });
               });
             });
 
-            await Promise.all(promises);
+            if (items.length > 0) {
+              await StoreWppSessionKeysBatch(items);
+            }
           } catch (err) {
             logger.error({
               info: "Error setting keys",
@@ -333,6 +370,7 @@ const useSessionAuthState = async (whatsapp: Whatsapp) => {
             });
           }
         }
+
       }
     }
   };
@@ -1006,6 +1044,9 @@ const initializeSession = async (whatsapp: Whatsapp): Promise<void> => {
   const sessionId = whatsapp.id;
   const io = getIO();
 
+  // Garante limpeza completa de qualquer socket ou listeners anteriores
+  await removeSession(sessionId);
+
   const { state } = await useSessionAuthState(whatsapp);
   const store = makeInMemoryStore({ logger: whaileyLogger });
   stores.set(sessionId, store);
@@ -1497,16 +1538,21 @@ const initializeSession = async (whatsapp: Whatsapp): Promise<void> => {
         return;
       }
 
-      // 2. Deslogado (401) ou Conexao Rejeitada/Revogada (403 - Aparelho desconectado pelo celular)
-      if (
+      // 2. Deslogado (401), Revogado (403), ou Banido/Restrito pela Meta
+      const isRestrictedOrBanned =
         statusCode === DisconnectReason.loggedOut ||
         statusCode === 401 ||
-        statusCode === 403
-      ) {
+        statusCode === 403 ||
+        errorMessage?.toLowerCase().includes("banned") ||
+        errorMessage?.toLowerCase().includes("suspended") ||
+        errorMessage?.toLowerCase().includes("not-authorized");
+
+      if (isRestrictedOrBanned) {
         logger.warn({
-          info: "Session logged out or credentials revoked (401/403). Resetting session to avoid reconnection loop.",
+          info: "Session logged out, banned or credentials revoked (401/403/banned). Resetting session to avoid reconnection loop.",
           sessionId,
-          statusCode
+          statusCode,
+          errorMessage
         });
 
         await whatsapp.update({
@@ -1522,6 +1568,10 @@ const initializeSession = async (whatsapp: Whatsapp): Promise<void> => {
             action: "update",
             session: updatedWhatsapp
           });
+          io.emit("whatsapp", {
+            action: "update",
+            whatsapp: updatedWhatsapp
+          });
         }
 
         await clearSessionKeys(sessionId);
@@ -1529,7 +1579,37 @@ const initializeSession = async (whatsapp: Whatsapp): Promise<void> => {
         return;
       }
 
-      // 3. Timeout real de QR Code (quando aguardando leitura de QR e as tentativas esgotaram)
+      // 3. Reinício Obrigatório após Leitura de QR Code (515 - Restart Required)
+      if (
+        statusCode === DisconnectReason.restartRequired ||
+        statusCode === 515
+      ) {
+        logger.info({
+          info: "Restart required (QR Code pareado com sucesso). Reconectando imediatamente...",
+          sessionId
+        });
+
+        await flushPendingCredsSave(sessionId);
+        await removeSession(sessionId);
+
+        try {
+          const freshWhatsapp = await Whatsapp.findByPk(sessionId);
+          if (freshWhatsapp) {
+            await init(freshWhatsapp);
+          }
+        } catch (err515) {
+          logger.error({ info: "Falha ao reiniciar sessão após 515", sessionId, err: err515 });
+          await whatsapp.update({ status: "DISCONNECTED", retries: 0 });
+          const updatedWhatsapp = await Whatsapp.findByPk(sessionId);
+          if (updatedWhatsapp) {
+            io.emit("whatsappSession", { action: "update", session: updatedWhatsapp });
+            io.emit("whatsapp", { action: "update", whatsapp: updatedWhatsapp });
+          }
+        }
+        return;
+      }
+
+      // 4. Timeout real de QR Code (quando aguardando leitura de QR e as tentativas esgotaram)
       const isQrTimeout =
         errorMessage === "QR refs attempts ended" ||
         (Boolean(whatsapp.qrcode) && statusCode === 408 && errorMessage !== "Connection was lost");
@@ -1554,28 +1634,66 @@ const initializeSession = async (whatsapp: Whatsapp): Promise<void> => {
             action: "update",
             session: updatedWhatsapp
           });
+          io.emit("whatsapp", {
+            action: "update",
+            whatsapp: updatedWhatsapp
+          });
         }
 
         await removeSession(sessionId);
         return;
       }
 
-      // 4. Erros transitorios de rede / Celular reiniciando / Oscilacao de sinal
+      // 5. Conflito de Sessão / Stream Errored (440 - connectionReplaced)
+      if (
+        statusCode === DisconnectReason.connectionReplaced ||
+        statusCode === 440
+      ) {
+        logger.warn({
+          info: "Session conflict / connection replaced (440). Fechando socket anterior e reagendando conexão limpa...",
+          sessionId
+        });
+
+        await flushPendingCredsSave(sessionId);
+        await removeSession(sessionId);
+
+        // Marca como OPENING para indicar reconexão iminente
+        await whatsapp.update({ status: "OPENING", retries: 1 });
+        const openingW = await Whatsapp.findByPk(sessionId);
+        if (openingW) {
+          io.emit("whatsappSession", { action: "update", session: openingW });
+          io.emit("whatsapp", { action: "update", whatsapp: openingW });
+        }
+
+        if (reconnectTimers.has(sessionId)) return;
+
+        const reconnectTimer = setTimeout(async () => {
+          reconnectTimers.delete(sessionId);
+          const freshWhatsapp = await Whatsapp.findByPk(sessionId);
+          if (freshWhatsapp) {
+            try {
+              await init(freshWhatsapp);
+            } catch (err440) {
+              logger.error({ info: "Erro ao reconectar 440", sessionId, err: err440 });
+            }
+          }
+        }, 4000);
+        reconnectTimers.set(sessionId, reconnectTimer);
+        return;
+      }
+
+      // 6. Erros transitorios de rede / Celular reiniciando / Oscilacao de sinal
       const currentWhatsapp = await Whatsapp.findByPk(sessionId);
       const currentRetries = ((currentWhatsapp?.retries || whatsapp.retries) || 0) + 1;
 
-      // Metodologia Resiliente de Alta Disponibilidade (Polite Progressive Backoff):
-      // - Tentativas 1 a 3: Rapidas (3s, 5s, 10s) para micro-oscilacoes de rede
-      // - Tentativas 4 a 6: Intermediarias (15s, 30s, 45s) durante o boot/reboot do Android
-      // - A partir da 7ª tentativa: Repouso a cada 60s (Zero overhead no SQLite/CPU, mas reconecta
-      //   automaticamente assim que o celular terminar de ligar e obter rede 4G/Wi-Fi)
+      // Auto-cura: reconexão com backoff progressivo (3s, 5s, 10s, 15s, 30s e depois 60s contínuos)
+      // Mantém o aparelho tentando reconectar sem forçar o operador a reconectar manualmente
       let delay = 3000;
       if (currentRetries === 2) delay = 5000;
       else if (currentRetries === 3) delay = 10000;
       else if (currentRetries === 4) delay = 15000;
-      else if (currentRetries === 5) delay = 30000;
-      else if (currentRetries === 6) delay = 45000;
-      else if (currentRetries >= 7) delay = 60000;
+      else if (currentRetries === 5) delay = 25000;
+      else delay = 60000;
 
       await flushPendingCredsSave(sessionId);
 
@@ -1584,10 +1702,17 @@ const initializeSession = async (whatsapp: Whatsapp): Promise<void> => {
         retries: currentRetries
       });
 
-      io.emit("whatsappSession", {
-        action: "update",
-        session: whatsapp
-      });
+      const openingWhatsapp = await Whatsapp.findByPk(sessionId);
+      if (openingWhatsapp) {
+        io.emit("whatsappSession", {
+          action: "update",
+          session: openingWhatsapp
+        });
+        io.emit("whatsapp", {
+          action: "update",
+          whatsapp: openingWhatsapp
+        });
+      }
 
       logger.info({
         info: `Connection closed (transitória/reboot). Reconectando em ${delay / 1000}s (tentativa #${currentRetries})...`,
@@ -1600,9 +1725,13 @@ const initializeSession = async (whatsapp: Whatsapp): Promise<void> => {
       const reconnectTimer = setTimeout(async () => {
         reconnectTimers.delete(sessionId);
 
-        const freshWhatsapp = await Whatsapp.findByPk(sessionId);
-        if (freshWhatsapp && freshWhatsapp.status === "OPENING") {
-          await init(freshWhatsapp);
+        try {
+          const freshWhatsapp = await Whatsapp.findByPk(sessionId);
+          if (freshWhatsapp) {
+            await init(freshWhatsapp);
+          }
+        } catch (retryErr) {
+          logger.error({ info: "Erro durante tentativa de reconexão", sessionId, err: retryErr });
         }
       }, delay);
       reconnectTimers.set(sessionId, reconnectTimer);
@@ -1622,6 +1751,10 @@ const initializeSession = async (whatsapp: Whatsapp): Promise<void> => {
         io.emit("whatsappSession", {
           action: "update",
           session: updatedWhatsapp
+        });
+        io.emit("whatsapp", {
+          action: "update",
+          whatsapp: updatedWhatsapp
         });
       }
 
@@ -1739,9 +1872,16 @@ const initializeSession = async (whatsapp: Whatsapp): Promise<void> => {
         status: "qrcode"
       });
 
+      const updatedWhatsapp = await Whatsapp.findByPk(sessionId);
+      const sessionToSend = updatedWhatsapp || whatsapp;
+
       io.emit("whatsappSession", {
         action: "update",
-        session: whatsapp
+        session: sessionToSend
+      });
+      io.emit("whatsapp", {
+        action: "update",
+        whatsapp: sessionToSend
       });
 
       logger.info({ info: "QR Code generated", sessionId });
@@ -1943,6 +2083,45 @@ const simulateHumanTyping = async (
   }
 };
 
+const isFatalWappError = (err: any): boolean => {
+  const msg = err?.message || String(err);
+  const status = (err as Boom)?.output?.statusCode;
+  return (
+    status === 401 ||
+    status === 403 ||
+    status === 428 ||
+    msg.includes("not-authorized") ||
+    msg.includes("banned") ||
+    msg.includes("suspended")
+  );
+};
+
+const handleFatalSessionError = async (sessionId: number, err: any): Promise<void> => {
+  if (!isFatalWappError(err)) return;
+
+  logger.warn({
+    info: `[Fatal WhatsApp Error] Falha fatal de comunicação ou restrição na sessão ${sessionId}. Marcando como DISCONNECTED.`,
+    sessionId,
+    error: err?.message || err
+  });
+
+  try {
+    const whatsapp = await Whatsapp.findByPk(sessionId);
+    if (whatsapp && whatsapp.status !== "DISCONNECTED") {
+      await whatsapp.update({ status: "DISCONNECTED", retries: 0 });
+      const updatedWhatsapp = await Whatsapp.findByPk(sessionId);
+      if (updatedWhatsapp) {
+        const io = getIO();
+        io.emit("whatsappSession", { action: "update", session: updatedWhatsapp });
+        io.emit("whatsapp", { action: "update", whatsapp: updatedWhatsapp });
+      }
+    }
+    await removeSession(sessionId);
+  } catch (cleanErr) {
+    logger.error({ info: "Erro ao limpar sessão após erro fatal", sessionId, err: cleanErr });
+  }
+};
+
 const sendMessage = async (
   sessionId: number,
   to: string,
@@ -1964,7 +2143,13 @@ const sendMessage = async (
       }
     : { text: body };
 
-  const sentMsg = await wbot.sendMessage(toJid, messageContent);
+  let sentMsg: proto.WebMessageInfo | undefined;
+  try {
+    sentMsg = await wbot.sendMessage(toJid, messageContent);
+  } catch (sendErr) {
+    await handleFatalSessionError(sessionId, sendErr);
+    throw sendErr;
+  }
 
   if (!sentMsg?.key.id) {
     throw new AppError("ERR_SENDING_WAPP_MSG");
@@ -2063,7 +2248,13 @@ const sendMedia = async (
 
   const { message, type } = buildPayload();
 
-  const sent = await wbot.sendMessage(toJid, message);
+  let sent: proto.WebMessageInfo | undefined;
+  try {
+    sent = await wbot.sendMessage(toJid, message);
+  } catch (mediaErr) {
+    await handleFatalSessionError(sessionId, mediaErr);
+    throw mediaErr;
+  }
   if (!sent?.key?.id) throw new AppError("ERR_SENDING_WAPP_MEDIA_MSG");
 
   logger.debug({
@@ -2378,6 +2569,133 @@ const reconcileAllSessionsHistory = async (): Promise<{ totalScanned: number; to
   return { totalScanned, totalRecovered };
 };
 
+export const checkSessionLiveness = async (
+  whatsappId: number
+): Promise<{ healthy: boolean; status: string; reason?: string }> => {
+  const wbot = sessions.get(whatsappId);
+  if (!wbot) {
+    return { healthy: false, status: "DISCONNECTED", reason: "NO_ACTIVE_SESSION_INSTANCE" };
+  }
+
+  const ws = wbot.ws as any;
+  if (!ws || ws.readyState !== 1) {
+    return {
+      healthy: false,
+      status: "OPENING",
+      reason: `WEBSOCKET_CONNECTING (readyState=${ws ? ws.readyState : "null"})`
+    };
+  }
+
+  if (!wbot.user?.id) {
+    return { healthy: false, status: "OPENING", reason: "USER_CREDENTIALS_INITIALIZING" };
+  }
+
+  return { healthy: true, status: "CONNECTED" };
+};
+
+export const reconcileAllSessionsLiveness = async (): Promise<{
+  checked: number;
+  healthy: number;
+  disconnected: number;
+  reconnecting: number;
+  details: any[];
+}> => {
+  const allWhatsapps = await Whatsapp.findAll();
+
+  const details: any[] = [];
+  let healthy = 0;
+  let reconnecting = 0;
+
+  for (const whatsapp of allWhatsapps) {
+    // Checar apenas aparelhos que possuem credenciais/chaves salvas
+    const hasKeys =
+      (await WppKey.count({ where: { connectionId: whatsapp.id } })) > 0 ||
+      Boolean(whatsapp.session && whatsapp.session.trim().length > 10);
+
+    if (!hasKeys) continue;
+
+    const res = await checkSessionLiveness(whatsapp.id);
+    if (res.healthy) {
+      healthy++;
+      if (whatsapp.status !== "CONNECTED") {
+        await whatsapp.update({ status: "CONNECTED", retries: 0 });
+        const io = getIO();
+        const updatedWhatsapp = await Whatsapp.findByPk(whatsapp.id);
+        if (updatedWhatsapp) {
+          io.emit("whatsappSession", { action: "update", session: updatedWhatsapp });
+          io.emit("whatsapp", { action: "update", whatsapp: updatedWhatsapp });
+        }
+      }
+    } else {
+      reconnecting++;
+      logger.info({
+        info: `[Liveness Watchdog] Auto-cura: reconectando WhatsApp #${whatsapp.id} (${whatsapp.name}). Motivo: ${res.reason}`,
+        whatsappId: whatsapp.id
+      });
+
+      try {
+        await whatsapp.update({ status: "OPENING" });
+        const io = getIO();
+        const updatedWhatsapp = await Whatsapp.findByPk(whatsapp.id);
+        if (updatedWhatsapp) {
+          io.emit("whatsappSession", { action: "update", session: updatedWhatsapp });
+          io.emit("whatsapp", { action: "update", whatsapp: updatedWhatsapp });
+        }
+
+        await init(whatsapp);
+      } catch (err) {
+        logger.error({
+          info: "[Liveness Watchdog] Erro ao auto-curar sessão",
+          whatsappId: whatsapp.id,
+          err
+        });
+      }
+
+      details.push({
+        id: whatsapp.id,
+        name: whatsapp.name,
+        action: "RECONNECTING",
+        reason: res.reason
+      });
+    }
+  }
+
+  return {
+    checked: allWhatsapps.length,
+    healthy,
+    disconnected: 0,
+    reconnecting,
+    details
+  };
+};
+
+let watchdogInterval: NodeJS.Timeout | null = null;
+
+export const startLivenessWatchdog = (): void => {
+  if (watchdogInterval) return;
+
+  logger.info({
+    info: "[Liveness Watchdog] Iniciando monitoramento periódico com auto-cura inteligente..."
+  });
+
+  // Aguarda 120s após o boot para que todas as conexões iniciais se completem suavemente
+  setTimeout(() => {
+    setSystemReady(true);
+    reconcileAllSessionsLiveness().catch(err => {
+      logger.error({ info: "[Liveness Watchdog] Erro na rodada inicial", err });
+    });
+  }, 120000);
+
+  // Monitora e auto-cura a cada 90s mantendo todos os dispositivos online
+  watchdogInterval = setInterval(async () => {
+    try {
+      await reconcileAllSessionsLiveness();
+    } catch (err) {
+      logger.error({ info: "[Liveness Watchdog] Erro na verificação periódica", err });
+    }
+  }, 90000);
+};
+
 export const WhaileysProvider: WhatsappProvider = {
   init,
   removeSession,
@@ -2391,5 +2709,10 @@ export const WhaileysProvider: WhatsappProvider = {
   sendSeen,
   fetchChatMessages,
   reconcileSessionHistory,
-  reconcileAllSessionsHistory
+  reconcileAllSessionsHistory,
+  checkSessionLiveness,
+  reconcileAllSessionsLiveness,
+  startLivenessWatchdog,
+  setSystemReady
 };
+

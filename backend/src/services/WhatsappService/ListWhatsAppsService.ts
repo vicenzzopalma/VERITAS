@@ -18,3 +18,4 @@ const ListWhatsAppsService = async (user?: WhatsappAccessUser): Promise<Whatsapp
 };
 
 export default ListWhatsAppsService;
+

@@ -9,17 +9,46 @@ export type WhatsappAccessUser = {
   connectionSectors?: string[];
 };
 
+export const normalizeConnectionSectors = (sectors: unknown): string[] => {
+  if (Array.isArray(sectors)) {
+    return sectors.map(sector => String(sector).trim()).filter(Boolean);
+  }
+
+  if (typeof sectors === "string") {
+    try {
+      return normalizeConnectionSectors(JSON.parse(sectors));
+    } catch (_err) {
+      return [];
+    }
+  }
+
+  return [];
+};
+
+export const isWhatsappControlProfile = (profile?: string): boolean => {
+  const p = String(profile || "").toLowerCase();
+  return p === "whatsapp_control" || p === "whatsapp_control_high";
+};
+
 export const canAccessWhatsapp = (
   user: WhatsappAccessUser | undefined,
   whatsapp: Pick<Whatsapp, "sector">
-): boolean =>
-  String(user?.profile || "").toLowerCase() === "admin" ||
-  (user?.canAccessConnections === true &&
-    (user.connectionSectors || []).includes(whatsapp.sector || ""));
+): boolean => {
+  const profile = String(user?.profile || "").toLowerCase();
+  if (profile === "admin") return true;
 
-export const getWhatsappAccessWhere = (user?: WhatsappAccessUser) =>
-  String(user?.profile || "").toLowerCase() === "admin"
-    ? undefined
-    : user?.canAccessConnections
-    ? { sector: { [Op.in]: user.connectionSectors || [] } }
+  const isManager = isWhatsappControlProfile(profile);
+  const hasAccess = isManager || user?.canAccessConnections === true;
+  return hasAccess && normalizeConnectionSectors(user?.connectionSectors).includes(whatsapp.sector || "");
+};
+
+export const getWhatsappAccessWhere = (user?: WhatsappAccessUser) => {
+  const profile = String(user?.profile || "").toLowerCase();
+  if (profile === "admin") return undefined;
+
+  const isManager = isWhatsappControlProfile(profile);
+  const hasAccess = isManager || user?.canAccessConnections === true;
+  return hasAccess
+    ? { sector: { [Op.in]: normalizeConnectionSectors(user?.connectionSectors) } }
     : { sector: { [Op.in]: [] } };
+};

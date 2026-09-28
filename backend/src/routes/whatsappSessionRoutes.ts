@@ -6,6 +6,18 @@ import WhatsAppSessionController from "../controllers/WhatsAppSessionController"
 const whatsappSessionRoutes = Router();
 
 whatsappSessionRoutes.post(
+  "/whatsappsession/start-all",
+  isAuth,
+  WhatsAppSessionController.startAll
+);
+
+whatsappSessionRoutes.post(
+  "/whatsappsession-start-all",
+  isAuth,
+  WhatsAppSessionController.startAll
+);
+
+whatsappSessionRoutes.post(
   "/whatsappsession/:whatsappId",
   isAuth,
   WhatsAppSessionController.store
