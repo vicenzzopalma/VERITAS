@@ -342,11 +342,7 @@ const debouncedSaveCreds = (
 const useSessionAuthState = async (whatsapp: Whatsapp) => {
   const sessionId = whatsapp.id;
 
-  let freshWhatsapp = await Whatsapp.findByPk(sessionId, {
-    attributes: ["id", "session", "status", "number"]
-  });
-
-  const sessionRaw = freshWhatsapp?.session || whatsapp.session;
+  const sessionRaw = whatsapp.session;
 
   let creds: AuthenticationCreds;
   try {
@@ -357,10 +353,9 @@ const useSessionAuthState = async (whatsapp: Whatsapp) => {
     creds = initAuthCreds();
   }
 
-  // Se o registro no banco não possui creds.me.id e nem creds.account,
+  // Se o registro não possui creds.me.id e nem creds.account,
   // e não está CONECTADO, reinicia as credenciais limpas para gerar um QR code novo e válido
-  const currentStatus = freshWhatsapp?.status || whatsapp.status;
-  if (!creds?.me?.id && !creds?.account && currentStatus !== "CONNECTED") {
+  if (!creds?.me?.id && !creds?.account && whatsapp.status !== "CONNECTED") {
     creds = initAuthCreds();
   }
 
