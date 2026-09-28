@@ -31,7 +31,9 @@ import {
 	Search as SearchIcon,
 	Clear as ClearIcon,
 	AccessTime,
+	Sync as SyncIcon,
 } from "@material-ui/icons";
+
 
 const getSectorColor = sector => {
 	switch (sector) {
@@ -129,6 +131,18 @@ const useStyles = makeStyles(theme => ({
 			fontWeight: 800,
 		},
 	},
+	spin: {
+		animation: "$spin 1s linear infinite",
+	},
+	"@keyframes spin": {
+		"0%": {
+			transform: "rotate(0deg)",
+		},
+		"100%": {
+			transform: "rotate(360deg)",
+		},
+	},
+
 	sectorFilter: {
 		display: "flex",
 		alignItems: "center",
@@ -407,13 +421,14 @@ const Connections = () => {
 		try {
 			setReconnectingAll(true);
 			await api.post("/whatsappsession/start-all");
-			toast.success("Iniciando reconexão de todos os aparelhos!");
+			toast.success("Reconexão iniciada! Aparelhos sem pareamento ativo exibirão o botão de QR Code.");
 		} catch (err) {
 			toastError(err);
 		} finally {
-			setTimeout(() => setReconnectingAll(false), 4000);
+			setTimeout(() => setReconnectingAll(false), 3000);
 		}
 	};
+
 
 	const handleRequestNewQrCode = async whatsApp => {
 		const whatsAppId = typeof whatsApp === "object" ? whatsApp.id : whatsApp;
@@ -816,29 +831,48 @@ const Connections = () => {
 								height: 38,
 							},
 						}}
-						style={{ minWidth: 260 }}
+						style={{ minWidth: 260, marginRight: 8 }}
 					/>
-					<Button
-						variant="contained"
-						disabled={reconnectingAll}
-						onClick={handleReconnectAll}
-						style={{
-							height: 34,
-							borderRadius: 8,
-							fontWeight: 700,
-							marginRight: 8,
-							backgroundColor: reconnectingAll ? "#64748b" : "#059669",
-							color: "#fff",
-						}}
+					<Tooltip
+						title="Tentar reconectar todos os dispositivos desconectados. Se não conectarem, o botão de QR Code será exibido."
+						arrow
 					>
-						{reconnectingAll ? "Reconectando..." : "Reconectar Todos"}
-					</Button>
+						<span>
+							<Button
+								variant="contained"
+								size="small"
+								disabled={reconnectingAll}
+								onClick={handleReconnectAll}
+								startIcon={
+									<SyncIcon
+										className={reconnectingAll ? classes.spin : ""}
+										style={{ fontSize: 17 }}
+									/>
+								}
+								style={{
+									height: 38,
+									borderRadius: 8,
+									fontWeight: 700,
+									fontSize: "0.8rem",
+									padding: "0 12px",
+									textTransform: "none",
+									backgroundColor: reconnectingAll ? "#475569" : "#059669",
+									color: "#fff",
+									boxShadow: "0 1px 3px rgba(0,0,0,0.12)",
+									whiteSpace: "nowrap",
+									marginRight: 8,
+								}}
+							>
+								{reconnectingAll ? "Tentando..." : "Tentar todos"}
+							</Button>
+						</span>
+					</Tooltip>
 					<Button
 						variant="contained"
 						color="primary"
 						onClick={handleOpenWhatsAppModal}
 						style={{
-							height: 34,
+							height: 38,
 							borderRadius: 8,
 							fontWeight: 700,
 						}}
@@ -846,6 +880,7 @@ const Connections = () => {
 						{i18n.t("connections.buttons.add")}
 					</Button>
 				</MainHeaderButtonsWrapper>
+
 			</MainHeader>
 			</div>
 
