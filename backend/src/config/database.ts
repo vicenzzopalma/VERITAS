@@ -22,12 +22,9 @@ const config = {
     min: 2,
     acquire: 60000,
     idle: 10000
-  },
-  retry: {
-    max: 5,
-    timeout: 3000
   }
 };
+
 
 if (config.dialect !== "sqlite") {
   config.timezone = "-03:00";
