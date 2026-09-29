@@ -59,7 +59,7 @@ fi
 echo ""
 echo "🔄 5. Recarregando serviços no PM2 sem interrupção..."
 cd "$APP_DIR"
-pm2 reload ecosystem.config.js || pm2 restart ecosystem.config.js
+pm2 restart ecosystem.config.js --update-env
 pm2 save
 
 echo ""

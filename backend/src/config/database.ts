@@ -1,6 +1,8 @@
 require("../bootstrap");
 const path = require("path");
 
+const isSqlite = (process.env.DB_DIALECT || "sqlite") === "sqlite";
+
 const config = {
   define: {
     charset: "utf8mb4",
@@ -13,17 +15,27 @@ const config = {
   username: process.env.DB_USER,
   password: process.env.DB_PASS,
   logging: false,
-  dialectOptions: {
-    busyTimeout: 60000
-  },
-  pool: {
-    max: 10,
-    min: 1,
-    acquire: 60000,
-    idle: 10000
-  },
+  transactionType: "IMMEDIATE",
+  dialectOptions: isSqlite
+    ? {
+        busyTimeout: 5000
+      }
+    : {},
+  pool: isSqlite
+    ? {
+        max: 1,
+        min: 1,
+        acquire: 20000,
+        idle: 10000
+      }
+    : {
+        max: 20,
+        min: 2,
+        acquire: 30000,
+        idle: 10000
+      },
   retry: {
-    max: 10,
+    max: 3,
     match: [
       /SQLITE_BUSY/,
       /database is locked/
@@ -33,13 +45,12 @@ const config = {
     afterConnect: (connection, config) => {
       try {
         if (typeof connection.configure === "function") {
-          connection.configure("busyTimeout", 60000);
+          connection.configure("busyTimeout", 5000);
         }
         if (typeof connection.run === "function") {
-          connection.run("PRAGMA busy_timeout = 60000;");
+          connection.run("PRAGMA busy_timeout = 5000;");
           connection.run("PRAGMA journal_mode = WAL;");
           connection.run("PRAGMA synchronous = NORMAL;");
-          connection.run("PRAGMA cache_size = -131072;");
           connection.run("PRAGMA temp_store = MEMORY;");
         }
       } catch (e) {}
@@ -47,10 +58,8 @@ const config = {
   }
 };
 
-
-if (config.dialect !== "sqlite") {
+if (!isSqlite) {
   config.timezone = "-03:00";
 }
 
 module.exports = config;
-
