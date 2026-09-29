@@ -13,6 +13,8 @@ const toastError = err => {
 				toastId: errorMsg,
 			});
 		}
+	} else if (err.message) {
+		toast.error(err.message, { toastId: err.message });
 	} else {
 		toast.error("An error occurred!");
 	}

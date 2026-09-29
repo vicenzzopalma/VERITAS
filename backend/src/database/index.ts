@@ -40,10 +40,8 @@ sequelize.addModels(models);
 if (dbConfig.dialect === "sqlite") {
   sequelize.query("PRAGMA journal_mode = WAL;").catch(() => {});
   sequelize.query("PRAGMA synchronous = NORMAL;").catch(() => {});
-  sequelize.query("PRAGMA busy_timeout = 5000;").catch(() => {});
   sequelize.query("PRAGMA cache_size = -64000;").catch(() => {});
   sequelize.query("PRAGMA temp_store = MEMORY;").catch(() => {});
-  sequelize.query("PRAGMA wal_autocheckpoint = 1000;").catch(() => {});
 }
 
 export default sequelize;
