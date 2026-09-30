@@ -138,6 +138,7 @@ const ListAuditMessagesService = async ({
         { mediaType: "voice" },
         { mediaType: "ptt" },
         { mediaUrl: { [Op.like]: "%.ogg%" } },
+        { mediaUrl: { [Op.like]: "%.oga%" } },
         { mediaUrl: { [Op.like]: "%.mp3%" } }
       ];
     } else if (mediaType === "image") {

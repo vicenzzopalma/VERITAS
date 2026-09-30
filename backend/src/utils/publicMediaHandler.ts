@@ -11,6 +11,7 @@ const MIME_MAP: Record<string, string> = {
   ".webp": "image/webp",
   ".gif": "image/gif",
   ".ogg": "audio/ogg",
+  ".oga": "audio/ogg",
   ".mp3": "audio/mpeg",
   ".wav": "audio/wav",
   ".m4a": "audio/mp4",
