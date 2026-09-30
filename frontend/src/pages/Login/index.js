@@ -294,7 +294,7 @@ const Login = () => {
             </RouterLink>
           </div>
           <p className={classes.copyrightText}>
-            <span>Desenvolvido por Vicenzzo Mastronikolis &copy; 2026</span>
+            <span>Desenvolvido por Vicenzzo Palma Mastronikolis &copy; 2026</span>
             <CheckCircle
               className={classes.verificationBadge}
               titleAccess="Desenvolvedor verificado"

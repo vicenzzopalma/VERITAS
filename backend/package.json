@@ -15,7 +15,7 @@
     "db:seed": "sequelize db:seed:all",
     "format": "prettier --write \"src/**/*.ts\""
   },
-  "author": "",
+  "author": "Vicenzzo Palma Mastronikolis <vicenzzomkt@outlook.com>",
   "license": "MIT",
   "dependencies": {
     "@adiwajshing/keyed-db": "^0.2.4",

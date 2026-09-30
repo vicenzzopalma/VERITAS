@@ -301,5 +301,8 @@ VERITAS includes an automated GitHub Actions workflow (`.github/workflows/deploy
 
 ## 📄 License & Governance
 
+* **Author & Lead Systems Architect**: Vicenzzo Palma Mastronikolis (<vicenzzomkt@outlook.com>)
+* **Legal Copyright**: © 2026 Vicenzzo Palma Mastronikolis. Todos os direitos reservados.
 * **Engineering Core**: Engineered with a strict focus on **High-Performance Computing (HPC)**, **Mathematical Integrity**, and **Zero-Data Loss**.
 * **Proprietary Governance**: All evidentiary data, media binaries, and cryptographic key stores remain 100% within the organization's private computational boundary.
+
