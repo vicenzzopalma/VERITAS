@@ -1129,6 +1129,7 @@ const Connections = () => {
 					);
 				})}
 			</div>
+			)}
 
 			<Paper className={classes.mainPaper} variant="outlined">
 				<Table size="small">
