@@ -6,6 +6,14 @@ import { logger } from "../../utils/logger";
 export const StartWhatsAppSession = async (
   whatsapp: Whatsapp
 ): Promise<void> => {
+  if (
+    whatsapp.status === "archived" ||
+    (whatsapp.name && whatsapp.name.toUpperCase().startsWith("HISTÓRICO"))
+  ) {
+    logger.info(`Skipping StartWhatsAppSession for archived/historical whatsapp: ${whatsapp.name}`);
+    return;
+  }
+
   await whatsapp.update({ status: "OPENING" });
 
   const io = getIO();

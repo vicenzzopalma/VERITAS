@@ -1,6 +1,7 @@
 import React, { useState, useCallback, useContext, useEffect } from "react";
 import { toast } from "react-toastify";
 import { format, parseISO } from "date-fns";
+import { useHistory } from "react-router-dom";
 
 import { makeStyles, useTheme } from "@material-ui/core/styles";
 import { green } from "@material-ui/core/colors";
@@ -51,6 +52,8 @@ const getSectorColor = sector => {
 			return "#4b5563";
 		case "PA FIXA 2":
 			return "#374151";
+		case "Arquivados":
+			return "#64748b";
 		default:
 			return "#6366f1";
 	}
@@ -233,6 +236,29 @@ const Connections = () => {
 	const [nowTime, setNowTime] = useState(Date.now());
 	const [reconnectingAll, setReconnectingAll] = useState(false);
 
+	const history = useHistory();
+	const [connectionTab, setConnectionTab] = useState("active"); // "active" | "archived"
+
+	const isArchivedWhatsapp = useCallback(w => {
+		if (!w) return false;
+		const name = (w.name || "").toUpperCase();
+		return w.status === "archived" || name.startsWith("HISTÓRICO") || w.sector === "Arquivados";
+	}, []);
+
+	const activeCount = React.useMemo(() => {
+		const visible = allowedSectors
+			? (whatsApps || []).filter(w => allowedSectors.includes(w.sector || ""))
+			: whatsApps || [];
+		return visible.filter(w => !isArchivedWhatsapp(w)).length;
+	}, [whatsApps, allowedSectors, isArchivedWhatsapp]);
+
+	const archivedCount = React.useMemo(() => {
+		const visible = allowedSectors
+			? (whatsApps || []).filter(w => allowedSectors.includes(w.sector || ""))
+			: whatsApps || [];
+		return visible.filter(w => isArchivedWhatsapp(w)).length;
+	}, [whatsApps, allowedSectors, isArchivedWhatsapp]);
+
 	const loadCrmChips = useCallback(async () => {
 		try {
 			const { data } = await api.get("/whatsapp/crm-chips");
@@ -345,23 +371,24 @@ const Connections = () => {
 		];
 		const presentSectors = new Set();
 		whatsApps?.forEach(w => {
-			if (w.sector) presentSectors.add(w.sector);
+			if (!isArchivedWhatsapp(w) && w.sector) presentSectors.add(w.sector);
 		});
 		const sectors = Array.from(new Set([...defaultOrder, ...presentSectors]));
 		return allowedSectors ? sectors.filter(sector => allowedSectors.includes(sector)) : sectors;
-	}, [whatsApps, allowedSectors]);
+	}, [whatsApps, allowedSectors, isArchivedWhatsapp]);
 
 	const sectorCounts = React.useMemo(() => {
 		const visibleWhatsApps = allowedSectors
 			? (whatsApps || []).filter(w => allowedSectors.includes(w.sector || ""))
 			: whatsApps || [];
-		const counts = { TODOS: visibleWhatsApps.length };
-		visibleWhatsApps.forEach(w => {
+		const activeList = visibleWhatsApps.filter(w => !isArchivedWhatsapp(w));
+		const counts = { TODOS: activeList.length };
+		activeList.forEach(w => {
 			const sec = w.sector || "Junior";
 			counts[sec] = (counts[sec] || 0) + 1;
 		});
 		return counts;
-	}, [whatsApps, allowedSectors]);
+	}, [whatsApps, allowedSectors, isArchivedWhatsapp]);
 
 	const getStatusPriority = status => {
 		if (status === "qrcode") return 1; // Prioridade Máxima: QR pronto na tela
@@ -375,8 +402,15 @@ const Connections = () => {
 		let list = allowedSectors
 			? (whatsApps || []).filter(w => allowedSectors.includes(w.sector || ""))
 			: whatsApps || [];
-		if (selectedSector !== "TODOS") {
-			list = list.filter(w => (w.sector || "Junior") === selectedSector);
+
+		// Separação estrita de abas: Ativos vs Chamados Arquivados
+		if (connectionTab === "active") {
+			list = list.filter(w => !isArchivedWhatsapp(w));
+			if (selectedSector !== "TODOS") {
+				list = list.filter(w => (w.sector || "Junior") === selectedSector);
+			}
+		} else {
+			list = list.filter(w => isArchivedWhatsapp(w));
 		}
 
 		if (searchParam && searchParam.trim() !== "") {
@@ -398,6 +432,10 @@ const Connections = () => {
 			});
 		}
 
+		if (connectionTab === "archived") {
+			return [...list].sort((a, b) => (a.name || "").localeCompare(b.name || ""));
+		}
+
 		// Prioridade absoluta: quem necessita de QR Code fica no topo!
 		return [...list].sort((a, b) => {
 			const pA = getStatusPriority(a.status);
@@ -407,7 +445,7 @@ const Connections = () => {
 			}
 			return (a.name || "").localeCompare(b.name || "");
 		});
-	}, [whatsApps, selectedSector, searchParam, getMatchedChip, allowedSectors]);
+	}, [whatsApps, selectedSector, searchParam, getMatchedChip, allowedSectors, connectionTab, isArchivedWhatsapp]);
 
 	const handleStartWhatsAppSession = async whatsAppId => {
 		try {
@@ -515,6 +553,28 @@ const Connections = () => {
 	};
 
 	const renderActionButtons = whatsApp => {
+		if (isArchivedWhatsapp(whatsApp)) {
+			return (
+				<Button
+					size="small"
+					variant="contained"
+					onClick={() => history.push(`/audit?whatsappId=${whatsApp.id}`)}
+					style={{
+						backgroundColor: "#0284c7",
+						color: "#fff",
+						textTransform: "none",
+						fontWeight: 700,
+						fontSize: "0.72rem",
+						borderRadius: 6,
+						padding: "3px 8px",
+						whiteSpace: "nowrap"
+					}}
+				>
+					🔍 Ver na Auditoria
+				</Button>
+			);
+		}
+
 		return (
 			<>
 				{(whatsApp.status === "qrcode" || (whatsApp.status === "OPENING" && whatsApp.qrcode)) && (
@@ -591,6 +651,28 @@ const Connections = () => {
 	};
 
 	const renderStatusToolTips = whatsApp => {
+		if (isArchivedWhatsapp(whatsApp)) {
+			return (
+				<CustomToolTip
+					title="Linha / Chamado Arquivado"
+					content="Histórico permanente importado do Digisac. Disponível para consulta no Cofre de Auditoria."
+				>
+					<Chip
+						label="📁 Arquivado"
+						size="small"
+						style={{
+							backgroundColor: "#7c3aed",
+							color: "#fff",
+							fontWeight: 700,
+							fontSize: "0.72rem",
+							borderRadius: 4,
+							height: 22,
+						}}
+					/>
+				</CustomToolTip>
+			);
+		}
+
 		return (
 			<div className={classes.customTableCell}>
 				{whatsApp.status === "DISCONNECTED" && (
@@ -630,6 +712,14 @@ const Connections = () => {
 	};
 
 	const renderTimerCell = whatsApp => {
+		if (isArchivedWhatsapp(whatsApp)) {
+			return (
+				<Typography variant="caption" style={{ color: "#94a3b8", fontWeight: 600 }}>
+					Arquivo Histórico
+				</Typography>
+			);
+		}
+
 		try {
 			const chip = getMatchedChip(whatsApp);
 			if (!chip) {
@@ -800,6 +890,46 @@ const Connections = () => {
 			<MainHeader>
 				<Title>{i18n.t("connections.title")}</Title>
 				<MainHeaderButtonsWrapper>
+					{/* Botão de alternância ao lado da pesquisa: Conexões Ativas vs Chamados Arquivados */}
+					<div style={{ display: "inline-flex", gap: 6, marginRight: 8, flexShrink: 0 }}>
+						<Button
+							variant={connectionTab === "active" ? "contained" : "outlined"}
+							size="small"
+							onClick={() => setConnectionTab("active")}
+							style={{
+								height: 38,
+								borderRadius: 8,
+								fontWeight: 700,
+								fontSize: "0.78rem",
+								padding: "0 12px",
+								textTransform: "none",
+								backgroundColor: connectionTab === "active" ? "#0284c7" : "transparent",
+								color: connectionTab === "active" ? "#fff" : theme.palette.text.primary,
+								borderColor: connectionTab === "active" ? "#0284c7" : (theme.palette.type === "dark" ? "rgba(148, 163, 184, 0.3)" : "#cbd5e1"),
+							}}
+						>
+							📱 Ativos ({activeCount})
+						</Button>
+						<Button
+							variant={connectionTab === "archived" ? "contained" : "outlined"}
+							size="small"
+							onClick={() => setConnectionTab("archived")}
+							style={{
+								height: 38,
+								borderRadius: 8,
+								fontWeight: 700,
+								fontSize: "0.78rem",
+								padding: "0 12px",
+								textTransform: "none",
+								backgroundColor: connectionTab === "archived" ? "#7c3aed" : "transparent",
+								color: connectionTab === "archived" ? "#fff" : theme.palette.text.primary,
+								borderColor: connectionTab === "archived" ? "#7c3aed" : (theme.palette.type === "dark" ? "rgba(148, 163, 184, 0.3)" : "#cbd5e1"),
+							}}
+						>
+							📁 Chamados Arquivados ({archivedCount})
+						</Button>
+					</div>
+
 					<TextField
 						placeholder="Buscar por nome, número, setor ou status..."
 						type="search"
@@ -833,73 +963,120 @@ const Connections = () => {
 						}}
 						style={{ minWidth: 260, marginRight: 8 }}
 					/>
-					<Tooltip
-						title="Tentar reconectar todos os dispositivos desconectados. Se não conectarem, o botão de QR Code será exibido."
-						arrow
-					>
-						<span>
-							<Button
-								variant="contained"
-								size="small"
-								disabled={reconnectingAll}
-								onClick={handleReconnectAll}
-								startIcon={
-									<SyncIcon
-										className={reconnectingAll ? classes.spin : ""}
-										style={{ fontSize: 17 }}
-									/>
-								}
-								style={{
-									height: 38,
-									borderRadius: 8,
-									fontWeight: 700,
-									fontSize: "0.8rem",
-									padding: "0 12px",
-									textTransform: "none",
-									backgroundColor: reconnectingAll ? "#475569" : "#059669",
-									color: "#fff",
-									boxShadow: "0 1px 3px rgba(0,0,0,0.12)",
-									whiteSpace: "nowrap",
-									marginRight: 8,
-								}}
-							>
-								{reconnectingAll ? "Tentando..." : "Tentar todos"}
-							</Button>
-						</span>
-					</Tooltip>
-					<Button
-						variant="contained"
-						color="primary"
-						onClick={handleOpenWhatsAppModal}
-						style={{
-							height: 38,
-							borderRadius: 8,
-							fontWeight: 700,
-						}}
-					>
-						{i18n.t("connections.buttons.add")}
-					</Button>
+					{connectionTab === "active" && (
+						<Tooltip
+							title="Tentar reconectar todos os dispositivos desconectados. Se não conectarem, o botão de QR Code será exibido."
+							arrow
+						>
+							<span>
+								<Button
+									variant="contained"
+									size="small"
+									disabled={reconnectingAll}
+									onClick={handleReconnectAll}
+									startIcon={
+										<SyncIcon
+											className={reconnectingAll ? classes.spin : ""}
+											style={{ fontSize: 17 }}
+										/>
+									}
+									style={{
+										height: 38,
+										borderRadius: 8,
+										fontWeight: 700,
+										fontSize: "0.8rem",
+										padding: "0 12px",
+										textTransform: "none",
+										backgroundColor: reconnectingAll ? "#475569" : "#059669",
+										color: "#fff",
+										boxShadow: "0 1px 3px rgba(0,0,0,0.12)",
+										whiteSpace: "nowrap",
+										marginRight: 8,
+									}}
+								>
+									{reconnectingAll ? "Tentando..." : "Tentar todos"}
+								</Button>
+							</span>
+						</Tooltip>
+					)}
+					{connectionTab === "active" && (
+						<Button
+							variant="contained"
+							color="primary"
+							onClick={handleOpenWhatsAppModal}
+							style={{
+								height: 38,
+								borderRadius: 8,
+								fontWeight: 700,
+							}}
+						>
+							{i18n.t("connections.buttons.add")}
+						</Button>
+					)}
 				</MainHeaderButtonsWrapper>
 
 			</MainHeader>
 			</div>
 
-			{/* Mini Filtro por Setores (Tema VERITAS) */}
-			<div
-				className={classes.sectorFilter}
-				style={{
-					display: "flex",
-					alignItems: "center",
-					gap: 8,
-					flexWrap: "wrap",
-					marginBottom: 8,
-					padding: "6px 10px",
-					backgroundColor: theme.palette.type === "dark" ? "#111827" : "#fff",
-					borderRadius: 8,
-					border: `1px solid ${theme.palette.type === "dark" ? "rgba(148, 163, 184, 0.18)" : "rgba(0, 0, 0, 0.08)"}`,
-					boxShadow: theme.palette.type === "dark" ? "0 1px 3px rgba(0,0,0,0.24)" : "0 1px 3px rgba(0,0,0,0.04)",
-				}}
-			>
+			{/* Mini Filtro por Setores (Ativos) OU Faixa Informativa (Arquivados) */}
+			{connectionTab === "archived" ? (
+				<div
+					style={{
+						display: "flex",
+						alignItems: "center",
+						justifyContent: "space-between",
+						marginBottom: 8,
+						padding: "8px 14px",
+						backgroundColor: theme.palette.type === "dark" ? "#1e1b4b" : "#f5f3ff",
+						border: `1px solid ${theme.palette.type === "dark" ? "#4338ca" : "#c4b5fd"}`,
+						borderRadius: 8,
+						boxShadow: theme.palette.type === "dark" ? "0 1px 3px rgba(0,0,0,0.24)" : "0 1px 3px rgba(0,0,0,0.04)",
+					}}
+				>
+					<Typography
+						variant="body2"
+						style={{
+							fontWeight: 600,
+							color: theme.palette.type === "dark" ? "#c7d2fe" : "#5b21b6",
+							fontSize: "0.82rem",
+						}}
+					>
+						📁 <strong>Chamados e Linhas Arquivadas:</strong> Todas as conversas e contatos legados importados do Digisac estão salvos nessas linhas e disponíveis no Cofre de Auditoria.
+					</Typography>
+					<Button
+						size="small"
+						variant="contained"
+						onClick={() => history.push("/audit")}
+						style={{
+							backgroundColor: "#7c3aed",
+							color: "#fff",
+							textTransform: "none",
+							fontWeight: 700,
+							fontSize: "0.75rem",
+							borderRadius: 6,
+							flexShrink: 0,
+							marginLeft: 12,
+						}}
+					>
+						Abrir no Cofre de Auditoria
+					</Button>
+				</div>
+			) : (
+				<div
+					className={classes.sectorFilter}
+					style={{
+						display: "flex",
+						alignItems: "center",
+						gap: 8,
+						flexWrap: "wrap",
+						marginBottom: 8,
+						padding: "6px 10px",
+						backgroundColor: theme.palette.type === "dark" ? "#111827" : "#fff",
+						borderRadius: 8,
+						border: `1px solid ${theme.palette.type === "dark" ? "rgba(148, 163, 184, 0.18)" : "rgba(0, 0, 0, 0.08)"}`,
+						boxShadow: theme.palette.type === "dark" ? "0 1px 3px rgba(0,0,0,0.24)" : "0 1px 3px rgba(0,0,0,0.04)",
+					}}
+				>
 				<Typography
 					variant="body2"
 					style={{
@@ -1048,14 +1225,16 @@ const Connections = () => {
 													<Edit />
 												</IconButton>
 
-												<IconButton
-													size="small"
-													onClick={e => {
-														handleOpenConfirmationModal("delete", whatsApp.id);
-													}}
-												>
-													<DeleteOutline />
-												</IconButton>
+												{!isArchivedWhatsapp(whatsApp) && (
+													<IconButton
+														size="small"
+														onClick={e => {
+															handleOpenConfirmationModal("delete", whatsApp.id);
+														}}
+													>
+														<DeleteOutline />
+													</IconButton>
+												)}
 											</TableCell>
 										</TableRow>
 									))}

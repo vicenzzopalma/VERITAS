@@ -32,8 +32,12 @@ export const StartAllWhatsAppsSessions = async (): Promise<{
     let qrCount = 0;
 
     for (const whatsapp of allWhatsapps) {
-      // Aparelhos já 100% conectados são preservados intactos
-      if (whatsapp.status === "CONNECTED") {
+      // Aparelhos já conectados ou arquivados/históricos são preservados intactos
+      if (
+        whatsapp.status === "CONNECTED" ||
+        whatsapp.status === "archived" ||
+        (whatsapp.name && whatsapp.name.toUpperCase().startsWith("HISTÓRICO"))
+      ) {
         continue;
       }
 

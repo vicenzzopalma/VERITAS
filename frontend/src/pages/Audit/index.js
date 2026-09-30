@@ -58,7 +58,7 @@ import {
   OpenInNew as OpenInNewIcon,
 } from "@material-ui/icons";
 import { format, parseISO } from "date-fns";
-import { useHistory } from "react-router-dom";
+import { useHistory, useLocation } from "react-router-dom";
 import PictureAsPdfIcon from "@material-ui/icons/PictureAsPdf";
 import { AuthContext } from "../../context/Auth/AuthContext";
 import api from "../../services/api";
@@ -600,6 +600,7 @@ const Audit = () => {
   const classes = useStyles();
   const { user } = useContext(AuthContext);
   const history = useHistory();
+  const location = useLocation();
 
   useEffect(() => {
     if (user && user.profile !== "admin") {
@@ -824,6 +825,15 @@ const Audit = () => {
       const { data } = await api.get("/audit/devices");
       setDevices(data);
       if (data.length > 0) {
+        const queryParams = new URLSearchParams(location.search);
+        const targetWaId = queryParams.get("whatsappId");
+        if (targetWaId) {
+          const found = data.find((d) => String(d.id) === String(targetWaId));
+          if (found) {
+            setSelectedDevice(found);
+            return;
+          }
+        }
         setSelectedDevice((prev) => prev || data[0]);
       }
     } catch (err) {
@@ -832,6 +842,17 @@ const Audit = () => {
       if (isInitial) setLoadingDevices(false);
     }
   };
+
+  useEffect(() => {
+    const queryParams = new URLSearchParams(location.search);
+    const targetWaId = queryParams.get("whatsappId");
+    if (targetWaId && devices.length > 0) {
+      const found = devices.find((d) => String(d.id) === String(targetWaId));
+      if (found) {
+        setSelectedDevice(found);
+      }
+    }
+  }, [location.search, devices]);
 
   useEffect(() => {
     fetchDevices(true);
