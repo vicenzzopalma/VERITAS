@@ -88,12 +88,9 @@ const SearchGlobalAuditService = async ({
 
   if (searchTerms.length > 0) {
     for (const term of searchTerms) {
-      orConditions.push({
-        [Op.and]: [
-          where(fn("LOWER", col("contact.name")), "LIKE", `%${term}%`),
-          where(fn("LENGTH", col("contact.name")), { [Op.lte]: 13 })
-        ]
-      });
+      orConditions.push(
+        where(fn("LOWER", col("contact.name")), "LIKE", `%${term}%`)
+      );
 
       orConditions.push(where(fn("LOWER", col("whatsapp.name")), "LIKE", `%${term}%`));
 
@@ -104,12 +101,9 @@ const SearchGlobalAuditService = async ({
       }
     }
   } else {
-    orConditions.push({
-      [Op.and]: [
-        where(fn("LOWER", col("contact.name")), "LIKE", `%${cleanSearch}%`),
-        where(fn("LENGTH", col("contact.name")), { [Op.lte]: 13 })
-      ]
-    });
+    orConditions.push(
+      where(fn("LOWER", col("contact.name")), "LIKE", `%${cleanSearch}%`)
+    );
     orConditions.push(where(fn("LOWER", col("whatsapp.name")), "LIKE", `%${cleanSearch}%`));
 
     if (!isShortDigits) {
@@ -122,10 +116,7 @@ const SearchGlobalAuditService = async ({
   const phoneVariants = getPhoneSearchVariants(search);
   for (const variant of phoneVariants) {
     orConditions.push({
-      [Op.and]: [
-        { "$contact.number$": { [Op.like]: `%${variant}%` } },
-        where(fn("LENGTH", col("contact.number")), { [Op.lte]: 13 })
-      ]
+      "$contact.number$": { [Op.like]: `%${variant}%` }
     });
   }
 

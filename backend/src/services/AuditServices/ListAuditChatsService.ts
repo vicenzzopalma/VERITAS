@@ -55,20 +55,14 @@ const ListAuditChatsService = async ({
     const searchPatterns = searchTerms.length > 0 ? searchTerms : [cleanSearch];
 
     for (const term of searchPatterns) {
-      contactOrConditions.push({
-        [Op.and]: [
-          where(fn("LOWER", col("contact.name")), "LIKE", `%${term}%`),
-          where(fn("LENGTH", col("contact.name")), { [Op.lte]: 13 })
-        ]
-      });
+      contactOrConditions.push(
+        where(fn("LOWER", col("contact.name")), "LIKE", `%${term}%`)
+      );
 
       const phoneVariants = getPhoneSearchVariants(term);
       for (const variant of phoneVariants) {
         contactOrConditions.push({
-          [Op.and]: [
-            { "$contact.number$": { [Op.like]: `%${variant}%` } },
-            where(fn("LENGTH", col("contact.number")), { [Op.lte]: 13 })
-          ]
+          "$contact.number$": { [Op.like]: `%${variant}%` }
         });
       }
 
