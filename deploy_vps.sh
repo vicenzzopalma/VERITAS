@@ -53,6 +53,13 @@ if [ -d "$APP_DIR/Gestão de celulares" ]; then
         echo "📥 Puxando atualizações do PhoneGestorage..."
         git fetch origin main && git reset --hard origin/main || echo "⚠️ Aviso ao atualizar PhoneGestorage via git."
     fi
+
+    # Copiar arquivos atualizados do CRM diretamente do repositório VERITAS (failsafe 100% garantido)
+    if [ -d "$APP_DIR/crm_update" ]; then
+        echo "📋 Aplicando arquivos atualizados do CRM a partir de crm_update..."
+        cp -r "$APP_DIR/crm_update/"* "$APP_DIR/Gestão de celulares/"
+    fi
+
     npm install --legacy-peer-deps || true
 
     # Sanitizar permissões no database.sqlite do CRM para garantir Maiara em PA FIXA
