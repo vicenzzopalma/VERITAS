@@ -50,9 +50,35 @@ echo "📱 4. Atualizando Gestão de Celulares..."
 if [ -d "$APP_DIR/Gestão de celulares" ]; then
     cd "$APP_DIR/Gestão de celulares"
     if [ -d ".git" ]; then
-        GIT_TERMINAL_PROMPT=0 git fetch origin main 2>/dev/null && git reset --hard origin/main 2>/dev/null || echo "ℹ️ Gestão de Celulares: Mantido na versão instalada localmente."
+        echo "📥 Puxando atualizações do PhoneGestorage..."
+        git fetch origin main && git reset --hard origin/main || echo "⚠️ Aviso ao atualizar PhoneGestorage via git."
     fi
     npm install --legacy-peer-deps || true
+
+    # Sanitizar permissões no database.sqlite do CRM para garantir Maiara em PA FIXA
+    if [ -f "database.sqlite" ]; then
+        echo "🔒 Sanitizando permissões da Maiara no database.sqlite do CRM..."
+        node -e "
+          try {
+            const sqlite3 = require('sqlite3');
+            const db = new sqlite3.Database('./database.sqlite');
+            db.serialize(() => {
+              db.run(\"UPDATE users SET allow_all_tabs = 0 WHERE LOWER(username) LIKE '%maiara%' OR LOWER(name) LIKE '%maiara%'\");
+              db.all(\"SELECT id FROM users WHERE LOWER(username) LIKE '%maiara%' OR LOWER(name) LIKE '%maiara%'\", (err, rows) => {
+                if (rows) {
+                  for (const r of rows) {
+                    db.run(\"DELETE FROM user_sector_permissions WHERE user_id = ?\", [r.id]);
+                    db.run(\"INSERT OR IGNORE INTO user_sector_permissions (user_id, sector, can_view, can_configure) VALUES (?, 'PA FIXA 1', 1, 1)\", [r.id]);
+                    db.run(\"INSERT OR IGNORE INTO user_sector_permissions (user_id, sector, can_view, can_configure) VALUES (?, 'PA FIXA 2', 1, 1)\", [r.id]);
+                  }
+                }
+              });
+            });
+          } catch(e) {
+            console.error('Erro ao sanitizar SQLite:', e.message);
+          }
+        " || true
+    fi
 fi
 
 # 5. Reiniciar e recarregar os processos no PM2
