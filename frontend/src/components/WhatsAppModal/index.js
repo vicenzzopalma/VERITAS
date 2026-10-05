@@ -22,6 +22,7 @@ import {
 	FormControl,
 	InputLabel,
 	FormHelperText,
+	Typography,
 } from "@material-ui/core";
 
 import api from "../../services/api";
@@ -38,6 +39,7 @@ const OFFICIAL_SECTORS = [
 	"Juridico",
 	"PA FIXA 1",
 	"PA FIXA 2",
+	"Arquivados",
 ];
 
 const useStyles = makeStyles(theme => ({
@@ -206,6 +208,7 @@ const WhatsAppModal = ({ open, onClose, whatsAppId }) => {
 		proxyUrl: "",
 		humanDelay: true,
 		sector: "",
+		isArchived: false,
 	};
 	const [whatsApp, setWhatsApp] = useState(initialState);
 	const [selectedQueueIds, setSelectedQueueIds] = useState([]);
@@ -217,11 +220,17 @@ const WhatsAppModal = ({ open, onClose, whatsAppId }) => {
 
 			try {
 				const { data } = await api.get(`whatsapp/${whatsAppId}`);
+				const isArch =
+					data.status === "archived" ||
+					data.sector === "Arquivados" ||
+					(data.name || "").toUpperCase().startsWith("HISTÓRICO");
+
 				setWhatsApp({
 					...data,
 					proxyUrl: data.proxyUrl || "",
 					humanDelay: data.humanDelay !== false,
 					sector: data.sector || "",
+					isArchived: isArch,
 				});
 
 				const whatsQueueIds = Array.isArray(data.queues)
@@ -238,6 +247,21 @@ const WhatsAppModal = ({ open, onClose, whatsAppId }) => {
 
 	const handleSaveWhatsApp = async values => {
 		const whatsappData = { ...values, queueIds: selectedQueueIds };
+
+		if (values.isArchived) {
+			whatsappData.status = "archived";
+			if (!whatsappData.sector || whatsappData.sector === "") {
+				whatsappData.sector = "Arquivados";
+			}
+		} else if (values.status === "archived" || values.sector === "Arquivados") {
+			// Se o aparelho estava arquivado e o operador o desarquivou
+			whatsappData.status = "DISCONNECTED";
+			if (whatsappData.sector === "Arquivados") {
+				whatsappData.sector = "Junior";
+			}
+		}
+
+		delete whatsappData.isArchived;
 
 		try {
 			if (whatsAppId) {
@@ -332,6 +356,15 @@ const WhatsAppModal = ({ open, onClose, whatsAppId }) => {
 													label="Setor do Aparelho *"
 													displayEmpty
 													value={values.sector || ""}
+													onChange={e => {
+														const val = e.target.value;
+														setFieldValue("sector", val);
+														if (val === "Arquivados") {
+															setFieldValue("isArchived", true);
+														} else if (values.isArchived && val !== "Arquivados") {
+															setFieldValue("isArchived", false);
+														}
+													}}
 													renderValue={selected => {
 														if (!selected) {
 															return <span style={{ color: "#94a3b8" }}>Selecione o setor...</span>;
@@ -393,6 +426,63 @@ const WhatsAppModal = ({ open, onClose, whatsAppId }) => {
 										</div>
 									)}
 								</div>
+
+								{/* Controle de Arquivamento do Aparelho */}
+								<div
+									style={{
+										marginTop: 10,
+										marginBottom: 12,
+										padding: "10px 14px",
+										borderRadius: 8,
+										border: values.isArchived ? "1px solid #7c3aed" : "1px solid #e2e8f0",
+										backgroundColor: values.isArchived ? "rgba(124, 58, 237, 0.08)" : "transparent",
+										display: "flex",
+										alignItems: "center",
+										justifyContent: "space-between",
+										transition: "all 0.2s ease"
+									}}
+								>
+									<div style={{ marginRight: 16 }}>
+										<Typography
+											variant="subtitle2"
+											style={{
+												fontWeight: 700,
+												color: values.isArchived ? "#7c3aed" : "inherit",
+												display: "flex",
+												alignItems: "center",
+												gap: 6
+											}}
+										>
+											📁 Colocar no Arquivados
+										</Typography>
+										<Typography variant="caption" style={{ color: "#64748b", display: "block", marginTop: 2 }}>
+											{values.isArchived
+												? "Aparelho ARQUIVADO: Exibido na aba 'Arquivados' e preservado no cofre de auditoria sem tentar reconectar."
+												: "Mover este aparelho para a aba 'Arquivados' caso esteja fora de uso, preservando o histórico intacto."}
+										</Typography>
+									</div>
+									<FormControlLabel
+										control={
+											<Switch
+												color="secondary"
+												name="isArchived"
+												checked={Boolean(values.isArchived)}
+												onChange={e => {
+													const checked = e.target.checked;
+													setFieldValue("isArchived", checked);
+													if (checked && (!values.sector || values.sector === "")) {
+														setFieldValue("sector", "Arquivados");
+													} else if (!checked && values.sector === "Arquivados") {
+														setFieldValue("sector", "Junior");
+													}
+												}}
+											/>
+										}
+										label=""
+										style={{ margin: 0 }}
+									/>
+								</div>
+
 								<CrmChipSelector sector={values.sector} setFieldValue={setFieldValue} />
 								<div style={{ marginTop: 8, marginBottom: 8 }}>
 									<Field

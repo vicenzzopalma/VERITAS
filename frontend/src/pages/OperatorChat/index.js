@@ -46,8 +46,8 @@ const useStyles = makeStyles((theme) => {
   return {
     root: {
       display: "flex",
-      height: "100vh",
-      width: "100vw",
+      height: "100dvh",
+      width: "100%",
       overflow: "hidden",
       backgroundColor: isDark ? "#111b21" : "#f0f2f5",
       position: "fixed",
@@ -55,7 +55,12 @@ const useStyles = makeStyles((theme) => {
       left: 0,
       right: 0,
       bottom: 0,
-      zIndex: 1
+      zIndex: 1,
+      [theme.breakpoints.down("sm")]: {
+        position: "relative",
+        minHeight: "calc(100dvh - 56px)",
+        height: "calc(100dvh - 56px)",
+      },
     },
 
     // Painel Esquerdo (Lista de Conversas)
@@ -71,12 +76,13 @@ const useStyles = makeStyles((theme) => {
       zIndex: 2,
       [theme.breakpoints.down("sm")]: {
         width: "100%",
-        maxWidth: "100%"
+        maxWidth: "100%",
+        minWidth: 0,
       }
     },
     leftPanelHiddenOnMobile: {
       [theme.breakpoints.down("sm")]: {
-        display: "none"
+        display: "none",
       }
     },
 

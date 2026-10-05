@@ -1,6 +1,9 @@
 import React, { useState, useEffect, useRef, useContext } from "react";
 import {
   makeStyles,
+  useTheme,
+  useMediaQuery,
+  Collapse,
   Paper,
   Typography,
   Grid,
@@ -50,6 +53,7 @@ import {
   Refresh as RefreshIcon,
   Smartphone as PhoneAndroidIcon,
   ArrowForward as ArrowForwardIcon,
+  ArrowBack as ArrowBackIcon,
   CropFree as QrCodeIcon,
   Person as PersonIcon,
   SyncAlt as SyncAltIcon,
@@ -75,6 +79,10 @@ const useStyles = makeStyles((theme) => ({
     display: "flex",
     flexDirection: "column",
     height: "calc(100vh - 48px)",
+    [theme.breakpoints.down("sm")]: {
+      height: "calc(100dvh - 56px)",
+      maxHeight: "calc(100dvh - 56px)",
+    },
     backgroundColor: theme.palette.background.default,
     overflow: "hidden",
   },
@@ -87,6 +95,11 @@ const useStyles = makeStyles((theme) => ({
     justifyContent: "space-between",
     gap: theme.spacing(0.7),
     zIndex: 10,
+    [theme.breakpoints.down("sm")]: {
+      flexWrap: "wrap",
+      padding: theme.spacing(0.6, 1),
+      gap: theme.spacing(0.4),
+    },
   },
   headerTitle: {
     display: "flex",
@@ -105,6 +118,12 @@ const useStyles = makeStyles((theme) => ({
     position: "relative",
     flexGrow: 1,
     maxWidth: 420,
+    [theme.breakpoints.down("sm")]: {
+      order: 3,
+      width: "100%",
+      maxWidth: "100%",
+      marginTop: 2,
+    },
   },
   globalSearchField: {
     width: "100%",
@@ -127,6 +146,11 @@ const useStyles = makeStyles((theme) => ({
     border: "1px solid rgba(0, 0, 0, 0.12)",
     zIndex: 1400,
     marginTop: 4,
+    [theme.breakpoints.down("sm")]: {
+      width: "calc(100vw - 20px) !important",
+      maxWidth: "calc(100vw - 20px) !important",
+      position: "relative",
+    },
   },
   globalResultItem: {
     padding: theme.spacing(1, 1.5),
@@ -153,6 +177,13 @@ const useStyles = makeStyles((theme) => ({
     alignItems: "center",
     gap: theme.spacing(1.2),
     flexShrink: 0,
+    [theme.breakpoints.down("sm")]: {
+      gap: theme.spacing(0.5),
+      "& $statBadge": {
+        padding: "2px 5px",
+        fontSize: "0.68rem",
+      },
+    },
   },
   statBadge: {
     backgroundColor: theme.palette.background.default,
@@ -173,8 +204,13 @@ const useStyles = makeStyles((theme) => ({
     gap: theme.spacing(0.7),
     overflowX: "auto",
     whiteSpace: "nowrap",
+    WebkitOverflowScrolling: "touch",
+    [theme.breakpoints.down("sm")]: {
+      padding: theme.spacing(0.4, 0.8),
+      gap: theme.spacing(0.5),
+    },
     "&::-webkit-scrollbar": {
-      height: 5,
+      height: 4,
     },
     "&::-webkit-scrollbar-thumb": {
       backgroundColor: "#cbd5e1",
@@ -190,6 +226,10 @@ const useStyles = makeStyles((theme) => ({
     transition: "all 0.2s ease-in-out",
     cursor: "pointer",
     backgroundColor: theme.palette.background.paper,
+    [theme.breakpoints.down("sm")]: {
+      minWidth: 130,
+      maxWidth: 155,
+    },
     "&:hover": {
       borderColor: theme.palette.primary.main,
       boxShadow: "0 2px 6px rgba(0, 0, 0, 0.08)",
@@ -223,6 +263,9 @@ const useStyles = makeStyles((theme) => ({
     flexGrow: 1,
     height: "calc(100% - 76px)",
     overflow: "hidden",
+    [theme.breakpoints.down("sm")]: {
+      height: "calc(100% - 105px)",
+    },
   },
   // Painel Esquerdo: Lista de Conversas
   chatsPanel: {
@@ -233,6 +276,11 @@ const useStyles = makeStyles((theme) => ({
     display: "flex",
     flexDirection: "column",
     height: "100%",
+    [theme.breakpoints.down("sm")]: {
+      width: "100%",
+      minWidth: "100%",
+      borderRight: "none",
+    },
   },
   chatSearchBox: {
     padding: theme.spacing(0.65),
@@ -315,6 +363,10 @@ const useStyles = makeStyles((theme) => ({
       : `url(${whatsBackground})`,
     backgroundRepeat: "repeat",
     overflow: "hidden",
+    [theme.breakpoints.down("sm")]: {
+      width: "100%",
+      minWidth: "100%",
+    },
   },
   activeChatHeader: {
     backgroundColor: theme.palette.background.paper,
@@ -325,6 +377,9 @@ const useStyles = makeStyles((theme) => ({
     justifyContent: "space-between",
     zIndex: 6,
     boxShadow: theme.palette.type === "dark" ? "0 1px 2px rgba(0,0,0,0.28)" : "0 1px 2px rgba(0,0,0,0.03)",
+    [theme.breakpoints.down("sm")]: {
+      padding: theme.spacing(0.6, 1),
+    },
   },
   activeChatAvatar: {
     backgroundColor: theme.palette.primary.main,
@@ -348,6 +403,16 @@ const useStyles = makeStyles((theme) => ({
     flexWrap: "wrap",
     boxShadow: theme.palette.type === "dark" ? "0 1px 3px rgba(0,0,0,0.24)" : "0 1px 3px rgba(0,0,0,0.04)",
     zIndex: 5,
+    [theme.breakpoints.down("sm")]: {
+      padding: theme.spacing(0.5, 0.8),
+      gap: theme.spacing(0.4),
+    },
+  },
+  mobileFilterRow: {
+    display: "flex",
+    alignItems: "center",
+    width: "100%",
+    gap: 6,
   },
   filterItem: {
     minWidth: 116,
@@ -368,6 +433,10 @@ const useStyles = makeStyles((theme) => ({
     display: "flex",
     flexDirection: "column",
     gap: theme.spacing(1),
+    [theme.breakpoints.down("sm")]: {
+      padding: theme.spacing(1, 0.8),
+      gap: theme.spacing(0.7),
+    },
     "&::-webkit-scrollbar": {
       width: 6,
     },
@@ -398,13 +467,18 @@ const useStyles = makeStyles((theme) => ({
   },
   messageBubble: {
     maxWidth: "68%",
-    minWidth: 160,
+    minWidth: 140,
     padding: "7px 11px 5px 11px",
     borderRadius: 7.5,
     boxShadow: "0 1px 2px rgba(0,0,0,0.12)",
     position: "relative",
     wordBreak: "break-word",
     fontSize: "0.88rem",
+    [theme.breakpoints.down("sm")]: {
+      maxWidth: "88%",
+      fontSize: "0.84rem",
+      padding: "6px 9px 4px 9px",
+    },
   },
   messageOperator: {
     alignSelf: "flex-end",
@@ -598,6 +672,9 @@ const getCleanMediaName = (msg) => {
 
 const Audit = () => {
   const classes = useStyles();
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
+  const [mobileFiltersExpanded, setMobileFiltersExpanded] = useState(false);
   const { user } = useContext(AuthContext);
   const history = useHistory();
   const location = useLocation();
@@ -628,6 +705,16 @@ const Audit = () => {
   // Estados principais
   const [devices, setDevices] = useState([]);
   const [selectedDevice, setSelectedDevice] = useState(null);
+  const initialDeviceLoadedRef = useRef(false);
+
+  const handleSelectDevice = (device) => {
+    if (!device) return;
+    setSelectedDevice(device);
+    if (device.id) {
+      history.replace(`/audit?whatsappId=${device.id}`);
+    }
+  };
+
   const [chats, setChats] = useState([]);
   const [selectedChat, setSelectedChat] = useState(null);
   const [messages, setMessages] = useState([]);
@@ -716,7 +803,7 @@ const Audit = () => {
         (d) => d.name?.toLowerCase().includes(term) || String(d.id).includes(term)
       );
       if (matched.length === 1 && selectedDevice?.id !== matched[0].id) {
-        setSelectedDevice(matched[0]);
+        handleSelectDevice(matched[0]);
       }
     }
   }, [globalSearchInput, devices]);
@@ -793,7 +880,7 @@ const Audit = () => {
       updatedAt: result.updatedAt || new Date().toISOString(),
     };
 
-    setSelectedDevice(targetDevice);
+    handleSelectDevice(targetDevice);
     setSelectedChat(targetChat);
     setChats((prev) => [targetChat, ...prev.filter((c) => c.ticketId !== targetChat.ticketId)]);
   };
@@ -825,16 +912,26 @@ const Audit = () => {
       const { data } = await api.get("/audit/devices");
       setDevices(data);
       if (data.length > 0) {
-        const queryParams = new URLSearchParams(location.search);
-        const targetWaId = queryParams.get("whatsappId");
-        if (targetWaId) {
-          const found = data.find((d) => String(d.id) === String(targetWaId));
-          if (found) {
-            setSelectedDevice(found);
-            return;
+        if (!initialDeviceLoadedRef.current) {
+          initialDeviceLoadedRef.current = true;
+          const queryParams = new URLSearchParams(location.search);
+          const targetWaId = queryParams.get("whatsappId");
+          if (targetWaId) {
+            const found = data.find((d) => String(d.id) === String(targetWaId));
+            if (found) {
+              setSelectedDevice(found);
+              return;
+            }
           }
+          setSelectedDevice(data[0]);
+        } else {
+          // Em sincronizações em background (polling de 45s / websocket), preserva o aparelho que o operador está auditando
+          setSelectedDevice((prev) => {
+            if (!prev) return data[0];
+            const updated = data.find((d) => d.id === prev.id);
+            return updated || prev;
+          });
         }
-        setSelectedDevice((prev) => prev || data[0]);
       }
     } catch (err) {
       toastError(err);
@@ -843,16 +940,17 @@ const Audit = () => {
     }
   };
 
+  // Sincroniza aparelho selecionado caso ocorra navegação externa com query param whatsappId
   useEffect(() => {
     const queryParams = new URLSearchParams(location.search);
     const targetWaId = queryParams.get("whatsappId");
     if (targetWaId && devices.length > 0) {
       const found = devices.find((d) => String(d.id) === String(targetWaId));
       if (found) {
-        setSelectedDevice(found);
+        setSelectedDevice((prev) => (prev?.id === found.id ? prev : found));
       }
     }
-  }, [location.search, devices]);
+  }, [location.search]);
 
   useEffect(() => {
     fetchDevices(true);
@@ -930,8 +1028,8 @@ const Audit = () => {
       if (page === 1) {
         setSelectedChat((prevChat) => {
           // Se já está selecionada uma conversa deste aparelho, preserva ela!
-          if (prevChat && prevChat.whatsappId === selectedDevice.id) {
-            const currentStillExists = newChats.find((c) => c.ticketId === prevChat.ticketId);
+          if (prevChat && String(prevChat.whatsappId) === String(selectedDevice.id)) {
+            const currentStillExists = newChats.find((c) => String(c.ticketId) === String(prevChat.ticketId));
             if (!currentStillExists) {
               setChats([prevChat, ...newChats]);
               return prevChat;
@@ -1222,13 +1320,13 @@ const Audit = () => {
 
         <div className={classes.headerStats}>
           <div className={classes.statBadge}>
-            <span>Mensagens:</span>
+            {!isMobile && <span>Mensagens:</span>}
             <strong style={{ color: "#0284c7" }}>{totalArchived.toLocaleString("pt-BR")}</strong>
           </div>
 
           <div className={classes.statBadge}>
-            <BlockIcon style={{ color: "#ef4444", fontSize: 15 }} />
-            <span>Apagadas:</span>
+            <BlockIcon style={{ color: "#ef4444", fontSize: isMobile ? 13 : 15 }} />
+            {!isMobile && <span>Apagadas:</span>}
             <strong style={{ color: "#ef4444" }}>{totalDeletedCount.toLocaleString("pt-BR")}</strong>
           </div>
 
@@ -1236,14 +1334,19 @@ const Audit = () => {
             variant="outlined"
             color="primary"
             size="small"
-            startIcon={<GetAppIcon />}
+            startIcon={<GetAppIcon style={{ fontSize: isMobile ? 15 : 18 }} />}
             onClick={() => setExportModalOpen(true)}
-            style={{ textTransform: "none", borderRadius: 6 }}
+            style={{
+              textTransform: "none",
+              borderRadius: 6,
+              padding: isMobile ? "2px 6px" : "4px 10px",
+              minWidth: isMobile ? "auto" : undefined,
+              fontSize: isMobile ? "0.72rem" : "0.8125rem",
+              height: isMobile ? 26 : undefined,
+            }}
           >
             Exportar
           </Button>
-
-          
 
           <Tooltip title="Atualizar dados">
             <IconButton
@@ -1253,6 +1356,7 @@ const Audit = () => {
                 fetchChats();
                 fetchMessages();
               }}
+              style={{ padding: isMobile ? 4 : 6 }}
             >
               <RefreshIcon fontSize="small" />
             </IconButton>
@@ -1293,7 +1397,7 @@ const Audit = () => {
               <Card
                 key={device.id}
                 className={`${classes.deviceCard} ${isSelected ? classes.deviceCardSelected : ""}`}
-                onClick={() => setSelectedDevice(device)}
+                onClick={() => handleSelectDevice(device)}
               >
                 <CardActionArea className={classes.deviceCardContent}>
                   <Box display="flex" alignItems="center" width="100%" minWidth={0}>
@@ -1357,7 +1461,12 @@ const Audit = () => {
         style={{ position: "relative", overflow: "hidden" }}
       >
         {/* Painel Esquerdo: Lista de Conversas do Celular */}
-        <div className={classes.chatsPanel}>
+        <div
+          className={classes.chatsPanel}
+          style={{
+            display: isMobile && selectedChat ? "none" : "flex",
+          }}
+        >
           <div className={classes.chatSearchBox}>
             <TextField
               fullWidth
@@ -1505,15 +1614,31 @@ const Audit = () => {
         </div>
 
         {/* Painel Direito: Timeline de Mensagens & Filtros */}
-        <div className={classes.timelinePanel}>
+        <div
+          className={classes.timelinePanel}
+          style={{
+            display: isMobile && !selectedChat ? "none" : "flex",
+          }}
+        >
           {/* Cabeçalho da Conversa Selecionada */}
           {selectedChat && (
             <div className={classes.activeChatHeader}>
               <Box
                 display="flex"
                 alignItems="center"
-                gap={1.5}
+                gap={isMobile ? 0.75 : 1.5}
+                minWidth={0}
               >
+                {isMobile && (
+                  <IconButton
+                    size="small"
+                    onClick={() => setSelectedChat(null)}
+                    style={{ marginRight: 2, padding: 4 }}
+                    aria-label="Voltar para a lista de conversas"
+                  >
+                    <ArrowBackIcon fontSize="small" />
+                  </IconButton>
+                )}
                 <Tooltip
                   title={selectedChat.contact?.profilePicUrl ? "Clique para ampliar a foto do perfil" : ""}
                   placement="bottom"
@@ -1534,7 +1659,9 @@ const Audit = () => {
                       }
                     }}
                     style={{
-                      cursor: selectedChat.contact?.profilePicUrl ? "pointer" : "pointer",
+                      cursor: "pointer",
+                      width: isMobile ? 34 : 38,
+                      height: isMobile ? 34 : 38,
                     }}
                   >
                     {getContactDisplayName(selectedChat.contact).charAt(0).toUpperCase()}
@@ -1543,56 +1670,85 @@ const Audit = () => {
 
                 <Box
                   onClick={() => setContactDrawerOpen(true)}
-                  style={{ cursor: "pointer" }}
+                  style={{ cursor: "pointer", minWidth: 0 }}
                 >
-                  <Typography variant="subtitle1" style={{ fontWeight: 700, color: "#0f172a", lineHeight: 1.2 }}>
+                  <Typography
+                    variant="subtitle1"
+                    style={{
+                      fontWeight: 700,
+                      color: "#0f172a",
+                      lineHeight: 1.2,
+                      fontSize: isMobile ? "0.85rem" : "0.95rem",
+                      whiteSpace: "nowrap",
+                      overflow: "hidden",
+                      textOverflow: "ellipsis",
+                      maxWidth: isMobile ? 140 : 260,
+                    }}
+                  >
                     {getContactDisplayName(selectedChat.contact)}
                   </Typography>
-                  <Box display="flex" alignItems="center" gap={1} mt={0.3}>
-                    <Typography variant="caption" style={{ color: "#64748b" }}>
+                  <Box display="flex" alignItems="center" gap={0.5} mt={0.3}>
+                    <Typography variant="caption" style={{ color: "#64748b", fontSize: "0.68rem" }}>
                       📱 <strong>{selectedDevice?.name || "Dispositivo"}</strong>
                     </Typography>
                     {selectedChat.contact?.isGroup && (
                       <Chip
                         label="👥 Grupo"
                         size="small"
-                        style={{ height: 18, fontSize: "0.65rem", backgroundColor: "#e2e8f0" }}
+                        style={{ height: 16, fontSize: "0.6rem", backgroundColor: "#e2e8f0" }}
                       />
                     )}
                   </Box>
                 </Box>
               </Box>
 
-              <Box display="flex" alignItems="center" gap={1}>
-                <Button
-                  size="small"
-                  variant="outlined"
-                  style={{
-                    borderColor: "#52658C",
-                    color: "#52658C",
-                    textTransform: "none",
-                    fontWeight: 700,
-                    borderRadius: 8,
-                    height: 28,
-                    fontSize: "0.78rem",
-                  }}
-                  startIcon={<PersonIcon style={{ fontSize: 16 }} />}
-                  onClick={() => setContactDrawerOpen(true)}
-                >
-                  Ver Perfil
-                </Button>
+              <Box display="flex" alignItems="center" gap={0.8} flexShrink={0}>
+                {!isMobile ? (
+                  <Button
+                    size="small"
+                    variant="outlined"
+                    style={{
+                      borderColor: "#52658C",
+                      color: "#52658C",
+                      textTransform: "none",
+                      fontWeight: 700,
+                      borderRadius: 8,
+                      height: 28,
+                      fontSize: "0.78rem",
+                    }}
+                    startIcon={<PersonIcon style={{ fontSize: 16 }} />}
+                    onClick={() => setContactDrawerOpen(true)}
+                  >
+                    Ver Perfil
+                  </Button>
+                ) : (
+                  <IconButton
+                    size="small"
+                    onClick={() => setContactDrawerOpen(true)}
+                    style={{
+                      border: "1px solid rgba(82, 101, 140, 0.3)",
+                      borderRadius: 6,
+                      padding: 4,
+                      color: "#52658C",
+                    }}
+                    title="Ver Perfil"
+                  >
+                    <PersonIcon fontSize="small" />
+                  </IconButton>
+                )}
                 <Chip
                   label={
                     messagesTotalCount > messages.length
-                      ? `${messages.length} de ${messagesTotalCount} msgs`
-                      : `${messages.length} mensagens`
+                      ? `${messages.length}/${messagesTotalCount} msgs`
+                      : `${messages.length} msgs`
                   }
                   size="small"
                   style={{
                     backgroundColor: messagesTotalCount > messages.length ? "#fef3c7" : "#e0f2fe",
                     color: messagesTotalCount > messages.length ? "#b45309" : "#0369a1",
                     fontWeight: 700,
-                    height: 28,
+                    height: 24,
+                    fontSize: "0.68rem",
                   }}
                 />
               </Box>
@@ -1601,93 +1757,208 @@ const Audit = () => {
 
           {/* Barra de Filtros e Busca Rápida */}
           <div className={classes.filterToolbar}>
-            <TextField
-              size="small"
-              placeholder="Buscar termo nesta conversa (ex: PIX, acordo)..."
-              variant="outlined"
-              value={searchTermInput}
-              onChange={handleSearchTermChange}
-              style={{ minWidth: 200, flexGrow: 1 }}
-              InputProps={{
-                startAdornment: (
-                  <InputAdornment position="start">
-                    <SearchIcon style={{ color: "#94a3b8" }} fontSize="small" />
-                  </InputAdornment>
-                ),
-                endAdornment: searchTermInput && (
-                  <InputAdornment position="end">
-                    <IconButton size="small" onClick={() => { setSearchTermInput(""); setSearchTerm(""); }}>
+            {isMobile ? (
+              <div style={{ width: "100%" }}>
+                <div className={classes.mobileFilterRow}>
+                  <TextField
+                    size="small"
+                    placeholder="Buscar termo (PIX, acordo)..."
+                    variant="outlined"
+                    value={searchTermInput}
+                    onChange={handleSearchTermChange}
+                    style={{ flex: 1, minWidth: 0 }}
+                    InputProps={{
+                      startAdornment: (
+                        <InputAdornment position="start">
+                          <SearchIcon style={{ color: "#94a3b8" }} fontSize="small" />
+                        </InputAdornment>
+                      ),
+                      endAdornment: searchTermInput && (
+                        <InputAdornment position="end">
+                          <IconButton size="small" onClick={() => { setSearchTermInput(""); setSearchTerm(""); }}>
+                            <ClearIcon fontSize="small" />
+                          </IconButton>
+                        </InputAdornment>
+                      ),
+                    }}
+                  />
+                  <IconButton
+                    size="small"
+                    color={mobileFiltersExpanded || startDate || endDate || onlyDeleted || mediaType !== "all" ? "primary" : "default"}
+                    onClick={() => setMobileFiltersExpanded(!mobileFiltersExpanded)}
+                    style={{
+                      border: "1px solid rgba(0,0,0,0.12)",
+                      borderRadius: 6,
+                      padding: 6,
+                      backgroundColor: mobileFiltersExpanded ? "rgba(2, 132, 199, 0.1)" : "transparent",
+                    }}
+                    title="Mais Filtros"
+                  >
+                    <FilterListIcon fontSize="small" />
+                  </IconButton>
+                  {(searchTerm || startDate || endDate || onlyDeleted || mediaType !== "all") && (
+                    <IconButton
+                      size="small"
+                      color="secondary"
+                      onClick={clearFilters}
+                      style={{ border: "1px solid rgba(239,68,68,0.2)", borderRadius: 6, padding: 6 }}
+                      title="Limpar Filtros"
+                    >
                       <ClearIcon fontSize="small" />
                     </IconButton>
-                  </InputAdornment>
-                ),
-              }}
-            />
+                  )}
+                </div>
 
-            <TextField
-              size="small"
-              type="date"
-              label="Data Inicial"
-              variant="outlined"
-              InputLabelProps={{ shrink: true }}
-              value={startDate}
-              onChange={(e) => setStartDate(e.target.value)}
-              className={classes.filterItem}
-            />
-
-            <TextField
-              size="small"
-              type="date"
-              label="Data Final"
-              variant="outlined"
-              InputLabelProps={{ shrink: true }}
-              value={endDate}
-              onChange={(e) => setEndDate(e.target.value)}
-              className={classes.filterItem}
-            />
-
-            <FormControl size="small" variant="outlined" className={classes.filterItem}>
-              <InputLabel>Tipo Mídia</InputLabel>
-              <Select
-                value={mediaType}
-                onChange={(e) => setMediaType(e.target.value)}
-                label="Tipo Mídia"
-              >
-                <MenuItem value="all">Todas as Mensagens</MenuItem>
-                <MenuItem value="audio">🎵 Áudios & Voz</MenuItem>
-                <MenuItem value="image">🖼️ Fotos & Imagens</MenuItem>
-                <MenuItem value="document">📄 Documentos & Boletos</MenuItem>
-                <MenuItem value="video">🎥 Vídeos</MenuItem>
-                <MenuItem value="vcard">👤 Contatos (vCard)</MenuItem>
-              </Select>
-            </FormControl>
-
-            <FormControlLabel
-              control={
-                <Switch
+                <Collapse in={mobileFiltersExpanded}>
+                  <Box display="flex" flexDirection="column" gap={0.8} pt={0.8}>
+                    <Box display="flex" gap={1}>
+                      <TextField
+                        size="small"
+                        type="date"
+                        label="Data Inicial"
+                        variant="outlined"
+                        fullWidth
+                        InputLabelProps={{ shrink: true }}
+                        value={startDate}
+                        onChange={(e) => setStartDate(e.target.value)}
+                      />
+                      <TextField
+                        size="small"
+                        type="date"
+                        label="Data Final"
+                        variant="outlined"
+                        fullWidth
+                        InputLabelProps={{ shrink: true }}
+                        value={endDate}
+                        onChange={(e) => setEndDate(e.target.value)}
+                      />
+                    </Box>
+                    <Box display="flex" gap={1} alignItems="center">
+                      <FormControl size="small" variant="outlined" style={{ flex: 1 }}>
+                        <InputLabel>Tipo Mídia</InputLabel>
+                        <Select
+                          value={mediaType}
+                          onChange={(e) => setMediaType(e.target.value)}
+                          label="Tipo Mídia"
+                        >
+                          <MenuItem value="all">Todas as Mensagens</MenuItem>
+                          <MenuItem value="audio">🎵 Áudios & Voz</MenuItem>
+                          <MenuItem value="image">🖼️ Fotos & Imagens</MenuItem>
+                          <MenuItem value="document">📄 Documentos & Boletos</MenuItem>
+                          <MenuItem value="video">🎥 Vídeos</MenuItem>
+                          <MenuItem value="vcard">👤 Contatos (vCard)</MenuItem>
+                        </Select>
+                      </FormControl>
+                      <FormControlLabel
+                        control={
+                          <Switch
+                            size="small"
+                            checked={onlyDeleted}
+                            onChange={(e) => setOnlyDeleted(e.target.checked)}
+                            className={classes.deletedSwitch}
+                          />
+                        }
+                        label={
+                          <Typography variant="caption" style={{ color: onlyDeleted ? "#dc2626" : "inherit", fontWeight: onlyDeleted ? 700 : 400 }}>
+                            🚫 Apagadas
+                          </Typography>
+                        }
+                      />
+                    </Box>
+                  </Box>
+                </Collapse>
+              </div>
+            ) : (
+              <>
+                <TextField
                   size="small"
-                  checked={onlyDeleted}
-                  onChange={(e) => setOnlyDeleted(e.target.checked)}
-                  className={classes.deletedSwitch}
+                  placeholder="Buscar termo nesta conversa (ex: PIX, acordo)..."
+                  variant="outlined"
+                  value={searchTermInput}
+                  onChange={handleSearchTermChange}
+                  style={{ minWidth: 200, flexGrow: 1 }}
+                  InputProps={{
+                    startAdornment: (
+                      <InputAdornment position="start">
+                        <SearchIcon style={{ color: "#94a3b8" }} fontSize="small" />
+                      </InputAdornment>
+                    ),
+                    endAdornment: searchTermInput && (
+                      <InputAdornment position="end">
+                        <IconButton size="small" onClick={() => { setSearchTermInput(""); setSearchTerm(""); }}>
+                          <ClearIcon fontSize="small" />
+                        </IconButton>
+                      </InputAdornment>
+                    ),
+                  }}
                 />
-              }
-              label={
-                <Typography variant="body2" style={{ color: onlyDeleted ? "#dc2626" : "inherit", fontWeight: onlyDeleted ? 700 : 400 }}>
-                  🚫 Apenas Apagadas
-                </Typography>
-              }
-            />
 
-            {(searchTerm || startDate || endDate || onlyDeleted || mediaType !== "all") && (
-              <Button
-                size="small"
-                variant="outlined"
-                color="secondary"
-                startIcon={<ClearIcon />}
-                onClick={clearFilters}
-              >
-                Limpar
-              </Button>
+                <TextField
+                  size="small"
+                  type="date"
+                  label="Data Inicial"
+                  variant="outlined"
+                  InputLabelProps={{ shrink: true }}
+                  value={startDate}
+                  onChange={(e) => setStartDate(e.target.value)}
+                  className={classes.filterItem}
+                />
+
+                <TextField
+                  size="small"
+                  type="date"
+                  label="Data Final"
+                  variant="outlined"
+                  InputLabelProps={{ shrink: true }}
+                  value={endDate}
+                  onChange={(e) => setEndDate(e.target.value)}
+                  className={classes.filterItem}
+                />
+
+                <FormControl size="small" variant="outlined" className={classes.filterItem}>
+                  <InputLabel>Tipo Mídia</InputLabel>
+                  <Select
+                    value={mediaType}
+                    onChange={(e) => setMediaType(e.target.value)}
+                    label="Tipo Mídia"
+                  >
+                    <MenuItem value="all">Todas as Mensagens</MenuItem>
+                    <MenuItem value="audio">🎵 Áudios & Voz</MenuItem>
+                    <MenuItem value="image">🖼️ Fotos & Imagens</MenuItem>
+                    <MenuItem value="document">📄 Documentos & Boletos</MenuItem>
+                    <MenuItem value="video">🎥 Vídeos</MenuItem>
+                    <MenuItem value="vcard">👤 Contatos (vCard)</MenuItem>
+                  </Select>
+                </FormControl>
+
+                <FormControlLabel
+                  control={
+                    <Switch
+                      size="small"
+                      checked={onlyDeleted}
+                      onChange={(e) => setOnlyDeleted(e.target.checked)}
+                      className={classes.deletedSwitch}
+                    />
+                  }
+                  label={
+                    <Typography variant="body2" style={{ color: onlyDeleted ? "#dc2626" : "inherit", fontWeight: onlyDeleted ? 700 : 400 }}>
+                      🚫 Apenas Apagadas
+                    </Typography>
+                  }
+                />
+
+                {(searchTerm || startDate || endDate || onlyDeleted || mediaType !== "all") && (
+                  <Button
+                    size="small"
+                    variant="outlined"
+                    color="secondary"
+                    startIcon={<ClearIcon />}
+                    onClick={clearFilters}
+                  >
+                    Limpar
+                  </Button>
+                )}
+              </>
             )}
           </div>
 

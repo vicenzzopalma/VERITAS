@@ -33,6 +33,12 @@ const useStyles = makeStyles(theme => ({
 	container: {
 		paddingTop: theme.spacing(3),
 		paddingBottom: theme.spacing(4),
+		[theme.breakpoints.down("sm")]: {
+			paddingTop: theme.spacing(1.5),
+			paddingBottom: theme.spacing(2),
+			paddingLeft: theme.spacing(1),
+			paddingRight: theme.spacing(1),
+		},
 	},
 	fixedHeightPaper: {
 		padding: theme.spacing(2),
@@ -82,6 +88,9 @@ const useStyles = makeStyles(theme => ({
 		boxShadow: "0 2px 8px rgba(0,0,0,0.06)",
 		border: "1px solid rgba(0,0,0,0.06)",
 		marginTop: theme.spacing(1),
+		[theme.breakpoints.down("sm")]: {
+			padding: theme.spacing(1.5),
+		},
 	},
 	tableTitleWrapper: {
 		display: "flex",

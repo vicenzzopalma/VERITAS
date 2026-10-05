@@ -3,6 +3,7 @@ import { useLocation } from "react-router-dom";
 import clsx from "clsx";
 import {
   makeStyles,
+  useMediaQuery,
   Drawer,
   AppBar,
   Toolbar,
@@ -39,6 +40,10 @@ const useStyles = makeStyles((theme) => ({
   },
   toolbar: {
     paddingRight: 24,
+    [theme.breakpoints.down("sm")]: {
+      paddingLeft: 8,
+      paddingRight: 8,
+    },
   },
   toolbarIcon: {
     display: "flex",
@@ -56,10 +61,17 @@ const useStyles = makeStyles((theme) => ({
     backgroundColor: theme.palette.background.default,
     marginLeft: collapsedWidth,
     width: `calc(100% - ${collapsedWidth}px)`,
+    [theme.breakpoints.down("sm")]: {
+      marginLeft: 0,
+      width: "100%",
+    },
   },
   menuButton: {
     marginRight: 20,
     color: theme.palette.text.primary,
+    [theme.breakpoints.up("md")]: {
+      display: "none",
+    },
   },
   title: {
     flexGrow: 1,
@@ -70,6 +82,10 @@ const useStyles = makeStyles((theme) => ({
     flexShrink: 0,
     whiteSpace: "nowrap",
     overflow: "hidden",
+    [theme.breakpoints.down("sm")]: {
+      width: 0,
+      overflow: "visible",
+    },
   },
   drawerPaper: {
     width: drawerWidth,
@@ -128,6 +144,12 @@ const useStyles = makeStyles((theme) => ({
       paddingRight: "0 !important",
     },
   },
+  mobileDrawerPaper: {
+    width: "min(86vw, 320px)",
+    maxWidth: "320px",
+    overflowX: "hidden",
+    boxShadow: "8px 0 28px rgba(0, 0, 0, 0.28)",
+  },
   crmDrawerPaper: {
     backgroundColor: "#0c0d14 !important",
     borderRight: "1px solid rgba(255, 255, 255, 0.08) !important",
@@ -167,11 +189,19 @@ const useStyles = makeStyles((theme) => ({
   },
   appBarSpacer: {
     minHeight: "48px",
+    [theme.breakpoints.down("sm")]: {
+      minHeight: "56px",
+    },
   },
   content: {
     flex: 1,
     overflow: "auto",
     height: "100vh",
+    minWidth: 0,
+    [theme.breakpoints.down("sm")]: {
+      width: "100%",
+      height: "100dvh",
+    },
   },
   contentFull: {
     flex: 1,
@@ -179,6 +209,11 @@ const useStyles = makeStyles((theme) => ({
     height: "100vh",
     margin: 0,
     padding: 0,
+    minWidth: 0,
+    [theme.breakpoints.down("sm")]: {
+      width: "100%",
+      height: "100dvh",
+    },
   },
   switch: {
     transform: "scale(0.8)",
@@ -199,6 +234,7 @@ const LoggedInLayout = ({ children }) => {
   const classes = useStyles();
   const location = useLocation();
   const { user, handleLogout, loading } = useContext(AuthContext);
+  const isMobile = useMediaQuery((theme) => theme.breakpoints.down("sm"));
 
   const isWhatsappControl = location.pathname.startsWith("/whatsapp-control") || user?.profile === "whatsapp_control" || user?.profile === "whatsapp_control_high";
 
@@ -208,7 +244,8 @@ const LoggedInLayout = ({ children }) => {
 
   // Menu Retrátil por Hover
   const [drawerHovered, setDrawerHovered] = useState(false);
-  const isDrawerExpanded = drawerHovered;
+  const [mobileDrawerOpen, setMobileDrawerOpen] = useState(false);
+  const isDrawerExpanded = isMobile || drawerHovered;
 
   const { darkMode, toggleTheme } = useThemeContext();
 
@@ -234,6 +271,7 @@ const LoggedInLayout = ({ children }) => {
 
   const drawerClose = () => {
     setDrawerHovered(false);
+    setMobileDrawerOpen(false);
   };
 
   if (loading) {
@@ -249,19 +287,30 @@ const LoggedInLayout = ({ children }) => {
         onMouseLeave={() => setDrawerHovered(false)}
       >
         <Drawer
-          variant="permanent"
+          variant={isMobile ? "temporary" : "permanent"}
           classes={{
             paper: clsx(
-              isDrawerExpanded ? classes.drawerPaper : classes.drawerPaperClose,
+              isMobile
+                ? classes.mobileDrawerPaper
+                : isDrawerExpanded
+                  ? classes.drawerPaper
+                  : classes.drawerPaperClose,
               isWhatsappControl && classes.crmDrawerPaper,
               isWhatsappControl && "crm-drawer-dark-mode"
             ),
           }}
-          open={isDrawerExpanded}
+          open={isMobile ? mobileDrawerOpen : isDrawerExpanded}
+          onClose={() => setMobileDrawerOpen(false)}
         >
           <div className={classes.toolbarIcon}>
             <IconButton
-              onClick={() => setDrawerHovered(!drawerHovered)}
+              onClick={() => {
+                if (isMobile) {
+                  setMobileDrawerOpen(false);
+                } else {
+                  setDrawerHovered(!drawerHovered);
+                }
+              }}
               style={isWhatsappControl ? { color: "#ffffff" } : undefined}
             >
               {isDrawerExpanded ? (
@@ -289,6 +338,14 @@ const LoggedInLayout = ({ children }) => {
       {!isWhatsappControl && (
         <AppBar position="absolute" className={classes.appBar}>
           <Toolbar variant="dense" className={classes.toolbar}>
+            <IconButton
+              edge="start"
+              aria-label="Abrir menu"
+              className={classes.menuButton}
+              onClick={() => setMobileDrawerOpen(true)}
+            >
+              <MenuIcon />
+            </IconButton>
             <Typography
               component="h1"
               variant="h6"

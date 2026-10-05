@@ -59,9 +59,11 @@ const useStyles = makeStyles(theme => ({
     alignItems: "center",
     borderTop: `1px solid ${theme.palette.type === "dark" ? "rgba(148, 163, 184, 0.18)" : "rgba(0, 0, 0, 0.12)"}`,
     [theme.breakpoints.down("sm")]: {
-      position: "fixed",
-      bottom: 0,
+      position: "sticky",
+      bottom: "auto",
       width: "100%",
+      paddingBottom: "calc(7px + env(safe-area-inset-bottom))",
+      zIndex: 3,
     },
   },
 
@@ -70,6 +72,7 @@ const useStyles = makeStyles(theme => ({
     width: "100%",
     display: "flex",
     padding: "7px",
+    paddingBottom: "max(7px, env(safe-area-inset-bottom))",
     alignItems: "center",
   },
 

@@ -46,12 +46,7 @@ const reducer = (state, action) => {
 
 	if (action.type === "DELETE_WHATSAPPS") {
 		const whatsAppId = action.payload;
-
-		const whatsAppIndex = state.findIndex(s => s.id === whatsAppId);
-		if (whatsAppIndex !== -1) {
-			state.splice(whatsAppIndex, 1);
-		}
-		return [...state];
+		return state.filter(s => Number(s.id) !== Number(whatsAppId));
 	}
 
 	if (action.type === "RESET") {

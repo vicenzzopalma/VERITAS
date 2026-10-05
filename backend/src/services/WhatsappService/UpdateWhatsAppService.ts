@@ -5,6 +5,7 @@ import AppError from "../../errors/AppError";
 import Whatsapp from "../../models/Whatsapp";
 import ShowWhatsAppService from "./ShowWhatsAppService";
 import AssociateWhatsappQueue from "./AssociateWhatsappQueue";
+import { whatsappProvider } from "../../providers/WhatsApp";
 
 interface WhatsappData {
   name?: string;
@@ -76,16 +77,25 @@ const UpdateWhatsAppService = async ({
 
   const whatsapp = await ShowWhatsAppService(whatsappId);
 
+  // Se o aparelho foi arquivado, encerra a sessão ativa do Baileys para não manter conexões abertas
+  if (status === "archived") {
+    try {
+      await whatsappProvider.removeSession(+whatsappId);
+    } catch (e) {
+      // ignora caso já esteja desconectado
+    }
+  }
+
   await whatsapp.update({
     name: name !== undefined ? name : whatsapp.name,
-    status,
-    session,
-    greetingMessage,
-    farewellMessage,
-    isDefault,
-    proxyUrl,
-    humanDelay,
-    sector
+    status: status !== undefined ? status : whatsapp.status,
+    session: session !== undefined ? session : whatsapp.session,
+    greetingMessage: greetingMessage !== undefined ? greetingMessage : whatsapp.greetingMessage,
+    farewellMessage: farewellMessage !== undefined ? farewellMessage : whatsapp.farewellMessage,
+    isDefault: isDefault !== undefined ? isDefault : whatsapp.isDefault,
+    proxyUrl: proxyUrl !== undefined ? proxyUrl : whatsapp.proxyUrl,
+    humanDelay: humanDelay !== undefined ? humanDelay : whatsapp.humanDelay,
+    sector: sector !== undefined ? sector : whatsapp.sector
   });
 
   await AssociateWhatsappQueue(whatsapp, queueIds);

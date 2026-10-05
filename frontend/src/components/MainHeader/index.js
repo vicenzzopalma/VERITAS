@@ -7,6 +7,12 @@ const useStyles = makeStyles(theme => ({
 		display: "flex",
 		alignItems: "center",
 		padding: "0px 6px 6px 6px",
+		[theme.breakpoints.down("sm")]: {
+			flexDirection: "column",
+			alignItems: "stretch",
+			gap: 8,
+			padding: "4px 4px 8px 4px",
+		},
 	},
 }));
 

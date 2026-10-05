@@ -175,8 +175,13 @@ export const remove = async (
     return res.status(403).json({ error: "ERR_NO_PERMISSION" });
   }
 
+  try {
+    await whatsappProvider.removeSession(+whatsappId);
+  } catch (err) {
+    // ignora falhas ao fechar socket inexistente ou já finalizado
+  }
+
   await DeleteWhatsAppService(whatsappId);
-  whatsappProvider.removeSession(+whatsappId);
 
   const io = getIO();
   io.emit("whatsapp", {

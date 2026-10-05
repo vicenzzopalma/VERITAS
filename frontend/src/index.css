@@ -12,6 +12,7 @@
 
 html {
   scroll-behavior: smooth;
+  min-height: 100%;
 }
 
 body {
@@ -23,6 +24,8 @@ body {
   font-family: "Outfit", "Inter", "Segoe UI", sans-serif;
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
+  min-width: 0;
+  overflow-x: hidden;
 }
 
 html.veritas-dark,
@@ -108,6 +111,59 @@ select {
   font: inherit;
 }
 
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+* {
+  min-width: 0;
+}
+
+button,
+input,
+textarea,
+select {
+  max-width: 100%;
+}
+
+/* Keep legacy Material UI pages inside the viewport on narrow screens. */
+@media (max-width: 720px) {
+  .MuiContainer-root {
+    width: 100%;
+    padding-left: 12px !important;
+    padding-right: 12px !important;
+  }
+
+  .MuiGrid-container {
+    width: 100%;
+  }
+
+  .MuiTabs-scroller {
+    overflow-x: auto !important;
+    scrollbar-width: none;
+  }
+
+  .MuiTabs-scroller::-webkit-scrollbar {
+    display: none;
+  }
+
+  .MuiTabs-flexContainer {
+    min-width: max-content;
+  }
+
+  .MuiFormControl-root,
+  .MuiTextField-root {
+    max-width: 100%;
+  }
+
+  .MuiButton-root {
+    max-width: 100%;
+  }
+}
+
+/* Reset browser defaults before the app's base styles. */
 button,
 a,
 input,
@@ -175,8 +231,66 @@ select,
 
 @media (max-width: 720px) {
   .MuiToolbar-root {
-    padding-left: 14px !important;
-    padding-right: 14px !important;
+    padding-left: 10px !important;
+    padding-right: 10px !important;
+    min-height: 56px !important;
+  }
+
+  html,
+  body,
+  #root {
+    min-height: 100dvh;
+    height: 100dvh;
+    overflow-x: hidden !important;
+  }
+
+  /* Safe area support for modern smartphones (iPhone notch / home bar) */
+  body {
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+
+  .MuiDialog-paper {
+    width: calc(100% - 20px) !important;
+    max-width: calc(100% - 20px) !important;
+    margin: 10px !important;
+    border-radius: 12px !important;
+  }
+
+  .MuiDialogContent-root {
+    padding: 14px !important;
+  }
+
+  .MuiDialogActions-root {
+    padding: 10px 14px !important;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .MuiTableContainer-root {
+    max-width: 100%;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  /* Responsive action buttons on mobile */
+  .MuiButton-root {
+    border-radius: 8px;
+    touch-action: manipulation;
+  }
+
+  .MuiIconButton-root {
+    touch-action: manipulation;
+  }
+
+  /* Compact chips for mobile displays */
+  .MuiChip-root {
+    max-width: 100%;
+  }
+
+  /* Prevents horizontal overflow on containers */
+  .MuiContainer-root {
+    padding-left: 8px !important;
+    padding-right: 8px !important;
   }
 }
 

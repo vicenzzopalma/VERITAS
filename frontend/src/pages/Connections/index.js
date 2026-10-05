@@ -20,6 +20,12 @@ import {
 	Chip,
 	TextField,
 	InputAdornment,
+	useMediaQuery,
+	Card,
+	CardContent,
+	CardActions,
+	Box,
+	Divider,
 } from "@material-ui/core";
 import {
 	Edit,
@@ -29,6 +35,8 @@ import {
 	SignalCellular4Bar,
 	CropFree,
 	DeleteOutline,
+	Archive,
+	Unarchive,
 	Search as SearchIcon,
 	Clear as ClearIcon,
 	AccessTime,
@@ -157,6 +165,53 @@ const useStyles = makeStyles(theme => ({
 		borderRadius: 8,
 		border: `1px solid ${theme.palette.type === "dark" ? "rgba(148, 163, 184, 0.18)" : "rgba(0, 0, 0, 0.08)"}`,
 		boxShadow: theme.palette.type === "dark" ? "0 1px 3px rgba(0,0,0,0.24)" : "0 1px 3px rgba(0,0,0,0.04)",
+		[theme.breakpoints.down("sm")]: {
+			flexWrap: "nowrap",
+			overflowX: "auto",
+			WebkitOverflowScrolling: "touch",
+			padding: "6px 8px",
+			"&::-webkit-scrollbar": {
+				height: 3,
+			},
+			"&::-webkit-scrollbar-thumb": {
+				backgroundColor: "rgba(148, 163, 184, 0.3)",
+				borderRadius: 2,
+			},
+		},
+	},
+	mobileCardContainer: {
+		display: "flex",
+		flexDirection: "column",
+		gap: 12,
+		padding: "4px 2px 20px 2px",
+	},
+	mobileCard: {
+		borderRadius: 12,
+		border: `1px solid ${theme.palette.type === "dark" ? "rgba(148, 163, 184, 0.18)" : "rgba(0, 0, 0, 0.08)"}`,
+		backgroundColor: theme.palette.type === "dark" ? "#1e293b" : "#ffffff",
+		boxShadow: "0 2px 8px rgba(0,0,0,0.06)",
+		overflow: "hidden",
+	},
+	mobileCardHeader: {
+		padding: "10px 14px 8px 14px",
+		display: "flex",
+		alignItems: "center",
+		justifyContent: "space-between",
+		borderBottom: `1px solid ${theme.palette.type === "dark" ? "rgba(148, 163, 184, 0.1)" : "rgba(0, 0, 0, 0.05)"}`,
+	},
+	mobileCardBody: {
+		padding: "10px 14px",
+		display: "flex",
+		flexDirection: "column",
+		gap: 8,
+	},
+	mobileCardActions: {
+		padding: "6px 12px 8px 12px",
+		display: "flex",
+		alignItems: "center",
+		justifyContent: "space-between",
+		borderTop: `1px solid ${theme.palette.type === "dark" ? "rgba(148, 163, 184, 0.1)" : "rgba(0, 0, 0, 0.05)"}`,
+		backgroundColor: theme.palette.type === "dark" ? "rgba(15, 23, 42, 0.4)" : "rgba(248, 250, 252, 0.6)",
 	},
 	customTableCell: {
 		display: "flex",
@@ -205,6 +260,7 @@ const CustomToolTip = ({ title, content, children }) => {
 const Connections = () => {
 	const classes = useStyles();
 	const theme = useTheme();
+	const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
 
 	const { whatsApps, loading, fetchWhatsApps } = useContext(WhatsAppsContext);
 	const { user } = useContext(AuthContext);
@@ -535,6 +591,9 @@ const Connections = () => {
 		if (confirmModalInfo.action === "disconnect") {
 			try {
 				await api.delete(`/whatsappsession/${confirmModalInfo.whatsAppId}`);
+				if (fetchWhatsApps) {
+					await fetchWhatsApps();
+				}
 			} catch (err) {
 				toastError(err);
 			}
@@ -544,12 +603,51 @@ const Connections = () => {
 			try {
 				await api.delete(`/whatsapp/${confirmModalInfo.whatsAppId}`);
 				toast.success(i18n.t("connections.toasts.deleted"));
+				if (fetchWhatsApps) {
+					await fetchWhatsApps();
+				}
 			} catch (err) {
 				toastError(err);
 			}
 		}
 
 		setConfirmModalInfo(confirmationModalInitialState);
+	};
+
+	const handleToggleArchive = async whatsApp => {
+		const isArch = isArchivedWhatsapp(whatsApp);
+		try {
+			if (isArch) {
+				await api.put(`/whatsapp/${whatsApp.id}`, {
+					name: whatsApp.name,
+					status: "DISCONNECTED",
+					sector: whatsApp.sector === "Arquivados" ? "Junior" : (whatsApp.sector || "Junior"),
+					isDefault: whatsApp.isDefault,
+					greetingMessage: whatsApp.greetingMessage,
+					farewellMessage: whatsApp.farewellMessage,
+					proxyUrl: whatsApp.proxyUrl,
+					humanDelay: whatsApp.humanDelay
+				});
+				toast.success("Aparelho desarquivado! Movido para Conexões Ativas.");
+			} else {
+				await api.put(`/whatsapp/${whatsApp.id}`, {
+					name: whatsApp.name,
+					status: "archived",
+					sector: whatsApp.sector || "Arquivados",
+					isDefault: false,
+					greetingMessage: whatsApp.greetingMessage,
+					farewellMessage: whatsApp.farewellMessage,
+					proxyUrl: whatsApp.proxyUrl,
+					humanDelay: whatsApp.humanDelay
+				});
+				toast.success("Aparelho arquivado com sucesso!");
+			}
+			if (fetchWhatsApps) {
+				await fetchWhatsApps();
+			}
+		} catch (err) {
+			toastError(err);
+		}
 	};
 
 	const renderActionButtons = whatsApp => {
@@ -891,12 +989,13 @@ const Connections = () => {
 				<Title>{i18n.t("connections.title")}</Title>
 				<MainHeaderButtonsWrapper>
 					{/* Botão de alternância ao lado da pesquisa: Conexões Ativas vs Chamados Arquivados */}
-					<div style={{ display: "inline-flex", gap: 6, marginRight: 8, flexShrink: 0 }}>
+					<div style={{ display: "inline-flex", gap: 6, marginRight: isMobile ? 0 : 8, width: isMobile ? "100%" : "auto", flexShrink: 0 }}>
 						<Button
 							variant={connectionTab === "active" ? "contained" : "outlined"}
 							size="small"
 							onClick={() => setConnectionTab("active")}
 							style={{
+								flex: isMobile ? 1 : "none",
 								height: 38,
 								borderRadius: 8,
 								fontWeight: 700,
@@ -915,6 +1014,7 @@ const Connections = () => {
 							size="small"
 							onClick={() => setConnectionTab("archived")}
 							style={{
+								flex: isMobile ? 1 : "none",
 								height: 38,
 								borderRadius: 8,
 								fontWeight: 700,
@@ -926,12 +1026,12 @@ const Connections = () => {
 								borderColor: connectionTab === "archived" ? "#7c3aed" : (theme.palette.type === "dark" ? "rgba(148, 163, 184, 0.3)" : "#cbd5e1"),
 							}}
 						>
-							📁 Chamados Arquivados ({archivedCount})
+							📁 Arquivados ({archivedCount})
 						</Button>
 					</div>
 
 					<TextField
-						placeholder="Buscar por nome, número, setor ou status..."
+						placeholder="Buscar nome, número, setor..."
 						type="search"
 						variant="outlined"
 						size="small"
@@ -961,7 +1061,7 @@ const Connections = () => {
 								height: 38,
 							},
 						}}
-						style={{ minWidth: 260, marginRight: 8 }}
+						style={{ minWidth: isMobile ? "100%" : 260, width: isMobile ? "100%" : "auto", marginRight: isMobile ? 0 : 8 }}
 					/>
 					{connectionTab === "active" && (
 						<Tooltip
@@ -1131,132 +1231,294 @@ const Connections = () => {
 			</div>
 			)}
 
-			<Paper className={classes.mainPaper} variant="outlined">
-				<Table size="small">
-					<TableHead>
-						<TableRow>
-							<TableCell align="center">
-								{i18n.t("connections.table.name")}
-							</TableCell>
-							<TableCell align="center">
-								Setor
-							</TableCell>
-							<TableCell align="center">
-								{i18n.t("connections.table.status")}
-							</TableCell>
-							<TableCell align="center">
-								Timer
-							</TableCell>
-							<TableCell align="center">
-								{i18n.t("connections.table.session")}
-							</TableCell>
-							<TableCell align="center">
-								{i18n.t("connections.table.lastUpdate")}
-							</TableCell>
-							<TableCell align="center">
-								{i18n.t("connections.table.default")}
-							</TableCell>
-							<TableCell align="center">
-								{i18n.t("connections.table.actions")}
-							</TableCell>
-						</TableRow>
-					</TableHead>
-					<TableBody>
-						{loading ? (
-							<TableRowSkeleton />
-						) : (
-							<>
-								{filteredWhatsApps?.length > 0 &&
-									filteredWhatsApps.map(whatsApp => (
-										<TableRow key={whatsApp.id}>
-											<TableCell align="center">
-												<div style={{ fontWeight: 600 }}>{whatsApp.name}</div>
-												{whatsApp.proxyUrl && (
-													<Typography
-														variant="caption"
-														style={{
-															color: "#16a34a",
-															fontWeight: 600,
-															display: "block",
-															fontSize: "0.72rem"
-														}}
-													>
-														🔒 Proxy Ativo
-													</Typography>
-												)}
-											</TableCell>
-											<TableCell align="center">
-												<Chip
-													label={whatsApp.sector || "Junior"}
-													size="small"
+			{isMobile ? (
+				<div className={classes.mobileCardContainer}>
+					{loading ? (
+						<Box display="flex" justifyContent="center" alignItems="center" p={4}>
+							<CircularProgress size={32} />
+						</Box>
+					) : filteredWhatsApps?.length > 0 ? (
+						filteredWhatsApps.map(whatsApp => (
+							<Card key={whatsApp.id} className={classes.mobileCard} variant="outlined">
+								<div className={classes.mobileCardHeader}>
+									<Box display="flex" alignItems="center" gap={1} minWidth={0}>
+										<Typography variant="subtitle1" style={{ fontWeight: 700, fontSize: "0.95rem", color: theme.palette.text.primary }}>
+											{whatsApp.name}
+										</Typography>
+										{whatsApp.isDefault && (
+											<CheckCircle style={{ color: green[500], fontSize: 18 }} />
+										)}
+									</Box>
+									<Chip
+										label={whatsApp.sector || "Junior"}
+										size="small"
+										style={{
+											backgroundColor: getSectorColor(whatsApp.sector || "Junior"),
+											color: "#fff",
+											fontWeight: 700,
+											fontSize: "0.7rem",
+											borderRadius: 4,
+											height: 22,
+										}}
+									/>
+								</div>
+
+								<div className={classes.mobileCardBody}>
+									<Box display="flex" justifyContent="space-between" alignItems="center">
+										<Box display="flex" alignItems="center" gap={1}>
+											<Typography variant="caption" style={{ color: "#64748b", fontWeight: 700, textTransform: "uppercase", fontSize: "0.65rem" }}>
+												Status:
+											</Typography>
+											{renderStatusToolTips(whatsApp)}
+										</Box>
+
+										<Box display="flex" alignItems="center" gap={0.5}>
+											{whatsApp.proxyUrl && (
+												<span
 													style={{
-														backgroundColor: getSectorColor(whatsApp.sector || "Junior"),
-														color: "#fff",
-														fontWeight: 700,
-														fontSize: "0.72rem",
+														color: "#16a34a",
+														backgroundColor: "rgba(22, 163, 74, 0.12)",
+														padding: "2px 6px",
 														borderRadius: 4,
-														height: 22,
+														fontWeight: 700,
+														fontSize: "0.68rem"
 													}}
-												/>
-											</TableCell>
-											<TableCell align="center">
-												{renderStatusToolTips(whatsApp)}
-											</TableCell>
-											<TableCell align="center">
-												{renderTimerCell(whatsApp)}
-											</TableCell>
-											<TableCell align="center">
-												{renderActionButtons(whatsApp)}
-											</TableCell>
-											<TableCell align="center">
+												>
+													🔒 Proxy
+												</span>
+											)}
+											<Typography variant="caption" style={{ color: "#94a3b8", fontSize: "0.7rem" }}>
 												{formatDateTime(whatsApp.updatedAt)}
-											</TableCell>
-											<TableCell align="center">
-												{whatsApp.isDefault && (
-													<div className={classes.customTableCell}>
-														<CheckCircle style={{ color: green[500] }} />
-													</div>
-												)}
-											</TableCell>
-											<TableCell align="center">
+											</Typography>
+										</Box>
+									</Box>
+
+									<Box display="flex" justifyContent="space-between" alignItems="center" pt={0.3}>
+										<Box display="flex" alignItems="center" gap={0.8}>
+											<Typography variant="caption" style={{ color: "#64748b", fontWeight: 700, textTransform: "uppercase", fontSize: "0.65rem" }}>
+												Timer:
+											</Typography>
+											{renderTimerCell(whatsApp)}
+										</Box>
+									</Box>
+								</div>
+
+								<div className={classes.mobileCardActions}>
+									<Box display="flex" alignItems="center" gap={0.5} flexWrap="wrap">
+										{renderActionButtons(whatsApp)}
+									</Box>
+
+									<Box display="flex" alignItems="center">
+										<Tooltip title="Editar Configurações do Aparelho" arrow>
+											<IconButton
+												size="small"
+												onClick={() => handleEditWhatsApp(whatsApp)}
+												style={{ padding: 6 }}
+											>
+												<Edit fontSize="small" />
+											</IconButton>
+										</Tooltip>
+
+										{isArchivedWhatsapp(whatsApp) ? (
+											<Tooltip title="Desarquivar Aparelho (Mover para Ativos)" arrow>
 												<IconButton
 													size="small"
-													onClick={() => handleEditWhatsApp(whatsApp)}
+													onClick={() => handleToggleArchive(whatsApp)}
+													style={{ padding: 6, color: "#0284c7" }}
 												>
-													<Edit />
+													<Unarchive fontSize="small" />
 												</IconButton>
+											</Tooltip>
+										) : (
+											<Tooltip title="Arquivar Aparelho (Mover para Arquivados)" arrow>
+												<IconButton
+													size="small"
+													onClick={() => handleToggleArchive(whatsApp)}
+													style={{ padding: 6, color: "#64748b" }}
+												>
+													<Archive fontSize="small" />
+												</IconButton>
+											</Tooltip>
+										)}
 
-												{!isArchivedWhatsapp(whatsApp) && (
-													<IconButton
+										<Tooltip title="Excluir Conexão" arrow>
+											<IconButton
+												size="small"
+												onClick={() => handleOpenConfirmationModal("delete", whatsApp.id)}
+												style={{ padding: 6, color: "#ef4444" }}
+											>
+												<DeleteOutline fontSize="small" />
+											</IconButton>
+										</Tooltip>
+									</Box>
+								</div>
+							</Card>
+						))
+					) : (
+						<Paper variant="outlined" style={{ padding: 24, textAlign: "center", color: "#64748b", borderRadius: 10 }}>
+							<Typography variant="body2" style={{ fontWeight: 500 }}>
+								{searchParam ? (
+									<>Nenhuma conexão encontrada para "<strong>{searchParam}</strong>"{selectedSector !== "TODOS" ? ` no setor ${selectedSector}` : ""}.</>
+								) : (
+									<>Nenhum WhatsApp cadastrado no setor <strong>{selectedSector}</strong>.</>
+								)}
+							</Typography>
+						</Paper>
+					)}
+				</div>
+			) : (
+				<Paper className={classes.mainPaper} variant="outlined">
+					<Table size="small">
+						<TableHead>
+							<TableRow>
+								<TableCell align="center">
+									{i18n.t("connections.table.name")}
+								</TableCell>
+								<TableCell align="center">
+									Setor
+								</TableCell>
+								<TableCell align="center">
+									{i18n.t("connections.table.status")}
+								</TableCell>
+								<TableCell align="center">
+									Timer
+								</TableCell>
+								<TableCell align="center">
+									{i18n.t("connections.table.session")}
+								</TableCell>
+								<TableCell align="center">
+									{i18n.t("connections.table.lastUpdate")}
+								</TableCell>
+								<TableCell align="center">
+									{i18n.t("connections.table.default")}
+								</TableCell>
+								<TableCell align="center">
+									{i18n.t("connections.table.actions")}
+								</TableCell>
+							</TableRow>
+						</TableHead>
+						<TableBody>
+							{loading ? (
+								<TableRowSkeleton />
+							) : (
+								<>
+									{filteredWhatsApps?.length > 0 &&
+										filteredWhatsApps.map(whatsApp => (
+											<TableRow key={whatsApp.id}>
+												<TableCell align="center">
+													<div style={{ fontWeight: 600 }}>{whatsApp.name}</div>
+													{whatsApp.proxyUrl && (
+														<Typography
+															variant="caption"
+															style={{
+																color: "#16a34a",
+																fontWeight: 600,
+																display: "block",
+																fontSize: "0.72rem"
+															}}
+														>
+															🔒 Proxy Ativo
+														</Typography>
+													)}
+												</TableCell>
+												<TableCell align="center">
+													<Chip
+														label={whatsApp.sector || "Junior"}
 														size="small"
-														onClick={e => {
-															handleOpenConfirmationModal("delete", whatsApp.id);
+														style={{
+															backgroundColor: getSectorColor(whatsApp.sector || "Junior"),
+															color: "#fff",
+															fontWeight: 700,
+															fontSize: "0.72rem",
+															borderRadius: 4,
+															height: 22,
 														}}
-													>
-														<DeleteOutline />
-													</IconButton>
-												)}
+													/>
+												</TableCell>
+												<TableCell align="center">
+													{renderStatusToolTips(whatsApp)}
+												</TableCell>
+												<TableCell align="center">
+													{renderTimerCell(whatsApp)}
+												</TableCell>
+												<TableCell align="center">
+													{renderActionButtons(whatsApp)}
+												</TableCell>
+												<TableCell align="center">
+													{formatDateTime(whatsApp.updatedAt)}
+												</TableCell>
+												<TableCell align="center">
+													{whatsApp.isDefault && (
+														<div className={classes.customTableCell}>
+															<CheckCircle style={{ color: green[500] }} />
+														</div>
+													)}
+												</TableCell>
+												<TableCell align="center">
+													<Tooltip title="Editar Configurações do Aparelho" arrow>
+														<IconButton
+															size="small"
+															onClick={() => handleEditWhatsApp(whatsApp)}
+														>
+															<Edit />
+														</IconButton>
+													</Tooltip>
+
+													{isArchivedWhatsapp(whatsApp) ? (
+														<Tooltip title="Desarquivar Aparelho (Mover para Ativos)" arrow>
+															<IconButton
+																size="small"
+																onClick={() => handleToggleArchive(whatsApp)}
+																style={{ color: "#0284c7" }}
+															>
+																<Unarchive />
+															</IconButton>
+														</Tooltip>
+													) : (
+														<Tooltip title="Arquivar Aparelho (Mover para Arquivados)" arrow>
+															<IconButton
+																size="small"
+																onClick={() => handleToggleArchive(whatsApp)}
+																style={{ color: "#64748b" }}
+															>
+																<Archive />
+															</IconButton>
+														</Tooltip>
+													)}
+
+													<Tooltip title="Excluir Conexão" arrow>
+														<IconButton
+															size="small"
+															onClick={e => {
+																handleOpenConfirmationModal("delete", whatsApp.id);
+															}}
+															style={{ color: "#ef4444" }}
+														>
+															<DeleteOutline />
+														</IconButton>
+													</Tooltip>
+												</TableCell>
+											</TableRow>
+										))}
+									{filteredWhatsApps?.length === 0 && (
+										<TableRow>
+											<TableCell colSpan={8} align="center">
+												<Typography variant="body2" style={{ padding: "28px 0", color: "#64748b", fontWeight: 500 }}>
+													{searchParam ? (
+														<>Nenhuma conexão encontrada para "<strong>{searchParam}</strong>"{selectedSector !== "TODOS" ? ` no setor ${selectedSector}` : ""}.</>
+													) : (
+														<>Nenhum WhatsApp cadastrado no setor <strong>{selectedSector}</strong>.</>
+													)}
+												</Typography>
 											</TableCell>
 										</TableRow>
-									))}
-								{filteredWhatsApps?.length === 0 && (
-									<TableRow>
-										<TableCell colSpan={8} align="center">
-											<Typography variant="body2" style={{ padding: "28px 0", color: "#64748b", fontWeight: 500 }}>
-												{searchParam ? (
-													<>Nenhuma conexão encontrada para "<strong>{searchParam}</strong>"{selectedSector !== "TODOS" ? ` no setor ${selectedSector}` : ""}.</>
-												) : (
-													<>Nenhum WhatsApp cadastrado no setor <strong>{selectedSector}</strong>.</>
-												)}
-											</Typography>
-										</TableCell>
-									</TableRow>
-								)}
-							</>
-						)}
-					</TableBody>
-				</Table>
-			</Paper>
+									)}
+								</>
+							)}
+						</TableBody>
+					</Table>
+				</Paper>
+			)}
 		</MainContainer>
 	);
 };
