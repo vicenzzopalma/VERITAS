@@ -734,13 +734,28 @@ const Audit = () => {
   const history = useHistory();
   const location = useLocation();
 
-  useEffect(() => {
-    if (user && user.profile !== "admin") {
-      history.push("/tickets");
-    }
-  }, [user, history]);
+  const isManagerHigh = user?.profile === "whatsapp_control_high";
+  const canAccessAudit = user?.profile === "admin" || isManagerHigh;
+  const isRestrictedUser = user?.profile !== "admin";
+  const allowedSectors = !isRestrictedUser
+    ? null
+    : isManagerHigh
+      ? (user?.connectionSectors || [])
+      : [];
 
-  if (user && user.profile !== "admin") {
+  useEffect(() => {
+    if (user && !canAccessAudit) {
+      if (user.profile === "whatsapp_control" || user.profile === "whatsapp_control_high") {
+        history.push("/whatsapp-control");
+      } else if (user.profile === "operator") {
+        history.push("/live");
+      } else {
+        history.push("/tickets");
+      }
+    }
+  }, [user, canAccessAudit, history]);
+
+  if (user && !canAccessAudit) {
     return null;
   }
 
@@ -784,7 +799,9 @@ const Audit = () => {
       try {
         const saved = localStorage.getItem("veritas:selectedSector");
         if (saved && saved !== selectedSector) {
-          setSelectedSectorState(saved);
+          if (!allowedSectors || allowedSectors.includes(saved) || saved === "TODOS") {
+            setSelectedSectorState(saved);
+          }
         }
       } catch (e) {}
     };
@@ -794,24 +811,29 @@ const Audit = () => {
       window.removeEventListener("focus", syncSavedSector);
       window.removeEventListener("storage", syncSavedSector);
     };
-  }, [selectedSector]);
+  }, [allowedSectors, selectedSector]);
 
   const sectorsList = useMemo(() => {
+    const defaultOrder = OFFICIAL_SECTORS;
     const presentSectors = new Set();
     devices.forEach((d) => {
       if (d.sector) presentSectors.add(d.sector);
     });
-    return Array.from(new Set([...OFFICIAL_SECTORS, ...presentSectors]));
-  }, [devices]);
+    const sectors = Array.from(new Set([...defaultOrder, ...presentSectors]));
+    return allowedSectors ? sectors.filter((s) => allowedSectors.includes(s)) : sectors;
+  }, [devices, allowedSectors]);
 
   const sectorCounts = useMemo(() => {
-    const counts = { TODOS: devices.length };
-    devices.forEach((d) => {
+    const visibleDevices = allowedSectors
+      ? devices.filter((d) => allowedSectors.includes(d.sector || "Junior"))
+      : devices;
+    const counts = { TODOS: visibleDevices.length };
+    visibleDevices.forEach((d) => {
       const sec = d.sector || "Junior";
       counts[sec] = (counts[sec] || 0) + 1;
     });
     return counts;
-  }, [devices]);
+  }, [devices, allowedSectors]);
 
   const handleSelectDevice = (device) => {
     if (!device) return;
@@ -895,7 +917,11 @@ const Audit = () => {
   // Filtro dinâmico da barra de smartphones por setor e por termo de busca
   const filteredDevices = useMemo(() => {
     return devices.filter((device) => {
-      if (selectedSector !== "TODOS" && (device.sector || "Junior") !== selectedSector) {
+      const devSector = device.sector || "Junior";
+      if (allowedSectors && !allowedSectors.includes(devSector)) {
+        return false;
+      }
+      if (selectedSector !== "TODOS" && devSector !== selectedSector) {
         return false;
       }
       if (!globalSearchInput || !globalSearchInput.trim()) return true;
@@ -904,7 +930,7 @@ const Audit = () => {
       const idMatch = String(device.id).includes(term);
       return nameMatch || idMatch;
     });
-  }, [devices, selectedSector, globalSearchInput]);
+  }, [devices, allowedSectors, selectedSector, globalSearchInput]);
 
   // Se o aparelho selecionado não pertencer ao setor ativo, auto-seleciona o primeiro do setor
   useEffect(() => {
