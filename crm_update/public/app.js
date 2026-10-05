@@ -1613,12 +1613,26 @@ document.addEventListener('DOMContentLoaded', () => {
               }
               if (!hasReserve) {
                 const colab = findCollaboratorInSystem(negotiatorName);
-                const tabSector = (colab && colab.sector) ? colab.sector : d.sector;
+                let tabSector = (colab && colab.sector) ? colab.sector : d.sector;
                 const info = {
                   name: negotiatorName,
                   gender: getGenderByName(negotiatorName),
                   numberId: n.id
                 };
+
+                // Normalização se o setor vier como 'PA FIXA' genérico
+                if (tabSector === 'PA FIXA') {
+                  const numDevSector = d.origin_sector || d.sector;
+                  if (numDevSector === 'PA FIXA 1' || numDevSector === 'PA FIXA 2') {
+                    tabSector = numDevSector;
+                  } else {
+                    ['PA FIXA 1', 'PA FIXA 2'].forEach(sub => {
+                      if (!restrictedWithoutReserveBySector[sub].some(item => item.name.toLowerCase().trim() === negotiatorNameLower)) {
+                        restrictedWithoutReserveBySector[sub].push(info);
+                      }
+                    });
+                  }
+                }
 
                 // Adicionar ao setor específico se existir
                 if (restrictedWithoutReserveBySector[tabSector]) {
@@ -1640,23 +1654,33 @@ document.addEventListener('DOMContentLoaded', () => {
     // Renderizar o Painel Lateral com os balões divididos por setor dinamicamente
     const sidebar = document.getElementById('restricted-sidebar');
     let sectorsToRender = [];
-    if (currentSector === 'Todos') {
+
+    const isPaFixaOnly = isRestrictedPaFixaUser(currentUser);
+    const hasGlobalTabs = !isPaFixaOnly && currentUser && (currentUser.username === 'vicenzzo' || currentUser.allowAllTabs === 1 || currentUser.allowAllTabs === true);
+
+    if (hasGlobalTabs) {
       sectorsToRender = ['Junior', 'Senior', 'PA FIXA 1', 'PA FIXA 2', 'Pesquisa', 'Juridico', 'Comercial'];
-    } else if (currentSector === 'PA FIXA') {
-      if (currentSubSector === 'Ver Ambos') {
-        sectorsToRender = ['PA FIXA 1', 'PA FIXA 2'];
-      } else {
-        sectorsToRender = [currentSubSector];
-      }
+    } else if (isPaFixaOnly) {
+      sectorsToRender = ['PA FIXA 1', 'PA FIXA 2'];
     } else {
-      sectorsToRender = [currentSector];
+      const perms = Array.isArray(currentUser ? currentUser.sectorPermissions : []) ? currentUser.sectorPermissions : [];
+      sectorsToRender = ['Junior', 'Senior', 'PA FIXA 1', 'PA FIXA 2', 'Pesquisa', 'Juridico', 'Comercial'].filter(sec => {
+        if (sec === 'PA FIXA 1' || sec === 'PA FIXA 2') {
+          return perms.some(p => (p.sector === sec || p.sector === 'PA FIXA') && p.can_view === 1);
+        }
+        return perms.some(p => p.sector === sec && p.can_view === 1);
+      });
+      if (sectorsToRender.length === 0) {
+        sectorsToRender = [currentSector === 'PA FIXA' ? currentSubSector : currentSector];
+      }
     }
     
     const hasAnyRestricted = sectorsToRender.some(sec => restrictedWithoutReserveBySector[sec] && restrictedWithoutReserveBySector[sec].length > 0);
 
     if (sidebar) {
+      const isAnyModalOpen = !!document.querySelector('.modal.active');
       if (hasAnyRestricted) {
-        sidebar.style.display = 'flex';
+        sidebar.style.display = isAnyModalOpen ? 'none' : 'flex';
         let html = '';
         
         sectorsToRender.forEach(sec => {
@@ -2725,11 +2749,23 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // --- Modais: Funções e Lógicas ---
   function openModal(modal) {
+    if (!modal) return;
     modal.classList.add('active');
+    document.body.classList.add('modal-open');
+    const sidebar = document.getElementById('restricted-sidebar');
+    if (sidebar) sidebar.style.display = 'none';
   }
 
   function closeModal(modal) {
+    if (!modal) return;
     modal.classList.remove('active');
+    if (!document.querySelector('.modal.active')) {
+      document.body.classList.remove('modal-open');
+      const sidebar = document.getElementById('restricted-sidebar');
+      if (sidebar && sidebar.innerHTML.trim() !== '') {
+        sidebar.style.display = 'flex';
+      }
+    }
     if (modal && modal.id === 'modal-dashboard') {
       stopDashboardPing();
     }
@@ -5558,12 +5594,12 @@ document.addEventListener('DOMContentLoaded', () => {
       const sidebarWidth = sidebar.offsetWidth || 260;
       const sidebarHeight = sidebar.offsetHeight || 150;
 
-      // Deixar pelo menos 10px de margem das bordas da tela
+      // Deixar pelo menos 10px de margem das bordas da tela e não sobrepor o header (mínimo 75px)
       const maxLeft = Math.max(10, viewportWidth - sidebarWidth - 10);
-      const maxTop = Math.max(10, viewportHeight - sidebarHeight - 10);
+      const maxTop = Math.max(75, viewportHeight - sidebarHeight - 10);
 
       const sanitizedLeft = Math.max(10, Math.min(leftVal, maxLeft));
-      const sanitizedTop = Math.max(10, Math.min(topVal, maxTop));
+      const sanitizedTop = Math.max(75, Math.min(topVal, maxTop));
 
       return { top: `${sanitizedTop}px`, left: `${sanitizedLeft}px` };
     }
@@ -5658,9 +5694,9 @@ document.addEventListener('DOMContentLoaded', () => {
       const sidebarWidth = sidebar.offsetWidth || 260;
       const sidebarHeight = sidebar.offsetHeight || 150;
 
-      // Limitar o arrasto dentro da tela
+      // Limitar o arrasto dentro da tela e abaixo do header
       newLeft = Math.max(10, Math.min(newLeft, viewportWidth - sidebarWidth - 10));
-      newTop = Math.max(10, Math.min(newTop, viewportHeight - sidebarHeight - 10));
+      newTop = Math.max(75, Math.min(newTop, viewportHeight - sidebarHeight - 10));
 
       sidebar.style.left = `${newLeft}px`;
       sidebar.style.top = `${newTop}px`;
