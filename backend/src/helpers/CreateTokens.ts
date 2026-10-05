@@ -3,12 +3,17 @@ import authConfig from "../config/auth";
 import User from "../models/User";
 import {
   normalizeConnectionSectors,
-  isWhatsappControlProfile
+  isWhatsappControlProfile,
+  getEffectiveUserSectors
 } from "../services/WhatsappService/WhatsappAccessPolicy";
 
 export const createAccessToken = (user: User): string => {
   const { secret, expiresIn } = authConfig;
   const isManager = isWhatsappControlProfile(user.profile);
+  const effectiveSectors = getEffectiveUserSectors({
+    profile: user.profile,
+    connectionSectors: user.connectionSectors
+  });
 
   return sign(
     {
@@ -18,7 +23,7 @@ export const createAccessToken = (user: User): string => {
       profile: user.profile,
       id: user.id,
       canAccessConnections: isManager ? true : Boolean(user.canAccessConnections),
-      connectionSectors: normalizeConnectionSectors(user.connectionSectors)
+      connectionSectors: effectiveSectors
     },
     secret,
     {

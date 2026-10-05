@@ -266,11 +266,23 @@ const Connections = () => {
 	const { user } = useContext(AuthContext);
 	const isManager = user?.profile === "whatsapp_control" || user?.profile === "whatsapp_control_high";
 	const isRestrictedUser = user?.profile !== "admin";
-	const allowedSectors = !isRestrictedUser
-		? null
-		: (isManager || user?.canAccessConnections)
-			? (user?.connectionSectors || [])
+	const allowedSectors = React.useMemo(() => {
+		if (!isRestrictedUser) return null;
+		const raw = (isManager || user?.canAccessConnections)
+			? (Array.isArray(user?.connectionSectors) && user.connectionSectors.length > 0
+				? user.connectionSectors
+				: (isManager ? ["PA FIXA 1", "PA FIXA 2"] : []))
 			: [];
+		const expanded = [];
+		raw.forEach(s => {
+			if (s === "PA FIXA") {
+				expanded.push("PA FIXA 1", "PA FIXA 2");
+			} else {
+				expanded.push(s);
+			}
+		});
+		return Array.from(new Set(expanded));
+	}, [isRestrictedUser, isManager, user?.canAccessConnections, user?.connectionSectors]);
 	const [whatsAppModalOpen, setWhatsAppModalOpen] = useState(false);
 	const [qrModalOpen, setQrModalOpen] = useState(false);
 	const [selectedWhatsApp, setSelectedWhatsApp] = useState(null);

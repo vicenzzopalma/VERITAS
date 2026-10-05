@@ -737,11 +737,23 @@ const Audit = () => {
   const isManagerHigh = user?.profile === "whatsapp_control_high";
   const canAccessAudit = user?.profile === "admin" || isManagerHigh;
   const isRestrictedUser = user?.profile !== "admin";
-  const allowedSectors = !isRestrictedUser
-    ? null
-    : isManagerHigh
-      ? (user?.connectionSectors || [])
+  const allowedSectors = useMemo(() => {
+    if (!isRestrictedUser) return null;
+    const raw = isManagerHigh
+      ? (Array.isArray(user?.connectionSectors) && user.connectionSectors.length > 0
+        ? user.connectionSectors
+        : ["PA FIXA 1", "PA FIXA 2"])
       : [];
+    const expanded = [];
+    raw.forEach((s) => {
+      if (s === "PA FIXA") {
+        expanded.push("PA FIXA 1", "PA FIXA 2");
+      } else {
+        expanded.push(s);
+      }
+    });
+    return Array.from(new Set(expanded));
+  }, [isRestrictedUser, isManagerHigh, user?.connectionSectors]);
 
   useEffect(() => {
     if (user && !canAccessAudit) {
