@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useContext } from "react";
+import React, { useState, useEffect, useRef, useContext, useMemo, useCallback } from "react";
 import {
   makeStyles,
   useTheme,
@@ -196,6 +196,29 @@ const useStyles = makeStyles((theme) => ({
     fontSize: "0.74rem",
     color: theme.palette.text.secondary,
   },
+  sectorFilter: {
+    backgroundColor: theme.palette.background.paper,
+    borderBottom: "1px solid rgba(0, 0, 0, 0.08)",
+    padding: theme.spacing(0.4, 1.5),
+    display: "flex",
+    alignItems: "center",
+    gap: theme.spacing(0.8),
+    overflowX: "auto",
+    whiteSpace: "nowrap",
+    WebkitOverflowScrolling: "touch",
+    flexShrink: 0,
+    [theme.breakpoints.down("sm")]: {
+      padding: theme.spacing(0.3, 0.8),
+      gap: theme.spacing(0.5),
+    },
+    "&::-webkit-scrollbar": {
+      height: 3,
+    },
+    "&::-webkit-scrollbar-thumb": {
+      backgroundColor: "#cbd5e1",
+      borderRadius: 2,
+    },
+  },
   deviceRibbon: {
     backgroundColor: theme.palette.background.paper,
     borderBottom: "1px solid rgba(0, 0, 0, 0.08)",
@@ -205,6 +228,7 @@ const useStyles = makeStyles((theme) => ({
     overflowX: "auto",
     whiteSpace: "nowrap",
     WebkitOverflowScrolling: "touch",
+    flexShrink: 0,
     [theme.breakpoints.down("sm")]: {
       padding: theme.spacing(0.4, 0.8),
       gap: theme.spacing(0.5),
@@ -261,11 +285,9 @@ const useStyles = makeStyles((theme) => ({
   mainContent: {
     display: "flex",
     flexGrow: 1,
-    height: "calc(100% - 76px)",
+    minHeight: 0,
+    height: "100%",
     overflow: "hidden",
-    [theme.breakpoints.down("sm")]: {
-      height: "calc(100% - 105px)",
-    },
   },
   // Painel Esquerdo: Lista de Conversas
   chatsPanel: {
@@ -670,6 +692,39 @@ const getCleanMediaName = (msg) => {
   return name;
 };
 
+const OFFICIAL_SECTORS = [
+  "Junior",
+  "Senior",
+  "Pesquisa",
+  "Comercial",
+  "Juridico",
+  "PA FIXA 1",
+  "PA FIXA 2",
+];
+
+const getSectorColor = (sector) => {
+  switch (sector) {
+    case "Senior":
+      return "#7c3aed";
+    case "Junior":
+      return "#0284c7";
+    case "Pesquisa":
+      return "#059669";
+    case "Comercial":
+      return "#d97706";
+    case "Juridico":
+      return "#dc2626";
+    case "PA FIXA 1":
+      return "#4b5563";
+    case "PA FIXA 2":
+      return "#374151";
+    case "Arquivados":
+      return "#64748b";
+    default:
+      return "#6366f1";
+  }
+};
+
 const Audit = () => {
   const classes = useStyles();
   const theme = useTheme();
@@ -706,6 +761,57 @@ const Audit = () => {
   const [devices, setDevices] = useState([]);
   const [selectedDevice, setSelectedDevice] = useState(null);
   const initialDeviceLoadedRef = useRef(false);
+
+  // Setor Selecionado (Sincronizado entre Conexões, CRM e Auditoria via veritas:selectedSector)
+  const [selectedSector, setSelectedSectorState] = useState(() => {
+    try {
+      const saved = localStorage.getItem("veritas:selectedSector");
+      return saved || "TODOS";
+    } catch (e) {
+      return "TODOS";
+    }
+  });
+
+  const setSelectedSector = useCallback((sector) => {
+    setSelectedSectorState(sector);
+    try {
+      localStorage.setItem("veritas:selectedSector", sector);
+    } catch (e) {}
+  }, []);
+
+  useEffect(() => {
+    const syncSavedSector = () => {
+      try {
+        const saved = localStorage.getItem("veritas:selectedSector");
+        if (saved && saved !== selectedSector) {
+          setSelectedSectorState(saved);
+        }
+      } catch (e) {}
+    };
+    window.addEventListener("focus", syncSavedSector);
+    window.addEventListener("storage", syncSavedSector);
+    return () => {
+      window.removeEventListener("focus", syncSavedSector);
+      window.removeEventListener("storage", syncSavedSector);
+    };
+  }, [selectedSector]);
+
+  const sectorsList = useMemo(() => {
+    const presentSectors = new Set();
+    devices.forEach((d) => {
+      if (d.sector) presentSectors.add(d.sector);
+    });
+    return Array.from(new Set([...OFFICIAL_SECTORS, ...presentSectors]));
+  }, [devices]);
+
+  const sectorCounts = useMemo(() => {
+    const counts = { TODOS: devices.length };
+    devices.forEach((d) => {
+      const sec = d.sector || "Junior";
+      counts[sec] = (counts[sec] || 0) + 1;
+    });
+    return counts;
+  }, [devices]);
 
   const handleSelectDevice = (device) => {
     if (!device) return;
@@ -786,14 +892,29 @@ const Audit = () => {
   // Drawer Lateral de Perfil do Contato (Estilo Digisac)
   const [contactDrawerOpen, setContactDrawerOpen] = useState(false);
 
-  // Filtro dinâmico da barra de smartphones por nome ou número (ex: 1827, Arthur, etc.)
-  const filteredDevices = devices.filter((device) => {
-    if (!globalSearchInput || !globalSearchInput.trim()) return true;
-    const term = globalSearchInput.trim().toLowerCase();
-    const nameMatch = device.name?.toLowerCase().includes(term);
-    const idMatch = String(device.id).includes(term);
-    return nameMatch || idMatch;
-  });
+  // Filtro dinâmico da barra de smartphones por setor e por termo de busca
+  const filteredDevices = useMemo(() => {
+    return devices.filter((device) => {
+      if (selectedSector !== "TODOS" && (device.sector || "Junior") !== selectedSector) {
+        return false;
+      }
+      if (!globalSearchInput || !globalSearchInput.trim()) return true;
+      const term = globalSearchInput.trim().toLowerCase();
+      const nameMatch = device.name?.toLowerCase().includes(term);
+      const idMatch = String(device.id).includes(term);
+      return nameMatch || idMatch;
+    });
+  }, [devices, selectedSector, globalSearchInput]);
+
+  // Se o aparelho selecionado não pertencer ao setor ativo, auto-seleciona o primeiro do setor
+  useEffect(() => {
+    if (filteredDevices.length > 0) {
+      const stillInList = filteredDevices.some((d) => d.id === selectedDevice?.id);
+      if (!stillInList) {
+        handleSelectDevice(filteredDevices[0]);
+      }
+    }
+  }, [filteredDevices, selectedDevice]);
 
   // Auto-seleciona o smartphone se a busca filtrar exatamente 1 aparelho correspondente
   useEffect(() => {
@@ -1364,7 +1485,65 @@ const Audit = () => {
         </div>
       </Paper>
 
-      {/* 2. Seletor Visual dos Celulares (Ribbon Superior) */}
+      {/* 2. Barra de Filtro de Setor Sincronizada (Audit <-> Conexões <-> CRM) */}
+      <div className={classes.sectorFilter}>
+        <Typography
+          variant="body2"
+          style={{
+            fontWeight: 800,
+            color: theme.palette.type === "dark" ? "#cbd5e1" : "#334155",
+            marginRight: 6,
+            textTransform: "uppercase",
+            fontSize: "0.68rem",
+            letterSpacing: "0.6px",
+            flexShrink: 0,
+          }}
+        >
+          Setor:
+        </Typography>
+        <Chip
+          label={`TODOS (${sectorCounts.TODOS || 0})`}
+          size="small"
+          color={selectedSector === "TODOS" ? "primary" : "default"}
+          variant={selectedSector === "TODOS" ? "default" : "outlined"}
+          onClick={() => setSelectedSector("TODOS")}
+          style={{
+            fontWeight: 700,
+            cursor: "pointer",
+            borderRadius: 6,
+            height: 24,
+            fontSize: "0.68rem",
+            flexShrink: 0,
+          }}
+        />
+        {sectorsList.map((sector) => {
+          const count = sectorCounts[sector] || 0;
+          const isSelected = selectedSector === sector;
+          const sectorColor = getSectorColor(sector);
+          return (
+            <Chip
+              key={sector}
+              label={`${sector} (${count})`}
+              size="small"
+              onClick={() => setSelectedSector(sector)}
+              variant={isSelected ? "default" : "outlined"}
+              style={{
+                fontWeight: 700,
+                cursor: "pointer",
+                borderRadius: 6,
+                height: 24,
+                fontSize: "0.68rem",
+                flexShrink: 0,
+                backgroundColor: isSelected ? sectorColor : "transparent",
+                borderColor: sectorColor,
+                color: isSelected ? "#fff" : sectorColor,
+              }}
+            />
+          );
+        })}
+      </div>
+
+      {/* 3. Seletor Visual dos Celulares (Ribbon Superior) */}
       <div className={classes.deviceRibbon}>
         {loadingDevices ? (
           <CircularProgress size={20} style={{ margin: "auto" }} />
@@ -1433,6 +1612,20 @@ const Audit = () => {
                     <Typography variant="caption" color="textSecondary">
                       {device.totalMessages || 0} msgs
                     </Typography>
+                    {device.sector && (
+                      <span
+                        style={{
+                          fontSize: "0.62rem",
+                          color: getSectorColor(device.sector),
+                          fontWeight: 700,
+                          backgroundColor: `${getSectorColor(device.sector)}15`,
+                          padding: "1px 5px",
+                          borderRadius: 4,
+                        }}
+                      >
+                        {device.sector}
+                      </span>
+                    )}
                     {device.deletedMessages > 0 && (
                       <Chip
                         size="small"

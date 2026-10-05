@@ -286,7 +286,40 @@ const Connections = () => {
 		confirmationModalInitialState
 	);
 
-	const [selectedSector, setSelectedSector] = useState("TODOS");
+	const [selectedSector, setSelectedSectorState] = useState(() => {
+		try {
+			const saved = localStorage.getItem("veritas:selectedSector");
+			return saved || "TODOS";
+		} catch (e) {
+			return "TODOS";
+		}
+	});
+
+	const setSelectedSector = useCallback((sector) => {
+		setSelectedSectorState(sector);
+		try {
+			localStorage.setItem("veritas:selectedSector", sector);
+		} catch (e) {}
+	}, []);
+
+	useEffect(() => {
+		const syncSavedSector = () => {
+			try {
+				const saved = localStorage.getItem("veritas:selectedSector");
+				if (saved && saved !== selectedSector) {
+					if (!allowedSectors || allowedSectors.includes(saved) || saved === "TODOS") {
+						setSelectedSectorState(saved);
+					}
+				}
+			} catch (e) {}
+		};
+		window.addEventListener("focus", syncSavedSector);
+		window.addEventListener("storage", syncSavedSector);
+		return () => {
+			window.removeEventListener("focus", syncSavedSector);
+			window.removeEventListener("storage", syncSavedSector);
+		};
+	}, [allowedSectors, selectedSector]);
 	const [searchParam, setSearchParam] = useState("");
 	const [crmChips, setCrmChips] = useState([]);
 	const [nowTime, setNowTime] = useState(Date.now());

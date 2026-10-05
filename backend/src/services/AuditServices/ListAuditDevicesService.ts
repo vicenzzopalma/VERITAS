@@ -13,6 +13,7 @@ export interface AuditDeviceResponse {
   id: number;
   name: string;
   status: string;
+  sector: string;
   number: string;
   isDefault: boolean;
   battery: string;
@@ -77,6 +78,7 @@ const ListAuditDevicesService = async ({ user }: Request = {}): Promise<AuditDev
       id: w.id,
       name: w.name || `WhatsApp ${w.id}`,
       status: liveStatus,
+      sector: w.sector || "Junior",
       number: (w as any).number || "",
       isDefault: w.isDefault || false,
       battery: w.battery || "",
