@@ -268,19 +268,32 @@ const Connections = () => {
 	const isRestrictedUser = user?.profile !== "admin";
 	const allowedSectors = React.useMemo(() => {
 		if (!isRestrictedUser) return null;
+		let userSectors = [];
+		if (Array.isArray(user?.connectionSectors)) {
+			userSectors = user.connectionSectors;
+		} else if (typeof user?.connectionSectors === "string") {
+			try {
+				const parsed = JSON.parse(user.connectionSectors);
+				userSectors = Array.isArray(parsed) ? parsed : [];
+			} catch {
+				userSectors = [];
+			}
+		}
 		const raw = (isManager || user?.canAccessConnections)
-			? (Array.isArray(user?.connectionSectors) && user.connectionSectors.length > 0
-				? user.connectionSectors
+			? (userSectors.length > 0
+				? userSectors
 				: (isManager ? ["PA FIXA 1", "PA FIXA 2"] : []))
 			: [];
 		const expanded = [];
-		raw.forEach(s => {
-			if (s === "PA FIXA") {
-				expanded.push("PA FIXA 1", "PA FIXA 2");
-			} else {
-				expanded.push(s);
-			}
-		});
+		if (Array.isArray(raw)) {
+			raw.forEach(s => {
+				if (s === "PA FIXA") {
+					expanded.push("PA FIXA 1", "PA FIXA 2");
+				} else {
+					expanded.push(s);
+				}
+			});
+		}
 		return Array.from(new Set(expanded));
 	}, [isRestrictedUser, isManager, user?.canAccessConnections, user?.connectionSectors]);
 	const [whatsAppModalOpen, setWhatsAppModalOpen] = useState(false);

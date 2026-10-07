@@ -739,19 +739,32 @@ const Audit = () => {
   const isRestrictedUser = user?.profile !== "admin";
   const allowedSectors = useMemo(() => {
     if (!isRestrictedUser) return null;
-    const raw = isManagerHigh
-      ? (Array.isArray(user?.connectionSectors) && user.connectionSectors.length > 0
-        ? user.connectionSectors
-        : ["PA FIXA 1", "PA FIXA 2"])
-      : [];
-    const expanded = [];
-    raw.forEach((s) => {
-      if (s === "PA FIXA") {
-        expanded.push("PA FIXA 1", "PA FIXA 2");
-      } else {
-        expanded.push(s);
+    let raw = [];
+    if (isManagerHigh) {
+      if (Array.isArray(user?.connectionSectors)) {
+        raw = user.connectionSectors;
+      } else if (typeof user?.connectionSectors === "string") {
+        try {
+          const parsed = JSON.parse(user.connectionSectors);
+          raw = Array.isArray(parsed) ? parsed : [];
+        } catch {
+          raw = [];
+        }
       }
-    });
+      if (raw.length === 0) {
+        raw = ["PA FIXA 1", "PA FIXA 2"];
+      }
+    }
+    const expanded = [];
+    if (Array.isArray(raw)) {
+      raw.forEach((s) => {
+        if (s === "PA FIXA") {
+          expanded.push("PA FIXA 1", "PA FIXA 2");
+        } else {
+          expanded.push(s);
+        }
+      });
+    }
     return Array.from(new Set(expanded));
   }, [isRestrictedUser, isManagerHigh, user?.connectionSectors]);
 
@@ -766,10 +779,6 @@ const Audit = () => {
       }
     }
   }, [user, canAccessAudit, history]);
-
-  if (user && !canAccessAudit) {
-    return null;
-  }
 
   // Helpers de Cores de Grupo
   const getParticipantColor = (name = "") => {
@@ -828,17 +837,19 @@ const Audit = () => {
   const sectorsList = useMemo(() => {
     const defaultOrder = OFFICIAL_SECTORS;
     const presentSectors = new Set();
-    devices.forEach((d) => {
-      if (d.sector) presentSectors.add(d.sector);
+    const safeDevices = Array.isArray(devices) ? devices : [];
+    safeDevices.forEach((d) => {
+      if (d && d.sector) presentSectors.add(d.sector);
     });
     const sectors = Array.from(new Set([...defaultOrder, ...presentSectors]));
     return allowedSectors ? sectors.filter((s) => allowedSectors.includes(s)) : sectors;
   }, [devices, allowedSectors]);
 
   const sectorCounts = useMemo(() => {
+    const safeDevices = Array.isArray(devices) ? devices : [];
     const visibleDevices = allowedSectors
-      ? devices.filter((d) => allowedSectors.includes(d.sector || "Junior"))
-      : devices;
+      ? safeDevices.filter((d) => allowedSectors.includes(d.sector || "Junior"))
+      : safeDevices;
     const counts = { TODOS: visibleDevices.length };
     visibleDevices.forEach((d) => {
       const sec = d.sector || "Junior";
@@ -928,6 +939,7 @@ const Audit = () => {
 
   // Filtro dinâmico da barra de smartphones por setor e por termo de busca
   const filteredDevices = useMemo(() => {
+    if (!Array.isArray(devices)) return [];
     return devices.filter((device) => {
       const devSector = device.sector || "Junior";
       if (allowedSectors && !allowedSectors.includes(devSector)) {
@@ -1069,25 +1081,26 @@ const Audit = () => {
     if (isInitial) setLoadingDevices(true);
     try {
       const { data } = await api.get("/audit/devices");
-      setDevices(data);
-      if (data.length > 0) {
+      const list = Array.isArray(data) ? data : [];
+      setDevices(list);
+      if (list.length > 0) {
         if (!initialDeviceLoadedRef.current) {
           initialDeviceLoadedRef.current = true;
           const queryParams = new URLSearchParams(location.search);
           const targetWaId = queryParams.get("whatsappId");
           if (targetWaId) {
-            const found = data.find((d) => String(d.id) === String(targetWaId));
+            const found = list.find((d) => String(d.id) === String(targetWaId));
             if (found) {
               setSelectedDevice(found);
               return;
             }
           }
-          setSelectedDevice(data[0]);
+          setSelectedDevice(list[0]);
         } else {
           // Em sincronizações em background (polling de 45s / websocket), preserva o aparelho que o operador está auditando
           setSelectedDevice((prev) => {
-            if (!prev) return data[0];
-            const updated = data.find((d) => d.id === prev.id);
+            if (!prev) return list[0];
+            const updated = list.find((d) => d.id === prev.id);
             return updated || prev;
           });
         }
@@ -1103,13 +1116,13 @@ const Audit = () => {
   useEffect(() => {
     const queryParams = new URLSearchParams(location.search);
     const targetWaId = queryParams.get("whatsappId");
-    if (targetWaId && devices.length > 0) {
+    if (targetWaId && Array.isArray(devices) && devices.length > 0) {
       const found = devices.find((d) => String(d.id) === String(targetWaId));
       if (found) {
         setSelectedDevice((prev) => (prev?.id === found.id ? prev : found));
       }
     }
-  }, [location.search]);
+  }, [location.search, devices]);
 
   useEffect(() => {
     fetchDevices(true);
@@ -1125,26 +1138,28 @@ const Audit = () => {
     socket.on("whatsapp", (data) => {
       if (data.action === "update" && data.whatsapp) {
         setDevices((prev) => {
-          const index = prev.findIndex((d) => d.id === data.whatsapp.id);
+          const safePrev = Array.isArray(prev) ? prev : [];
+          const index = safePrev.findIndex((d) => d.id === data.whatsapp.id);
           if (index !== -1) {
-            const copy = [...prev];
+            const copy = [...safePrev];
             copy[index] = { ...copy[index], ...data.whatsapp };
             return copy;
           }
-          return prev;
+          return [...safePrev, data.whatsapp];
         });
       }
       if (data.action === "delete") {
-        setDevices((prev) => prev.filter((d) => d.id !== data.whatsappId));
+        setDevices((prev) => (Array.isArray(prev) ? prev.filter((d) => d.id !== data.whatsappId) : []));
       }
     });
 
     socket.on("whatsappSession", (data) => {
       if (data.action === "update" && data.session) {
         setDevices((prev) => {
-          const index = prev.findIndex((d) => d.id === data.session.id);
+          const safePrev = Array.isArray(prev) ? prev : [];
+          const index = safePrev.findIndex((d) => d.id === data.session.id);
           if (index !== -1) {
-            const copy = [...prev];
+            const copy = [...safePrev];
             copy[index] = {
               ...copy[index],
               status: data.session.status,
@@ -1153,7 +1168,7 @@ const Audit = () => {
             };
             return copy;
           }
-          return prev;
+          return safePrev;
         });
       }
     });
@@ -1328,8 +1343,13 @@ const Audit = () => {
   };
 
   // Totais agregados
-  const totalArchived = devices.reduce((acc, d) => acc + (d.totalMessages || 0), 0);
-  const totalDeletedCount = devices.reduce((acc, d) => acc + (d.deletedMessages || 0), 0);
+  const safeTotalDevices = Array.isArray(devices) ? devices : [];
+  const totalArchived = safeTotalDevices.reduce((acc, d) => acc + (d.totalMessages || 0), 0);
+  const totalDeletedCount = safeTotalDevices.reduce((acc, d) => acc + (d.deletedMessages || 0), 0);
+
+  if (user && !canAccessAudit) {
+    return null;
+  }
 
   return (
     <div className={classes.root}>

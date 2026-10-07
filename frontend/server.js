@@ -214,11 +214,23 @@ const server = http.createServer((req, res) => {
         return;
     }
 
-    // 3. Se for navegação direta de página no navegador (HTML / SPA), serve index.html
-    const acceptsHtml = req.headers.accept && req.headers.accept.includes("text/html");
-    const isSpaRoute = /^\/(login|signup|audit|tickets|live|whatsapp-control|connections|contacts|users|quickanswers|settings|queues)($|\/)/i.test(parsedUrl);
+    // 3. Identificar se é chamada de API ou arquivo exclusivo do Backend
+    const isBackendApiRoute = 
+        parsedUrl === "/health" ||
+        parsedUrl.startsWith("/auth/") ||
+        parsedUrl.startsWith("/api/") ||
+        parsedUrl.startsWith("/public/") ||
+        parsedUrl.startsWith("/socket.io/") ||
+        parsedUrl.startsWith("/audit/") ||
+        parsedUrl.startsWith("/whatsapp") ||
+        Boolean(req.headers.authorization) ||
+        (req.headers.accept && req.headers.accept.includes("application/json") && !req.headers.accept.includes("text/html"));
 
-    if ((req.method === "GET" || req.method === "HEAD") && (parsedUrl === "/" || parsedUrl === "/index.html" || isSpaRoute || (acceptsHtml && !isBackendFileOrRaw))) {
+    // 4. Se for navegação direta de página no navegador (HTML / SPA), serve index.html
+    const acceptsHtml = req.headers.accept && req.headers.accept.includes("text/html");
+    const isExplicitSpaPage = parsedUrl === "/login" || parsedUrl === "/signup";
+
+    if ((req.method === "GET" || req.method === "HEAD") && !isBackendApiRoute && (parsedUrl === "/" || parsedUrl === "/index.html" || isExplicitSpaPage || (acceptsHtml && !isBackendFileOrRaw))) {
         const indexPath = path.join(BUILD_DIR, "index.html");
         if (fs.existsSync(indexPath)) {
             return sendCompressed(req, res, indexPath, "text/html", "no-cache, no-store, must-revalidate");
