@@ -188,6 +188,16 @@ const server = http.createServer((req, res) => {
             crmRes.pipe(res, { end: true });
         });
 
+        crmReq.setTimeout(45000, () => {
+            crmReq.destroy(new Error("Timeout de resposta do CRM"));
+        });
+
+        req.on("close", () => {
+            if (!res.writableEnded) {
+                crmReq.destroy();
+            }
+        });
+
         crmReq.on("error", (err) => {
             console.error("Erro no Proxy do Whatsapp Control (CRM):", err.message);
             if (!res.headersSent) {
@@ -214,8 +224,6 @@ const server = http.createServer((req, res) => {
         }
     }
 
-    
-
     // 4. Chamadas de API / Backend (REST, AJAX Fetch, WebSocket, Arquivos Públicos)
     const proxyHeaders = { ...req.headers };
     proxyHeaders.host = `127.0.0.1:${BACKEND_PORT}`;
@@ -230,6 +238,17 @@ const server = http.createServer((req, res) => {
     }, (proxyRes) => {
         res.writeHead(proxyRes.statusCode, proxyRes.headers);
         proxyRes.pipe(res, { end: true });
+    });
+
+    const isHealthCheck = parsedUrl === "/health";
+    proxyReq.setTimeout(isHealthCheck ? 6000 : 60000, () => {
+        proxyReq.destroy(new Error("Timeout de comunicação com o backend"));
+    });
+
+    req.on("close", () => {
+        if (!res.writableEnded) {
+            proxyReq.destroy();
+        }
     });
 
     proxyReq.on("error", (err) => {
@@ -248,10 +267,8 @@ const server = http.createServer((req, res) => {
     return;
 });
 
-// Proxy WebSocket (Socket.io) com Túnel TCP Transparente de Ultra Baixa Latência
+// Proxy WebSocket (Socket.io) com Túnel TCP Transparente e Limpeza Rigorosa de Recursos
 server.on("upgrade", (req, socket, head) => {
-    socket.on("error", () => socket.destroy());
-
     const targetPort = req.url.startsWith("/socket.io") ? BACKEND_PORT : CRM_PORT;
     const proxy = net.connect(targetPort, "127.0.0.1", () => {
         proxy.write(`${req.method} ${req.url} HTTP/1.1\r\n`);
@@ -270,7 +287,18 @@ server.on("upgrade", (req, socket, head) => {
         socket.pipe(proxy);
     });
 
-    proxy.on("error", () => socket.destroy());
+    const cleanup = () => {
+        if (!proxy.destroyed) proxy.destroy();
+        if (!socket.destroyed) socket.destroy();
+    };
+
+    socket.on("error", cleanup);
+    socket.on("close", cleanup);
+    socket.on("end", cleanup);
+
+    proxy.on("error", cleanup);
+    proxy.on("close", cleanup);
+    proxy.on("end", cleanup);
 });
 
 server.listen(PORT, "0.0.0.0", () => {

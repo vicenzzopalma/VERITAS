@@ -32,10 +32,6 @@ const allowedOrigins = Array.from(new Set([
   ...configuredOrigins
 ]));
 
-app.get("/health", (_req: Request, res: Response) => {
-  return res.status(200).json({ status: "ok" });
-});
-
 // 1. Security Headers com Helmet e Content Security Policy (CSP) sob medida
 app.use(
   helmet({
@@ -69,13 +65,17 @@ app.use(
     origin: (origin, callback) => {
       if (!origin || allowedOrigins.includes(origin)) {
         callback(null, true);
-        return;
+      } else {
+        callback(new Error("Origin is not allowed by CORS"));
       }
-
-      callback(new Error("Origin is not allowed by CORS"));
     }
   })
 );
+
+// Health check para monitoramento de disponibilidade e tela de manutenção
+app.get("/health", (_req: Request, res: Response) => {
+  return res.status(200).json({ status: "ok" });
+});
 
 // 3. Rate Limiter Global com Detecção de IP Real
 app.use(globalLimiter);
