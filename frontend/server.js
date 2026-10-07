@@ -216,8 +216,9 @@ const server = http.createServer((req, res) => {
 
     // 3. Se for navegação direta de página no navegador (HTML / SPA), serve index.html
     const acceptsHtml = req.headers.accept && req.headers.accept.includes("text/html");
+    const isSpaRoute = /^\/(login|signup|audit|tickets|live|whatsapp-control|connections|contacts|users|quickanswers|settings|queues)($|\/)/i.test(parsedUrl);
 
-    if ((req.method === "GET" || req.method === "HEAD") && (parsedUrl === "/" || parsedUrl === "/index.html" || (acceptsHtml && !isBackendFileOrRaw))) {
+    if ((req.method === "GET" || req.method === "HEAD") && (parsedUrl === "/" || parsedUrl === "/index.html" || isSpaRoute || (acceptsHtml && !isBackendFileOrRaw))) {
         const indexPath = path.join(BUILD_DIR, "index.html");
         if (fs.existsSync(indexPath)) {
             return sendCompressed(req, res, indexPath, "text/html", "no-cache, no-store, must-revalidate");
