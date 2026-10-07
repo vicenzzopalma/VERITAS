@@ -18,6 +18,7 @@ import { publicMediaHandler } from "./utils/publicMediaHandler";
 Sentry.init({ dsn: process.env.SENTRY_DSN });
 
 const app = express();
+app.set("trust proxy", true);
 const configuredOrigins = (process.env.CORS_ORIGINS || process.env.FRONTEND_URL || "")
   .split(",")
   .map(origin => origin.trim())
@@ -103,10 +104,11 @@ app.use(routes);
 app.use(Sentry.Handlers.errorHandler());
 
 // 7. Tratamento Centralizado de Erros com Sanitização Rigorosa
-app.use(async (err: Error, req: Request, res: Response, _: NextFunction) => {
-  if (err instanceof AppError) {
-    logger.warn(`[AppError ${err.statusCode}]: ${err.message}`);
-    return res.status(err.statusCode).json({ error: err.message });
+app.use(async (err: any, req: Request, res: Response, _: NextFunction) => {
+  if (err instanceof AppError || (err && typeof err.statusCode === "number" && err.statusCode < 500)) {
+    const statusCode = err.statusCode || 400;
+    logger.warn(`[AppError ${statusCode}]: ${err.message}`);
+    return res.status(statusCode).json({ error: err.message });
   }
 
   logger.error(err);

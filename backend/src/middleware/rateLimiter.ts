@@ -29,12 +29,13 @@ export const globalLimiter = rateLimit({
   }
 });
 
-// Rate Limiter Estrito Anti-Brute Force para Login: 15 tentativas a cada 15 minutos por IP real
+// Rate Limiter Estrito Anti-Brute Force para Login: 30 tentativas falhas a cada 15 minutos por IP real
 export const loginLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: 15,
+  max: 30,
   standardHeaders: true,
   legacyHeaders: false,
+  skipSuccessfulRequests: true,
   keyGenerator: (req: Request) => getClientIp(req),
   message: {
     error: "Muitas tentativas de autenticação falhas. Por motivos de segurança, tente novamente em 15 minutos."

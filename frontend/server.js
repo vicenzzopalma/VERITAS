@@ -192,7 +192,7 @@ const server = http.createServer((req, res) => {
             crmReq.destroy(new Error("Timeout de resposta do CRM"));
         });
 
-        req.on("close", () => {
+        res.on("close", () => {
             if (!res.writableEnded) {
                 crmReq.destroy();
             }
@@ -214,7 +214,29 @@ const server = http.createServer((req, res) => {
         return;
     }
 
-    // 3. Identificar se é chamada de API ou arquivo exclusivo do Backend
+    // 3. Rotas SPA explícitas que SEMPRE retornam index.html em requisições GET
+    const SPA_PAGES = new Set([
+        "/",
+        "/index.html",
+        "/login",
+        "/signup",
+        "/audit",
+        "/whatsapp-control",
+        "/tickets",
+        "/live",
+        "/connections",
+        "/contacts",
+        "/users",
+        "/quickAnswers",
+        "/Settings",
+        "/Queues"
+    ]);
+
+    const isExplicitSpaRoute = SPA_PAGES.has(parsedUrl) || 
+                               parsedUrl.startsWith("/tickets/") || 
+                               parsedUrl.startsWith("/live/");
+
+    // 4. Identificar se é chamada de API ou arquivo exclusivo do Backend
     const isBackendApiRoute = 
         parsedUrl === "/health" ||
         parsedUrl.startsWith("/auth/") ||
@@ -222,24 +244,26 @@ const server = http.createServer((req, res) => {
         parsedUrl.startsWith("/public/") ||
         parsedUrl.startsWith("/socket.io/") ||
         parsedUrl.startsWith("/audit/") ||
-        parsedUrl.startsWith("/whatsapp") ||
+        (parsedUrl.startsWith("/whatsapp") && parsedUrl !== "/whatsapp-control") ||
         Boolean(req.headers.authorization) ||
         (req.headers.accept && req.headers.accept.includes("application/json") && !req.headers.accept.includes("text/html"));
 
-    // 4. Se for navegação direta de página no navegador (HTML / SPA), serve index.html
+    // 5. Se for navegação direta de página no navegador (HTML / SPA), serve index.html
     const acceptsHtml = req.headers.accept && req.headers.accept.includes("text/html");
-    const isExplicitSpaPage = parsedUrl === "/login" || parsedUrl === "/signup";
 
-    if ((req.method === "GET" || req.method === "HEAD") && !isBackendApiRoute && (parsedUrl === "/" || parsedUrl === "/index.html" || isExplicitSpaPage || (acceptsHtml && !isBackendFileOrRaw))) {
+    if ((req.method === "GET" || req.method === "HEAD") && !isBackendApiRoute && (isExplicitSpaRoute || (acceptsHtml && !isBackendFileOrRaw))) {
         const indexPath = path.join(BUILD_DIR, "index.html");
         if (fs.existsSync(indexPath)) {
             return sendCompressed(req, res, indexPath, "text/html", "no-cache, no-store, must-revalidate");
         }
     }
 
-    // 4. Chamadas de API / Backend (REST, AJAX Fetch, WebSocket, Arquivos Públicos)
+    // 6. Chamadas de API / Backend (REST, AJAX Fetch, WebSocket, Arquivos Públicos)
     const proxyHeaders = { ...req.headers };
     proxyHeaders.host = `127.0.0.1:${BACKEND_PORT}`;
+    if (!proxyHeaders["x-forwarded-for"] && req.socket.remoteAddress) {
+        proxyHeaders["x-forwarded-for"] = req.socket.remoteAddress;
+    }
 
     const proxyReq = http.request({
         hostname: "127.0.0.1",
@@ -258,7 +282,7 @@ const server = http.createServer((req, res) => {
         proxyReq.destroy(new Error("Timeout de comunicação com o backend"));
     });
 
-    req.on("close", () => {
+    res.on("close", () => {
         if (!res.writableEnded) {
             proxyReq.destroy();
         }
