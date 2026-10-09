@@ -5,6 +5,7 @@ import Ticket from "../../models/Ticket";
 import SendWhatsAppMessage from "../WbotServices/SendWhatsAppMessage";
 import ShowWhatsAppService from "../WhatsappService/ShowWhatsAppService";
 import ShowTicketService from "./ShowTicketService";
+import { assertTicketAccess } from "./TicketAccessPolicy";
 
 interface TicketData {
   status?: string;
@@ -16,6 +17,7 @@ interface TicketData {
 interface Request {
   ticketData: TicketData;
   ticketId: string | number;
+  requestUserId?: string | number;
 }
 
 interface Response {
@@ -26,11 +28,13 @@ interface Response {
 
 const UpdateTicketService = async ({
   ticketData,
-  ticketId
+  ticketId,
+  requestUserId
 }: Request): Promise<Response> => {
   const { status, userId, queueId, whatsappId } = ticketData;
 
   const ticket = await ShowTicketService(ticketId);
+  if (requestUserId) await assertTicketAccess(ticket, requestUserId, true);
   await SetTicketMessagesAsRead(ticket);
 
   if (whatsappId && ticket.whatsappId !== whatsappId) {

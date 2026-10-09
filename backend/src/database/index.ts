@@ -12,6 +12,7 @@ import UserQueue from "../models/UserQueue";
 import QuickAnswer from "../models/QuickAnswer";
 import WppKey from "../models/WppKey";
 import LidMapping from "../models/LidMapping";
+import UserSectorPermission from "../models/UserSectorPermission";
 
 // eslint-disable-next-line
 const dbConfig = require("../config/database");
@@ -33,6 +34,7 @@ const models = [
   QuickAnswer,
   WppKey,
   LidMapping
+  ,UserSectorPermission
 ];
 
 sequelize.addModels(models);

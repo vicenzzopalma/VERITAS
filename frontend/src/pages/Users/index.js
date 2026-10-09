@@ -278,8 +278,12 @@ const Users = () => {
                   <TableCell align="center">{user.name}</TableCell>
                   <TableCell align="center">{user.email}</TableCell>
                   <TableCell align="center">
-                    {user.profile === "admin"
-                      ? "Admin"
+                    {user.profile === "admin_master"
+                      ? "Administrador Master"
+                      : user.profile === "admin_operational"
+                      ? "Administrador Operacional"
+                      : user.profile === "admin"
+                      ? "Administrador Operacional"
                       : user.profile === "operator"
                       ? "Operador WhatsApp"
                       : user.profile === "whatsapp_control"

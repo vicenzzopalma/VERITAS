@@ -4,7 +4,7 @@ import ListAuditChatsService from "../services/AuditServices/ListAuditChatsServi
 import ListAuditMessagesService from "../services/AuditServices/ListAuditMessagesService";
 import ExportAuditService from "../services/AuditServices/ExportAuditService";
 import SearchGlobalAuditService from "../services/AuditServices/SearchGlobalAuditService";
-import { canAccessWhatsapp } from "../services/WhatsappService/WhatsappAccessPolicy";
+import { canAccessWhatsapp, canConfigureSector, isMasterAdmin } from "../services/WhatsappService/WhatsappAccessPolicy";
 import Whatsapp from "../models/Whatsapp";
 import Ticket from "../models/Ticket";
 import AppError from "../errors/AppError";
@@ -146,6 +146,7 @@ export const exportAudit = async (req: Request, res: Response): Promise<void> =>
     if (!whatsapp || !canAccessWhatsapp(req.user, whatsapp)) {
       throw new AppError("ERR_NO_PERMISSION", 403);
     }
+    if (!canConfigureSector(req.user, whatsapp.sector || "")) throw new AppError("ERR_NO_PERMISSION", 403);
   } else if (ticketId) {
     const ticket = await Ticket.findByPk(ticketId, {
       include: [{ model: Whatsapp, as: "whatsapp" }]
@@ -153,7 +154,8 @@ export const exportAudit = async (req: Request, res: Response): Promise<void> =>
     if (!ticket || !ticket.whatsapp || !canAccessWhatsapp(req.user, ticket.whatsapp)) {
       throw new AppError("ERR_NO_PERMISSION", 403);
     }
-  } else if (String(req.user?.profile || "").toLowerCase() !== "admin") {
+    if (!canConfigureSector(req.user, ticket.whatsapp.sector || "")) throw new AppError("ERR_NO_PERMISSION", 403);
+  } else if (!isMasterAdmin(req.user) && String(req.user?.profile || "").toLowerCase() !== "admin") {
     throw new AppError("ERR_NO_PERMISSION", 403);
   }
 

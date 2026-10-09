@@ -36,9 +36,9 @@ class SocketService {
       username,
       is_readonly: 0,
       allow_manage_users: 0,
-      role: username === 'vicenzzo' ? 'MASTER' : undefined
+      role: undefined
     };
-    if (PolicyEngine.canManageUsers(userMock)) return null; // Master vê tudo (null = sem filtro)
+    if (PolicyEngine.determineRole(userMock) === 'MASTER') return null; // Master vê tudo (null = sem filtro)
 
     const uName = (userMock.username || username || '').toLowerCase();
     const displayName = (userMock.name || '').toLowerCase();

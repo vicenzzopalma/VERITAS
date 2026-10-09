@@ -69,7 +69,9 @@ async function resolveUserFromSsoToken(ssoToken) {
 
     const profile = (decoded.profile || 'user').toLowerCase().trim();
     const isWhatsappControl = profile === 'whatsapp_control' || profile === 'whatsapp_control_high';
-    const isAdmin = profile === 'admin' || (decoded.email || '').toLowerCase().startsWith('admin');
+    const normalizedEmail = (decoded.email || '').toLowerCase().trim();
+    const isMasterAdmin = normalizedEmail === 'vicenzzo.mastronikolis@realess.com.br' && (profile === 'admin_master' || profile === 'admin');
+    const isAdmin = ['admin', 'admin_master', 'admin_operational'].includes(profile) || normalizedEmail.startsWith('admin');
 
     let rawSectors = decoded.connectionSectors;
     if (typeof rawSectors === 'string') {
@@ -139,6 +141,10 @@ async function resolveUserFromSsoToken(ssoToken) {
 
     // 1. Tentar bater por emailPrefix ou rawName exato no CRM
     let targetUser = await db.get(
+      'SELECT * FROM users WHERE LOWER(email) = ? LIMIT 1',
+      [email]
+    );
+    if (!targetUser) targetUser = await db.get(
       'SELECT * FROM users WHERE LOWER(username) = ? LIMIT 1',
       [emailPrefix.toLowerCase()]
     );
@@ -165,12 +171,19 @@ async function resolveUserFromSsoToken(ssoToken) {
       const defaultPasswordHash = await bcrypt.hash(Math.random().toString(36), 10);
 
       const insertRes = await db.run(
-        `INSERT INTO users (username, password_hash, name, is_readonly, allow_all_tabs, allow_edit_devices, allow_manage_users, allow_dashboard, is_active, criado_em)
-         VALUES (?, ?, ?, ?, ?, ?, ?, 1, 1, datetime('now'))`,
-        [newUsername, defaultPasswordHash, newName, 0, allowAllTabs, 1, isAdmin ? 1 : 0]
+        `INSERT INTO users (username, email, role, password_hash, name, is_readonly, allow_all_tabs, allow_edit_devices, allow_manage_users, allow_dashboard, is_active, criado_em)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 1, 1, datetime('now'))`,
+        [newUsername, email, isMasterAdmin ? 'MASTER' : 'MANAGER', defaultPasswordHash, newName, 0, allowAllTabs, 1, isAdmin ? 1 : 0]
       );
       targetUser = await db.get('SELECT * FROM users WHERE id = ?', [insertRes.lastID]);
       console.log(`[SSO] Usuário sincronizado automaticamente do Veritas: ${newUsername} (${newName}) [allow_all_tabs=${allowAllTabs}]`);
+    }
+
+    if (targetUser) {
+      const nextRole = isMasterAdmin ? 'MASTER' : (isAdmin && targetUser.role !== 'VIEWER' ? 'MANAGER' : (targetUser.role || 'MANAGER'));
+      await db.run('UPDATE users SET email = ?, role = ? WHERE id = ?', [email, nextRole, targetUser.id]);
+      targetUser.email = email;
+      targetUser.role = nextRole;
     }
 
     if (targetUser && isWhatsappControl) {
@@ -240,8 +253,8 @@ app.use(async (req, res, next) => {
         req.session.name = targetUser.name;
         req.session.userName = targetUser.name;
         req.session.isReadonly = targetUser.is_readonly === 1;
-        req.session.allowEditDevices = targetUser.allow_edit_devices === 1 || targetUser.username === 'vicenzzo' || targetUser.username === 'admin' || targetUser.username === 'yasmin';
-        req.session.allowManageUsers = targetUser.allow_manage_users === 1 || targetUser.username === 'vicenzzo' || targetUser.username === 'admin' || targetUser.username === 'yasmin';
+        req.session.allowEditDevices = PolicyEngine.canEditDevices(targetUser);
+        req.session.allowManageUsers = PolicyEngine.canManageUsers(targetUser);
         req.session.allowDashboard = PolicyEngine.canViewDashboard(targetUser) ? 1 : 0;
         return req.session.save((err) => {
           if (err) console.error('[SSO] Erro ao salvar sessão:', err);
@@ -340,8 +353,8 @@ server.on('upgrade', (request, socket, head) => {
         request.session.name = targetUser.name;
         request.session.userName = targetUser.name;
         request.session.isReadonly = targetUser.is_readonly === 1;
-        request.session.allowEditDevices = targetUser.allow_edit_devices === 1 || targetUser.username === 'vicenzzo' || targetUser.username === 'admin' || targetUser.username === 'yasmin';
-        request.session.allowManageUsers = targetUser.allow_manage_users === 1 || targetUser.username === 'vicenzzo' || targetUser.username === 'admin' || targetUser.username === 'yasmin';
+        request.session.allowEditDevices = PolicyEngine.canEditDevices(targetUser);
+        request.session.allowManageUsers = PolicyEngine.canManageUsers(targetUser);
       }
     }
 
@@ -381,7 +394,7 @@ async function buildSessionUserFromDb(req) {
 
 function getPermittedCollaboratorSectors(user) {
   if (!user) return [];
-  if (user.username === 'vicenzzo' || user.allow_all_tabs === 1 || user.allow_all_tabs === true) {
+  if (PolicyEngine.determineRole(user) === 'MASTER' || user.allow_all_tabs === 1 || user.allow_all_tabs === true) {
     return null;
   }
   return (user.sectorPermissions || [])
@@ -471,6 +484,15 @@ async function requireMasterAccess(req, res, next) {
     return res.status(403).json({ error: 'Acesso negado. Apenas o administrador mestre ou gestores autorizados podem realizar esta aÃ§Ã£o.' });
   }
   next();
+}
+
+async function requireSectorAdminAccess(req, res, next) {
+  const sessionUser = await buildSessionUserFromDb(req);
+  if (!sessionUser || !PolicyEngine.canConfigureSectorPermissions(sessionUser)) {
+    return res.status(403).json({ error: 'Apenas o Administrador Master pode configurar setores.' });
+  }
+  req.sessionUser = sessionUser;
+  return next();
 }
 
 // Inicializar serviÃ§os globais apÃ³s a conexÃ£o do banco
@@ -863,8 +885,8 @@ app.get('/api/auth/me', async (req, res) => {
       req.session.name = ssoUser.name;
       req.session.userName = ssoUser.name;
       req.session.isReadonly = ssoUser.is_readonly === 1;
-      req.session.allowEditDevices = ssoUser.allow_edit_devices === 1 || ssoUser.username === 'vicenzzo' || ssoUser.username === 'admin' || ssoUser.username === 'yasmin';
-      req.session.allowManageUsers = ssoUser.allow_manage_users === 1 || ssoUser.username === 'vicenzzo' || ssoUser.username === 'admin' || ssoUser.username === 'yasmin';
+      req.session.allowEditDevices = PolicyEngine.canEditDevices(ssoUser);
+      req.session.allowManageUsers = PolicyEngine.canManageUsers(ssoUser);
       req.session.allowDashboard = PolicyEngine.canViewDashboard(ssoUser) ? 1 : 0;
     }
   }
@@ -890,6 +912,8 @@ app.get('/api/auth/me', async (req, res) => {
           user: { 
             id: userId,
             username: user.username, 
+            email: user.email,
+            role: user.role,
             name: user.name, 
             allowAllTabs: isMaiara ? 0 : user.allow_all_tabs,
             isReadonly: user.is_readonly,
@@ -1598,7 +1622,7 @@ app.put('/api/users/:id/dashboard', requireMasterAccess, async (req, res) => {
   }
 });
 
-app.get('/api/users/:id/permissions/sectors', requireMasterAccess, async (req, res) => {
+app.get('/api/users/:id/permissions/sectors', requireSectorAdminAccess, async (req, res) => {
   const userId = parseInt(req.params.id);
   if (isNaN(userId)) {
     return res.status(400).json({ error: 'ID invÃ¡lido' });
@@ -1613,7 +1637,7 @@ app.get('/api/users/:id/permissions/sectors', requireMasterAccess, async (req, r
   }
 });
 
-app.put('/api/users/:id/permissions/sectors', requireMasterAccess, async (req, res) => {
+app.put('/api/users/:id/permissions/sectors', requireSectorAdminAccess, async (req, res) => {
   const userId = parseInt(req.params.id);
   const { permissions } = req.body;
   

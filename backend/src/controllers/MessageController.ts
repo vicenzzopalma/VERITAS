@@ -11,6 +11,9 @@ import ShowTicketService from "../services/TicketServices/ShowTicketService";
 import DeleteWhatsAppMessage from "../services/WbotServices/DeleteWhatsAppMessage";
 import SendWhatsAppMedia from "../services/WbotServices/SendWhatsAppMedia";
 import SendWhatsAppMessage from "../services/WbotServices/SendWhatsAppMessage";
+import { assertTicketAccess } from "../services/TicketServices/TicketAccessPolicy";
+import Ticket from "../models/Ticket";
+import Whatsapp from "../models/Whatsapp";
 
 type IndexQuery = {
   pageNumber: string;
@@ -44,6 +47,7 @@ export const store = async (req: Request, res: Response): Promise<Response> => {
   const medias = req.files as Express.Multer.File[];
 
   const ticket = await ShowTicketService(ticketId, req.user?.id);
+  await assertTicketAccess(ticket, req.user?.id, true);
 
   SetTicketMessagesAsRead(ticket);
 
@@ -73,6 +77,12 @@ export const remove = async (
   res: Response
 ): Promise<Response> => {
   const { messageId } = req.params;
+
+  const currentMessage = await Message.findByPk(messageId, {
+    include: [{ model: Ticket, as: "ticket", include: [{ model: Whatsapp, as: "whatsapp" }] }]
+  });
+  if (!currentMessage?.ticket) throw new AppError("ERR_NO_MESSAGE_FOUND", 404);
+  await assertTicketAccess(currentMessage.ticket, req.user?.id, true);
 
   const message = await DeleteWhatsAppMessage(messageId);
 

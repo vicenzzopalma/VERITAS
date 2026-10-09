@@ -109,11 +109,15 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
 
+  function isMasterUser(user) {
+    return Boolean(user && user.role === 'MASTER');
+  }
+
   function isRestrictedPaFixaUser(user) {
     if (!user) return false;
     const u = (user.username || '').toLowerCase();
     const n = (user.name || '').toLowerCase();
-    if (u === 'vicenzzo' || u === 'admin') return false;
+    if (isMasterUser(user)) return false;
     if (u.includes('maiara') || n.includes('maiara')) return true;
     const perms = Array.isArray(user.sectorPermissions) ? user.sectorPermissions : [];
     if (perms.length > 0) {
@@ -137,7 +141,7 @@ document.addEventListener('DOMContentLoaded', () => {
       if (targetSubSector !== 'PA FIXA 1' && targetSubSector !== 'PA FIXA 2') {
         targetSubSector = 'PA FIXA 1';
       }
-    } else if (currentUser && currentUser.username !== 'vicenzzo' && currentUser.allowAllTabs !== 1 && currentUser.allowAllTabs !== true) {
+    } else if (currentUser && !isMasterUser(currentUser) && currentUser.allowAllTabs !== 1 && currentUser.allowAllTabs !== true) {
       const perms = Array.isArray(currentUser.sectorPermissions) ? currentUser.sectorPermissions : [];
       if (targetSector === 'Todos') {
         targetSector = 'Junior';
@@ -466,7 +470,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   function canConfigureSector(sector) {
     if (!currentUser) return false;
-    if (currentUser.username === 'vicenzzo') return true;
+    if (isMasterUser(currentUser)) return true;
     if (currentUser.isReadonly === 1 || currentUser.isReadonly === true) return false;
     if (currentUser.allowAllTabs === 1 || currentUser.allowAllTabs === true) return true;
 
@@ -480,7 +484,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   function canViewAnySector() {
     if (!currentUser) return false;
-    if (currentUser.username === 'vicenzzo') return true;
+    if (isMasterUser(currentUser)) return true;
     
     if (currentUser.sectorPermissions && currentUser.sectorPermissions.length > 0) {
       return currentUser.sectorPermissions.some(p => p.can_view === 1);
@@ -497,7 +501,7 @@ document.addEventListener('DOMContentLoaded', () => {
       currentUser.allowAllTabs = 0;
     }
 
-    const hasGlobalTabs = !isPaFixaOnly && currentUser && (currentUser.username === 'vicenzzo' || currentUser.allowAllTabs === 1 || currentUser.allowAllTabs === true);
+    const hasGlobalTabs = !isPaFixaOnly && currentUser && (isMasterUser(currentUser) || currentUser.allowAllTabs === 1 || currentUser.allowAllTabs === true);
 
     if (hasGlobalTabs) {
       tabAll.style.display = 'inline-block';
@@ -603,7 +607,7 @@ document.addEventListener('DOMContentLoaded', () => {
       const btnOpenLogs = document.getElementById('btn-open-logs');
       
       const canConfigAtLeastOne = availableSectors.some(sec => canConfigureSector(sec));
-      const allowEdit = currentUser.username === 'vicenzzo' || currentUser.allowEditDevices === true || currentUser.allowEditDevices === 1;
+      const allowEdit = isMasterUser(currentUser) || currentUser.allowEditDevices === true || currentUser.allowEditDevices === 1;
       
       if (isReadonly || !canConfigAtLeastOne || !allowEdit) {
         if (btnOpenAddDevice) btnOpenAddDevice.style.display = 'none';
@@ -627,7 +631,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         if (userDisplayName) {
           userDisplayName.classList.add('admin-user-link');
-          const canManage = currentUser.username === 'vicenzzo' || currentUser.allowManageUsers === true || currentUser.allowManageUsers === 1;
+          const canManage = isMasterUser(currentUser) || currentUser.allowManageUsers === true || currentUser.allowManageUsers === 1;
           userDisplayName.title = canManage 
             ? 'Clique para gerenciar gestores e colaboradores' 
             : 'Clique para gerenciar colaboradores';
@@ -662,7 +666,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
       if (!changed) return;
 
-      const wasAbleToManageUsers = currentUser.username === 'vicenzzo' || currentUser.allowManageUsers === 1 || currentUser.allowManageUsers === true;
+      const wasAbleToManageUsers = isMasterUser(currentUser) || currentUser.allowManageUsers === 1 || currentUser.allowManageUsers === true;
       currentUser = serverUser;
 
       updateAllTabsVisibility();
@@ -670,7 +674,7 @@ document.addEventListener('DOMContentLoaded', () => {
       renderDevices();
 
       if (modalManageUsers && modalManageUsers.classList.contains('open')) {
-        const canManageUsers = serverUser.username === 'vicenzzo' || serverUser.allowManageUsers === 1 || serverUser.allowManageUsers === true;
+        const canManageUsers = isMasterUser(serverUser) || serverUser.allowManageUsers === 1 || serverUser.allowManageUsers === true;
         if (canManageUsers !== wasAbleToManageUsers) {
           const tabUsers = document.querySelector('#manage-users-tabs .tab-btn[data-manage-tab="users"]');
           if (tabUsers) tabUsers.style.display = canManageUsers ? 'inline-block' : 'none';
@@ -720,7 +724,7 @@ document.addEventListener('DOMContentLoaded', () => {
         userDisplayName.classList.add('admin-user-link');
         userDisplayName.addEventListener('click', openManageUsersModal);
         
-        if (currentUser.username === 'vicenzzo') {
+        if (isMasterUser(currentUser)) {
           const tabSystemUpdate = document.getElementById('tab-system-update');
           if (tabSystemUpdate) tabSystemUpdate.style.display = 'inline-block';
         }
@@ -847,7 +851,7 @@ document.addEventListener('DOMContentLoaded', () => {
               currentUser.allowManageUsers = message.data.allowManageUsers;
               setupReadonlyMode();
               if (modalManageUsers && modalManageUsers.classList.contains('open')) {
-                const canManage = currentUser.username === 'vicenzzo' || currentUser.allowManageUsers === true || currentUser.allowManageUsers === 1;
+                const canManage = isMasterUser(currentUser) || currentUser.allowManageUsers === true || currentUser.allowManageUsers === 1;
                 const tabUsers = document.querySelector('#manage-users-tabs .tab-btn[data-manage-tab="users"]');
                 if (tabUsers) tabUsers.style.display = canManage ? 'inline-block' : 'none';
                 if (!canManage) {
@@ -943,7 +947,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   function canViewChatSector(sector) {
     if (!currentUser) return true;
-    if (currentUser.username === 'vicenzzo') return true;
+    if (isMasterUser(currentUser)) return true;
     if (currentUser.sectorPermissions && currentUser.sectorPermissions.length > 0) {
       if (sector === 'Todos') return currentUser.allowAllTabs === 1 || currentUser.allowAllTabs === true;
       const perm = currentUser.sectorPermissions.find(p => p.sector === sector);
@@ -1658,7 +1662,7 @@ document.addEventListener('DOMContentLoaded', () => {
     let sectorsToRender = [];
 
     const isPaFixaOnly = isRestrictedPaFixaUser(currentUser);
-    const hasGlobalTabs = !isPaFixaOnly && currentUser && (currentUser.username === 'vicenzzo' || currentUser.allowAllTabs === 1 || currentUser.allowAllTabs === true);
+    const hasGlobalTabs = !isPaFixaOnly && currentUser && (isMasterUser(currentUser) || currentUser.allowAllTabs === 1 || currentUser.allowAllTabs === true);
 
     if (hasGlobalTabs) {
       sectorsToRender = ['Junior', 'Senior', 'PA FIXA 1', 'PA FIXA 2', 'Pesquisa', 'Juridico', 'Comercial'];
@@ -1835,7 +1839,7 @@ document.addEventListener('DOMContentLoaded', () => {
       const card = document.createElement('div');
       card.className = 'device-card glass';
 
-      const showActions = currentUser && currentUser.isReadonly !== 1 && currentUser.isReadonly !== true && (currentUser.username === 'vicenzzo' || currentUser.allowEditDevices === true || currentUser.allowEditDevices === 1);
+      const showActions = currentUser && currentUser.isReadonly !== 1 && currentUser.isReadonly !== true && (isMasterUser(currentUser) || currentUser.allowEditDevices === true || currentUser.allowEditDevices === 1);
 
       // Header do Aparelho (Minimalista)
       const header = document.createElement('div');
@@ -1898,7 +1902,7 @@ document.addEventListener('DOMContentLoaded', () => {
           // Formatando o status para classe CSS
           const statusClass = num.status.replace(/\s+/g, '-');
 
-          const allowEdit = currentUser && (currentUser.username === 'vicenzzo' || currentUser.allowEditDevices === true || currentUser.allowEditDevices === 1);
+          const allowEdit = currentUser && (isMasterUser(currentUser) || currentUser.allowEditDevices === true || currentUser.allowEditDevices === 1);
           const isReadonly = currentUser && (currentUser.isReadonly === 1 || currentUser.isReadonly === true);
           let isReserva = device.name.toLowerCase().includes('reserva') || (num.name && num.name.toLowerCase().includes('reserva'));
           if (!isReserva && num.holder) {
@@ -3465,7 +3469,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (searchManagersInput) { searchManagersInput.value = ''; managerSearchQuery = ''; }
     if (searchCollaboratorsInput) { searchCollaboratorsInput.value = ''; collaboratorSearchQuery = ''; }
 
-    const canManage = currentUser.username === 'vicenzzo' || currentUser.allowManageUsers === true || currentUser.allowManageUsers === 1;
+    const canManage = isMasterUser(currentUser) || currentUser.allowManageUsers === true || currentUser.allowManageUsers === 1;
 
     // Configurar a visibilidade da aba de Gestores no DOM
     const tabUsers = document.querySelector('#manage-users-tabs .tab-btn[data-manage-tab="users"]');
@@ -3530,7 +3534,7 @@ document.addEventListener('DOMContentLoaded', () => {
       manageUsersCardsContainer.innerHTML = '';
       
       for (const user of users) {
-        const isSelf = user.username === 'vicenzzo';
+        const isSelf = isMasterUser(user);
         
         const initials = user.name
           ? user.name.split(' ').slice(0, 2).map(n => n[0]).join('')
@@ -4015,7 +4019,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   function applyCollaboratorSectorScope() {
     const permittedSectors = currentUser &&
-      currentUser.username !== 'vicenzzo' &&
+      !isMasterUser(currentUser) &&
       currentUser.allowAllTabs !== 1 &&
       currentUser.allowAllTabs !== true
       ? (currentUser.sectorPermissions || [])

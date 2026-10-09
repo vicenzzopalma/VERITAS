@@ -97,7 +97,8 @@ const UserModal = ({ open, onClose, userId }) => {
 		profile: "user",
 		status: "active",
 		canAccessConnections: false,
-		connectionSectors: []
+		connectionSectors: [],
+		sectorPermissions: []
 	};
 
 	const { user: loggedInUser } = useContext(AuthContext);
@@ -129,7 +130,8 @@ const UserModal = ({ open, onClose, userId }) => {
 						...prevState,
 						...data,
 						canAccessConnections: Boolean(data.canAccessConnections),
-						connectionSectors: sectors
+						connectionSectors: sectors,
+						sectorPermissions: Array.isArray(data.sectorPermissions) ? data.sectorPermissions : []
 					};
 				});
 				const userQueueIds = data.queues?.map(queue => queue.id);
@@ -179,12 +181,21 @@ const UserModal = ({ open, onClose, userId }) => {
 			whatsappId: whatsappId || null,
 			queueIds: selectedQueueIds
 		};
+		const canEditSectorPermissions = loggedInUser?.profile === "admin_master" && String(loggedInUser?.email || "").toLowerCase() === "vicenzzo.mastronikolis@realess.com.br";
 
 		try {
+			let savedUser;
 			if (userId) {
-				await api.put(`/users/${userId}`, userData);
+				const response = await api.put(`/users/${userId}`, userData);
+				savedUser = response.data;
 			} else {
-				await api.post("/users", userData);
+				const response = await api.post("/users", userData);
+				savedUser = response.data;
+			}
+			if (canEditSectorPermissions && values.profile === "admin_operational" && savedUser?.id) {
+				await api.put(`/users/${savedUser.id}/sector-permissions`, {
+					permissions: values.sectorPermissions || []
+				});
 			}
 			toast.success(i18n.t("userModal.success"));
 			handleClose();
@@ -218,7 +229,7 @@ const UserModal = ({ open, onClose, userId }) => {
 						}, 400);
 					}}
 				>
-					{({ touched, errors, isSubmitting, values }) => (
+					{({ touched, errors, isSubmitting, values, setFieldValue }) => (
 						<Form>
 							<DialogContent dividers>
 								<div className={classes.multFieldLine}>
@@ -290,7 +301,8 @@ const UserModal = ({ open, onClose, userId }) => {
 														id="profile-selection"
 														required
 													>
-														<MenuItem value="admin">Admin</MenuItem>
+										<MenuItem value="admin_operational">Administrador Operacional</MenuItem>
+										{loggedInUser?.profile === "admin_master" && <MenuItem value="admin_master">Administrador Master</MenuItem>}
 														<MenuItem value="user">User</MenuItem>
 														<MenuItem value="operator">Operador WhatsApp (Tela Dedicada)</MenuItem>
 														<MenuItem value="whatsapp_control">Gestor WhatsApp Control (Baixo)</MenuItem>
@@ -340,7 +352,7 @@ const UserModal = ({ open, onClose, userId }) => {
 										/>
 									)}
 								/>
-								{values.profile !== "admin" && (
+				{values.profile !== "admin_master" && (
 									<Can
 										role={loggedInUser.profile}
 										perform="user-modal:editProfile"
@@ -424,6 +436,30 @@ const UserModal = ({ open, onClose, userId }) => {
 											);
 										}}
 									/>
+								)}
+								{loggedInUser?.profile === "admin_master" && values.profile === "admin_operational" && (
+									<div style={{ marginTop: 12, padding: 12, border: "1px solid #ddd", borderRadius: 6 }}>
+										<strong>Permissões por setor</strong>
+										<FormHelperText>Visualização e edição valem para Auditoria, Tickets e CRM.</FormHelperText>
+										{CONNECTION_SECTORS.map(sector => {
+											const current = (values.sectorPermissions || []).find(permission => permission.sector === sector) || { sector, canView: false, canConfigure: false };
+											const updatePermission = (field, value) => {
+												const next = (values.sectorPermissions || []).filter(permission => permission.sector !== sector);
+												const updated = { ...current, [field]: value };
+												if (updated.canConfigure) updated.canView = true;
+												setFieldValue("sectorPermissions", next.concat(updated));
+											};
+											return (
+												<div key={sector} style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+													<span>{sector}</span>
+													<div>
+														<FormControlLabel label="Ver" control={<Checkbox color="primary" checked={Boolean(current.canView)} onChange={event => updatePermission("canView", event.target.checked)} />} />
+														<FormControlLabel label="Editar" control={<Checkbox color="primary" checked={Boolean(current.canConfigure)} onChange={event => updatePermission("canConfigure", event.target.checked)} />} />
+													</div>
+												</div>
+											);
+										})}
+									</div>
 								)}
 								<Can
 									role={loggedInUser.profile}

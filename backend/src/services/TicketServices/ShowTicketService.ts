@@ -4,6 +4,7 @@ import Contact from "../../models/Contact";
 import User from "../../models/User";
 import Queue from "../../models/Queue";
 import Whatsapp from "../../models/Whatsapp";
+import { assertTicketAccess } from "./TicketAccessPolicy";
 
 const ShowTicketService = async (
   id: string | number,
@@ -30,7 +31,7 @@ const ShowTicketService = async (
       {
         model: Whatsapp,
         as: "whatsapp",
-        attributes: ["name"]
+        attributes: ["name", "sector"]
       }
     ]
   });
@@ -43,11 +44,12 @@ const ShowTicketService = async (
     const user = await User.findByPk(userId);
     const isOperator =
       user?.profile === "operator" ||
-      Boolean(user?.whatsappId && user?.profile !== "admin");
+      Boolean(user?.whatsappId && !["admin", "admin_master", "admin_operational"].includes(user?.profile || ""));
 
     if (isOperator && ticket.whatsappId !== user?.whatsappId) {
       throw new AppError("ERR_NO_PERMISSION", 403);
     }
+    await assertTicketAccess(ticket, userId, false);
   }
 
   return ticket;

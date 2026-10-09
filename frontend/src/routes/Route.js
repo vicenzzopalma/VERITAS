@@ -56,7 +56,7 @@ const Route = ({ component: Component, isPrivate = false, ...rest }) => {
   // Bloqueio rigoroso de rota para /audit (apenas perfil admin e whatsapp_control_high)
   if (isAuth && rest.path === "/audit") {
     const isManagerHigh = user?.profile === "whatsapp_control_high";
-    const canAccessAudit = user?.profile === "admin" || isManagerHigh;
+    const canAccessAudit = ["admin", "admin_master", "admin_operational"].includes(user?.profile) || isManagerHigh;
     if (!canAccessAudit) {
       if (user?.profile === "whatsapp_control") {
         return <Redirect to={{ pathname: "/whatsapp-control" }} />;
