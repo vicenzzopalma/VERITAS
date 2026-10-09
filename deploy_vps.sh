@@ -37,6 +37,17 @@ cd "$APP_DIR/backend"
 npm install --legacy-peer-deps
 npx sequelize-cli db:migrate || true
 
+# Restaurar os perfis administrativos ao estado anterior às alterações deste chat.
+# Esta atualização é idempotente e não depende das migrations compiladas em dist.
+node -e '
+  const sqlite3 = require("sqlite3");
+  const db = new sqlite3.Database("whaticket.sqlite");
+  db.run("UPDATE Users SET profile = ? WHERE profile IN (?, ?)", ["admin", "admin_master", "admin_operational"], (err) => {
+    if (err) { console.error("Falha ao restaurar perfis administrativos:", err.message); process.exitCode = 1; }
+    db.close();
+  });
+'
+
 # 3. Compilar o Frontend (React + Vite)
 echo ""
 echo "⚛️ 3. Compilando Frontend (Produção)..."
