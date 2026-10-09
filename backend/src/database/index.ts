@@ -46,6 +46,10 @@ if (dbConfig.dialect === "sqlite") {
   sequelize.query("PRAGMA cache_size = -64000;").catch(() => {});
   sequelize.query("PRAGMA temp_store = MEMORY;").catch(() => {});
 
+  // Resiliência de colunas legadas no SQLite local
+  sequelize.query("ALTER TABLE Users ADD COLUMN canAccessConnections BOOLEAN DEFAULT 0;").catch(() => {});
+  sequelize.query("ALTER TABLE Users ADD COLUMN connectionSectors TEXT DEFAULT '[]';").catch(() => {});
+
   // Criação segura e resiliente das tabelas caso não existam
   sequelize.query(`
     CREATE TABLE IF NOT EXISTS Sectors (
