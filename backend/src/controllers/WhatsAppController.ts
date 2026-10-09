@@ -12,7 +12,7 @@ import ShowWhatsAppService from "../services/WhatsappService/ShowWhatsAppService
 import UpdateWhatsAppService from "../services/WhatsappService/UpdateWhatsAppService";
 import { whatsappProvider } from "../providers/WhatsApp";
 import {
-  canAccessWhatsapp, canConfigureSector, isMasterAdmin
+  canAccessWhatsapp
 } from "../services/WhatsappService/WhatsappAccessPolicy";
 
 interface WhatsappData {
@@ -233,9 +233,6 @@ export const syncAudit = async (
   if (!whatsapp || !canAccessWhatsapp(req.user, whatsapp)) {
     throw new AppError("ERR_NO_PERMISSION", 403);
   }
-  if (!canConfigureSector(req.user, whatsapp.sector || "")) {
-    throw new AppError("ERR_NO_PERMISSION", 403);
-  }
 
   if (whatsappProvider.reconcileSessionHistory) {
     const result = await whatsappProvider.reconcileSessionHistory(+whatsappId);
@@ -253,7 +250,7 @@ export const syncAllAudit = async (
   req: Request,
   res: Response
 ): Promise<Response> => {
-  if (!isMasterAdmin(req.user) && String(req.user?.profile || "").toLowerCase() !== "admin") {
+  if (String(req.user?.profile || "").toLowerCase() !== "admin") {
     throw new AppError("ERR_NO_PERMISSION", 403);
   }
 

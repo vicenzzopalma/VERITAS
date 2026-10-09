@@ -167,8 +167,6 @@ async function initDb() {
         allow_edit_devices INTEGER DEFAULT 0,
         allow_manage_users INTEGER DEFAULT 0,
         allow_dashboard INTEGER DEFAULT 0,
-        email TEXT,
-        role TEXT DEFAULT 'MANAGER',
         ramal TEXT,
         criado_em TEXT DEFAULT CURRENT_TIMESTAMP,
         atualizado_em TEXT DEFAULT CURRENT_TIMESTAMP,
@@ -382,12 +380,6 @@ async function initDb() {
     // A coluna já existe, ignora o erro
   }
 
-  try { await db.exec('ALTER TABLE users ADD COLUMN email TEXT'); } catch (err) {}
-  try { await db.exec("ALTER TABLE users ADD COLUMN role TEXT DEFAULT 'MANAGER'"); } catch (err) {}
-  await db.run("UPDATE users SET role = 'MASTER', email = 'vicenzzo.mastronikolis@realess.com.br' WHERE LOWER(username) = 'vicenzzo'");
-  await db.run("UPDATE users SET role = 'VIEWER' WHERE is_readonly = 1 AND LOWER(username) <> 'vicenzzo'");
-  await db.run("UPDATE users SET role = 'MANAGER' WHERE (role IS NULL OR role = '') AND is_readonly = 0 AND LOWER(username) <> 'vicenzzo'");
-
   // Migrar banco de dados existente adicionando a coluna 'holder' na tabela audit_logs se não existir
   try {
     await db.exec('ALTER TABLE audit_logs ADD COLUMN holder TEXT DEFAULT ""');
@@ -576,8 +568,6 @@ async function initDb() {
   }
 
   // Se não houver aparelhos no banco, criar alguns iniciais para o MVP
-  await db.run("UPDATE users SET role = 'MASTER', email = 'vicenzzo.mastronikolis@realess.com.br', is_readonly = 0, allow_all_tabs = 1, allow_edit_devices = 1, allow_manage_users = 1, allow_dashboard = 1 WHERE LOWER(username) = 'vicenzzo'");
-
   const devicesCount = await db.get('SELECT COUNT(*) as count FROM devices');
   if (devicesCount.count === 0) {
     await db.run("INSERT INTO devices (name, sector) VALUES ('Arthur', 'Junior')");

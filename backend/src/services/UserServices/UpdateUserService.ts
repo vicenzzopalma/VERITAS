@@ -4,7 +4,6 @@ import AppError from "../../errors/AppError";
 import { SerializeUser } from "../../helpers/SerializeUser";
 import User from "../../models/User";
 import { syncUserToCrm } from "./SyncUserToCrmService";
-import UserSectorPermission from "../../models/UserSectorPermission";
 
 interface UserData {
   email?: string;
@@ -85,17 +84,11 @@ const UpdateUserService = async ({
   await user.reload();
 
   try {
-    const sectorPermissions = await UserSectorPermission.findAll({ where: { userId: user.id } });
     await syncUserToCrm({
       email: user.email,
       name: user.name,
       profile: user.profile,
-      connectionSectors: user.connectionSectors,
-      sectorPermissions: sectorPermissions.map(permission => ({
-        sector: permission.sector,
-        canView: Boolean(permission.canView),
-        canConfigure: Boolean(permission.canConfigure)
-      }))
+      connectionSectors: user.connectionSectors
     });
   } catch (syncErr) {
     console.error("[UpdateUserService] Erro no syncUserToCrm:", syncErr);

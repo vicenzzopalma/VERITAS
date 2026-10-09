@@ -3,7 +3,6 @@ import AppError from "../../errors/AppError";
 import Queue from "../../models/Queue";
 import Whatsapp from "../../models/Whatsapp";
 import { SerializeUser } from "../../helpers/SerializeUser";
-import { getUserSectorPermissions } from "./SectorPermissionService";
 
 const ShowUserService = async (id: string | number): Promise<any> => {
   const user = await User.findByPk(id, {
@@ -28,8 +27,7 @@ const ShowUserService = async (id: string | number): Promise<any> => {
     throw new AppError("ERR_NO_USER_FOUND", 404);
   }
 
-  const sectorPermissions = await getUserSectorPermissions(id);
-  return SerializeUser(user, sectorPermissions);
+  return SerializeUser(user);
 };
 
 export default ShowUserService;

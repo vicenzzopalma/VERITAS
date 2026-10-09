@@ -5,10 +5,9 @@ import AppError from "../errors/AppError";
 
 import UpdateSettingService from "../services/SettingServices/UpdateSettingService";
 import ListSettingsService from "../services/SettingServices/ListSettingsService";
-import { isMasterAdmin, isOperationalAdmin } from "../services/WhatsappService/WhatsappAccessPolicy";
 
 export const index = async (req: Request, res: Response): Promise<Response> => {
-  if (!isMasterAdmin(req.user) && !isOperationalAdmin(req.user) && req.user.profile !== "admin") {
+  if (req.user.profile !== "admin") {
     throw new AppError("ERR_NO_PERMISSION", 403);
   }
 
@@ -21,7 +20,7 @@ export const update = async (
   req: Request,
   res: Response
 ): Promise<Response> => {
-  if (!isMasterAdmin(req.user) && !isOperationalAdmin(req.user) && req.user.profile !== "admin") {
+  if (req.user.profile !== "admin") {
     throw new AppError("ERR_NO_PERMISSION", 403);
   }
   const { settingKey: key } = req.params;

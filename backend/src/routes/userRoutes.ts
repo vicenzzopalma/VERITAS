@@ -13,9 +13,6 @@ userRoutes.put("/users/:userId", isAuth, UserController.update);
 
 userRoutes.get("/users/:userId", isAuth, UserController.show);
 
-userRoutes.get("/users/:userId/sector-permissions", isAuth, UserController.sectorPermissions);
-userRoutes.put("/users/:userId/sector-permissions", isAuth, UserController.updateSectorPermissions);
-
 userRoutes.delete("/users/:userId", isAuth, UserController.remove);
 
 export default userRoutes;

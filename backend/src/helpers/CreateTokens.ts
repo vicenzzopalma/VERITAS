@@ -21,7 +21,6 @@ export const createAccessToken = (user: User): string => {
       username: user.name,
       email: user.email,
       profile: user.profile,
-      isMasterAdmin: user.profile === "admin_master" && String(user.email || "").toLowerCase() === "vicenzzo.mastronikolis@realess.com.br",
       id: user.id,
       canAccessConnections: isManager ? true : Boolean(user.canAccessConnections),
       connectionSectors: effectiveSectors

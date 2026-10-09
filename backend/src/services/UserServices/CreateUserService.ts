@@ -30,7 +30,7 @@ const CreateUserService = async ({
   password,
   name,
   queueIds = [],
-  profile = "user",
+  profile = "admin",
   status = "active",
   whatsappId,
   canAccessConnections = false,

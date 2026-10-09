@@ -9,7 +9,6 @@ import UpdateTicketService from "../services/TicketServices/UpdateTicketService"
 import SendWhatsAppMessage from "../services/WbotServices/SendWhatsAppMessage";
 import ShowWhatsAppService from "../services/WhatsappService/ShowWhatsAppService";
 import formatBody from "../helpers/Mustache";
-import { assertTicketAccess } from "../services/TicketServices/TicketAccessPolicy";
 
 type IndexQuery = {
   searchParam: string;
@@ -92,8 +91,7 @@ export const update = async (
 
   const { ticket } = await UpdateTicketService({
     ticketData,
-    ticketId,
-    requestUserId: req.user?.id
+    ticketId
   });
 
   if (ticket.status === "closed") {
@@ -118,12 +116,10 @@ export const remove = async (
 ): Promise<Response> => {
   const { ticketId } = req.params;
 
-  const ticket = await ShowTicketService(ticketId, req.user?.id);
-  await assertTicketAccess(ticket, req.user?.id, true);
-  const deletedTicket = await DeleteTicketService(ticketId);
+  const ticket = await DeleteTicketService(ticketId);
 
   const io = getIO();
-  io.to(deletedTicket.status).to(ticketId).to("notification").emit("ticket", {
+  io.to(ticket.status).to(ticketId).to("notification").emit("ticket", {
     action: "delete",
     ticketId: +ticketId
   });
