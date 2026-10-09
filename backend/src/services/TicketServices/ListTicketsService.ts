@@ -90,6 +90,7 @@ const ListTicketsService = async ({
     const sanitizedSearchParam = searchParam.toLocaleLowerCase().trim();
     const searchTerms = getSearchTerms(searchParam);
     const phoneVariants = getPhoneSearchVariants(searchParam);
+    const hasPhoneSearch = sanitizedSearchParam.replace(/\D/g, "").length >= 2;
 
     const searchLikeConditions = searchTerms.length > 0
       ? searchTerms.map((term) => ({
@@ -119,38 +120,33 @@ const ListTicketsService = async ({
       ];
     }
 
-    const orMatches: any[] = [];
+    const termGroups = (searchTerms.length > 0 ? searchTerms : [sanitizedSearchParam]).map((term) => ({
+      [Op.or]: [
+        { "$contact.name$": where(fn("LOWER", col("contact.name")), "LIKE", `%${term}%`) },
+        { lastMessage: where(fn("LOWER", col("lastMessage")), "LIKE", `%${term}%`) },
+        { "$contact.lid$": { [Op.like]: `%${term}%` } },
+        { "$messages.body$": where(fn("LOWER", col("messages.body")), "LIKE", `%${term}%`) },
+      ],
+    }));
 
-    if (searchTerms.length > 0) {
-      for (const term of searchTerms) {
-        orMatches.push({
-          "$contact.name$": where(fn("LOWER", col("contact.name")), "LIKE", `%${term}%`)
-        });
-        orMatches.push({
-          lastMessage: where(fn("LOWER", col("lastMessage")), "LIKE", `%${term}%`)
-        });
-      }
-    } else {
-      orMatches.push({
-        "$contact.name$": where(fn("LOWER", col("contact.name")), "LIKE", `%${sanitizedSearchParam}%`)
-      });
-      orMatches.push({
-        lastMessage: where(fn("LOWER", col("lastMessage")), "LIKE", `%${sanitizedSearchParam}%`)
-      });
-    }
+    const allSearchMatches: any[] = [{ [Op.and]: termGroups }];
 
-    for (const variant of phoneVariants) {
-      orMatches.push({ "$contact.number$": { [Op.like]: `%${variant}%` } });
-      orMatches.push({ "$contact.lid$": { [Op.like]: `%${variant}%` } });
+    if (hasPhoneSearch && phoneVariants.length > 0) {
+      allSearchMatches.push({
+        [Op.or]: phoneVariants.reduce((conditions: any[], variant: string) => conditions.concat([
+          { "$contact.number$": { [Op.like]: `%${variant}%` } },
+          { "$contact.lid$": { [Op.like]: `%${variant}%` } },
+        ]), []),
+      });
     }
 
     if (/^\d+$/.test(sanitizedSearchParam)) {
-      orMatches.push({ id: +sanitizedSearchParam });
+      allSearchMatches.push({ id: +sanitizedSearchParam });
     }
 
     whereCondition = {
       ...whereCondition,
-      [Op.or]: orMatches
+      [Op.or]: allSearchMatches
     };
   }
 

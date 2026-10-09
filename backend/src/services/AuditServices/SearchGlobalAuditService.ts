@@ -54,78 +54,66 @@ const SearchGlobalAuditService = async ({
 
   const searchTerms = getSearchTerms(search);
   const isShortDigits = /^\d{1,5}$/.test(cleanSearch);
+  const hasPhoneSearch = cleanSearch.replace(/\D/g, "").length >= 2;
 
-  const orConditions: any[] = [];
-  const messageConditions = searchTerms.map((term) => ({
-    body: { [Op.like]: `%${term}%` }
-  }));
+  let matchingTicketIds: number[] = [];
+  for (const term of searchTerms) {
+    const matchingMessages = await Message.findAll({
+      where: { body: { [Op.like]: `%${term}%` } },
+      attributes: ["ticketId"],
+      include: allowedWhatsappIds
+        ? [{
+            model: Ticket,
+            as: "ticket",
+            where: { whatsappId: { [Op.in]: allowedWhatsappIds } },
+            attributes: []
+          }]
+        : undefined,
+      raw: true
+    });
 
-  const matchingMessages = messageConditions.length > 0
-    ? await Message.findAll({
-        where: { [Op.or]: messageConditions },
-        attributes: ["ticketId"],
-        include: allowedWhatsappIds
-          ? [
-              {
-                model: Ticket,
-                as: "ticket",
-                where: { whatsappId: { [Op.in]: allowedWhatsappIds } },
-                attributes: []
-              }
-            ]
-          : undefined,
-        raw: true
-      })
-    : [];
-
-  const matchingTicketIds = Array.from(
-    new Set(
+    const idsForTerm = new Set(
       matchingMessages
         .map((message: { ticketId?: number }) => Number(message.ticketId))
         .filter((ticketId) => Number.isFinite(ticketId))
-    )
-  );
-
-  if (searchTerms.length > 0) {
-    for (const term of searchTerms) {
-      orConditions.push(
-        where(fn("LOWER", col("contact.name")), "LIKE", `%${term}%`)
-      );
-
-      orConditions.push(where(fn("LOWER", col("whatsapp.name")), "LIKE", `%${term}%`));
-
-      if (!isShortDigits) {
-        orConditions.push(
-          where(fn("LOWER", col("lastMessage")), "LIKE", `%${term}%`)
-        );
-      }
-    }
-  } else {
-    orConditions.push(
-      where(fn("LOWER", col("contact.name")), "LIKE", `%${cleanSearch}%`)
     );
-    orConditions.push(where(fn("LOWER", col("whatsapp.name")), "LIKE", `%${cleanSearch}%`));
 
-    if (!isShortDigits) {
-      orConditions.push(
-        where(fn("LOWER", col("lastMessage")), "LIKE", `%${cleanSearch}%`)
-      );
+    if (matchingTicketIds.length === 0 && searchTerms.indexOf(term) === 0) {
+      matchingTicketIds = Array.from(idsForTerm);
+    } else {
+      matchingTicketIds = matchingTicketIds.filter((ticketId) => idsForTerm.has(ticketId));
     }
   }
 
-  const phoneVariants = getPhoneSearchVariants(search);
-  for (const variant of phoneVariants) {
-    orConditions.push({
-      "$contact.number$": { [Op.like]: `%${variant}%` }
+  const termGroups = (searchTerms.length > 0 ? searchTerms : [cleanSearch]).map((term) => ({
+    [Op.or]: [
+      where(fn("LOWER", col("contact.name")), "LIKE", `%${term}%`),
+      where(fn("LOWER", col("whatsapp.name")), "LIKE", `%${term}%`),
+      { "$contact.lid$": { [Op.like]: `%${term}%` } },
+      ...(!isShortDigits
+        ? [where(fn("LOWER", col("lastMessage")), "LIKE", `%${term}%`)]
+        : []),
+    ],
+  }));
+
+  const allSearchMatches: any[] = [{ [Op.and]: termGroups }];
+
+  const phoneVariants = hasPhoneSearch ? getPhoneSearchVariants(search) : [];
+  if (phoneVariants.length > 0) {
+    allSearchMatches.push({
+      [Op.or]: phoneVariants.reduce((conditions: any[], variant: string) => conditions.concat([
+        { "$contact.number$": { [Op.like]: `%${variant}%` } },
+        { "$contact.lid$": { [Op.like]: `%${variant}%` } },
+      ]), []),
     });
   }
 
   if (matchingTicketIds.length > 0) {
-    orConditions.push({ id: { [Op.in]: matchingTicketIds } });
+    allSearchMatches.push({ id: { [Op.in]: matchingTicketIds } });
   }
 
   const ticketWhere: any = {
-    [Op.or]: orConditions
+    [Op.or]: allSearchMatches
   };
   if (allowedWhatsappIds) {
     ticketWhere.whatsappId = { [Op.in]: allowedWhatsappIds };
@@ -145,7 +133,6 @@ const SearchGlobalAuditService = async ({
         attributes: ["id", "name", "status"]
       },
     ],
-    distinct: true,
     limit,
     order: [["updatedAt", "DESC"]]
   });

@@ -72,6 +72,7 @@ import ExportAuditModal from "../../components/ExportAuditModal";
 import MediaViewerModal from "../../components/MediaViewerModal";
 import ContactDrawer from "../../components/ContactDrawer";
 import { getContactDisplayName, formatPhoneNumber, isPendingResolution, PENDING_TOOLTIP } from "../../helpers/contactHelper";
+import { matchesPhoneSearch, normalizeSearchText, digitsOnly } from "../../helpers/searchHelper";
 import whatsBackground from "../../assets/wa-background.png";
 
 const useStyles = makeStyles((theme) => ({
@@ -797,6 +798,10 @@ const Audit = () => {
   const [devices, setDevices] = useState([]);
   const [selectedDevice, setSelectedDevice] = useState(null);
   const initialDeviceLoadedRef = useRef(false);
+  const selectedChatRef = useRef(null);
+  const chatsRequestIdRef = useRef(0);
+  const messagesRequestIdRef = useRef(0);
+  const globalSearchRequestIdRef = useRef(0);
 
   // Setor Selecionado (Sincronizado entre Conexões, CRM e Auditoria via veritas:selectedSector)
   const [selectedSector, setSelectedSectorState] = useState(() => {
@@ -861,8 +866,19 @@ const Audit = () => {
   const handleSelectDevice = (device) => {
     if (!device) return;
     setSelectedDevice(device);
+    selectedChatRef.current = null;
+    setSelectedChat(null);
     if (device.id) {
       history.replace(`/audit?whatsappId=${device.id}`);
+    }
+  };
+
+  const handleSelectChat = (chat) => {
+    if (!chat) return;
+    selectedChatRef.current = chat;
+    setSelectedChat(chat);
+    if (selectedDevice?.id && chat.ticketId) {
+      history.replace(`/audit?whatsappId=${selectedDevice.id}&ticketId=${chat.ticketId}`);
     }
   };
 
@@ -949,10 +965,11 @@ const Audit = () => {
         return false;
       }
       if (!globalSearchInput || !globalSearchInput.trim()) return true;
-      const term = globalSearchInput.trim().toLowerCase();
-      const nameMatch = device.name?.toLowerCase().includes(term);
-      const idMatch = String(device.id).includes(term);
-      return nameMatch || idMatch;
+      const term = normalizeSearchText(globalSearchInput);
+      const nameMatch = normalizeSearchText(device.name).includes(term);
+      const idMatch = Boolean(digitsOnly(globalSearchInput)) && String(device.id).includes(digitsOnly(globalSearchInput));
+      const numberMatch = matchesPhoneSearch(globalSearchInput, device.number);
+      return nameMatch || idMatch || numberMatch;
     });
   }, [devices, allowedSectors, selectedSector, globalSearchInput]);
 
@@ -969,9 +986,11 @@ const Audit = () => {
   // Auto-seleciona o smartphone se a busca filtrar exatamente 1 aparelho correspondente
   useEffect(() => {
     if (globalSearchInput && globalSearchInput.trim()) {
-      const term = globalSearchInput.trim().toLowerCase();
+      const term = normalizeSearchText(globalSearchInput);
       const matched = devices.filter(
-        (d) => d.name?.toLowerCase().includes(term) || String(d.id).includes(term)
+        (d) => normalizeSearchText(d.name).includes(term) ||
+          (digitsOnly(globalSearchInput) && String(d.id).includes(digitsOnly(globalSearchInput))) ||
+          matchesPhoneSearch(globalSearchInput, d.number)
       );
       if (matched.length === 1 && selectedDevice?.id !== matched[0].id) {
         handleSelectDevice(matched[0]);
@@ -986,6 +1005,7 @@ const Audit = () => {
 
   // 1. Busca Global em Todos os Aparelhos
   const executeGlobalSearch = async (val) => {
+    const requestId = ++globalSearchRequestIdRef.current;
     if (!val || val.trim().length === 0) {
       setGlobalResults([]);
       setGlobalPopperOpen(false);
@@ -1000,11 +1020,12 @@ const Audit = () => {
       const { data } = await api.get("/audit/search-all", {
         params: { search: val.trim() },
       });
+      if (requestId !== globalSearchRequestIdRef.current) return;
       setGlobalResults(Array.isArray(data) ? data : []);
     } catch (err) {
       console.error("Erro na busca global:", err);
     } finally {
-      setGlobalLoading(false);
+      if (requestId === globalSearchRequestIdRef.current) setGlobalLoading(false);
     }
   };
 
@@ -1051,8 +1072,10 @@ const Audit = () => {
       updatedAt: result.updatedAt || new Date().toISOString(),
     };
 
-    handleSelectDevice(targetDevice);
+    setSelectedDevice(targetDevice);
+    selectedChatRef.current = targetChat;
     setSelectedChat(targetChat);
+    history.replace(`/audit?whatsappId=${result.whatsappId}&ticketId=${result.ticketId}`);
     setChats((prev) => [targetChat, ...prev.filter((c) => c.ticketId !== targetChat.ticketId)]);
   };
 
@@ -1188,13 +1211,21 @@ const Audit = () => {
   // 2. Carregar conversas do aparelho selecionado com paginação
   const fetchChats = async (isInitial = false, page = 1) => {
     if (!selectedDevice) return;
+    const requestId = ++chatsRequestIdRef.current;
+    const requestDeviceId = selectedDevice.id;
     if (isInitial) setLoadingChats(true);
     else setLoadingMoreChats(true);
 
     try {
       const { data } = await api.get(`/audit/devices/${selectedDevice.id}/chats`, {
-        params: { search: chatSearch, pageNumber: page, limit: 50 },
+        params: {
+          search: chatSearch,
+          pageNumber: page,
+          limit: 50,
+          ticketId: page === 1 ? new URLSearchParams(location.search).get("ticketId") : undefined,
+        },
       });
+      if (requestId !== chatsRequestIdRef.current || requestDeviceId !== selectedDevice.id) return;
       const newChats = data.chats || [];
       setHasMoreChats(data.hasMore || false);
       setChatsPage(page);
@@ -1202,21 +1233,27 @@ const Audit = () => {
       if (page === 1) {
         setSelectedChat((prevChat) => {
           // Se já está selecionada uma conversa deste aparelho, preserva ela!
-          if (prevChat && String(prevChat.whatsappId) === String(selectedDevice.id)) {
-            const currentStillExists = newChats.find((c) => String(c.ticketId) === String(prevChat.ticketId));
+          const currentChat = selectedChatRef.current || prevChat;
+          if (currentChat && String(currentChat.whatsappId) === String(selectedDevice.id)) {
+            const currentStillExists = newChats.find((c) => String(c.ticketId) === String(currentChat.ticketId));
             if (!currentStillExists) {
-              setChats([prevChat, ...newChats]);
-              return prevChat;
+              setChats([currentChat, ...newChats.filter((c) => String(c.ticketId) !== String(currentChat.ticketId))]);
+              selectedChatRef.current = currentChat;
+              return currentChat;
             }
             setChats(newChats);
+            selectedChatRef.current = currentStillExists;
             return currentStillExists;
           }
 
           setChats(newChats);
-          return newChats.length > 0 ? newChats[0] : null;
+          const nextChat = newChats.length > 0 ? newChats[0] : null;
+          selectedChatRef.current = nextChat;
+          return nextChat;
         });
 
         if (newChats.length === 0) {
+          selectedChatRef.current = null;
           setSelectedChat(null);
           setMessages([]);
         }
@@ -1228,10 +1265,13 @@ const Audit = () => {
         });
       }
     } catch (err) {
+      if (requestId !== chatsRequestIdRef.current) return;
       toastError(err);
     } finally {
-      if (isInitial) setLoadingChats(false);
-      else setLoadingMoreChats(false);
+      if (requestId === chatsRequestIdRef.current) {
+        if (isInitial) setLoadingChats(false);
+        else setLoadingMoreChats(false);
+      }
     }
   };
 
@@ -1243,6 +1283,8 @@ const Audit = () => {
   const fetchMessages = async (showLoading = false, page = 1, appendOlder = false, fetchAll = false) => {
     const activeWhatsappId = selectedChat?.whatsappId || selectedDevice?.id;
     if (!activeWhatsappId) return;
+    const requestId = ++messagesRequestIdRef.current;
+    const requestTicketId = selectedChat?.ticketId || null;
 
     if (showLoading) setLoadingMessages(true);
     if (appendOlder) setLoadingMoreMessages(true);
@@ -1262,6 +1304,8 @@ const Audit = () => {
       };
 
       const { data } = await api.get("/audit/messages", { params });
+      if (requestId !== messagesRequestIdRef.current) return;
+      if (requestTicketId && String(selectedChatRef.current?.ticketId) !== String(requestTicketId)) return;
       const newMsgs = data.messages || [];
 
       setMessagesTotalCount(data.count || newMsgs.length);
@@ -1287,6 +1331,7 @@ const Audit = () => {
         setMessages(newMsgs);
       }
     } catch (err) {
+      if (requestId !== messagesRequestIdRef.current) return;
       toastError(err);
     } finally {
       if (showLoading) setLoadingMessages(false);
@@ -1778,7 +1823,7 @@ const Audit = () => {
                     <div
                       key={chat.ticketId}
                       className={`${classes.chatItem} ${isSelected ? classes.chatItemSelected : ""}`}
-                      onClick={() => setSelectedChat(chat)}
+                      onClick={() => handleSelectChat(chat)}
                     >
                       <Tooltip
                         title={chat.contact?.profilePicUrl ? "Clique para ampliar a foto do perfil" : ""}
@@ -1883,7 +1928,10 @@ const Audit = () => {
                 {isMobile && (
                   <IconButton
                     size="small"
-                    onClick={() => setSelectedChat(null)}
+                    onClick={() => {
+                      selectedChatRef.current = null;
+                      setSelectedChat(null);
+                    }}
                     style={{ marginRight: 2, padding: 4 }}
                     aria-label="Voltar para a lista de conversas"
                   >

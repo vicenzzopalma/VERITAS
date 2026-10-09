@@ -22,15 +22,17 @@ export const listChats = async (req: Request, res: Response): Promise<Response> 
     throw new AppError("ERR_NO_PERMISSION", 403);
   }
 
-  const { search, pageNumber, limit } = req.query as {
+  const { search, pageNumber, limit, ticketId } = req.query as {
     search?: string;
     pageNumber?: string;
     limit?: string;
+    ticketId?: string;
   };
 
   const { chats, count, hasMore } = await ListAuditChatsService({
     whatsappId,
     search,
+    ticketId,
     pageNumber,
     limit: limit ? Number(limit) : 40
   });

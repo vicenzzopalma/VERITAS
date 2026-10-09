@@ -108,6 +108,7 @@ import { i18n } from "../../translate/i18n";
 import { WhatsAppsContext } from "../../context/WhatsApp/WhatsAppsContext";
 import { AuthContext } from "../../context/Auth/AuthContext";
 import toastError from "../../errors/toastError";
+import { digitsOnly, matchesPhoneSearch, normalizeSearchText } from "../../helpers/searchHelper";
 
 const useStyles = makeStyles(theme => ({
 	mainPaper: {
@@ -528,21 +529,31 @@ const Connections = () => {
 		}
 
 		if (searchParam && searchParam.trim() !== "") {
-			const term = searchParam.trim().toLowerCase();
+			const term = normalizeSearchText(searchParam);
 			list = list.filter(w => {
-				const nameMatch = (w.name || "").toLowerCase().includes(term);
-				const numberMatch =
-					(w.number && String(w.number).toLowerCase().includes(term)) ||
-					(w.phone_number && String(w.phone_number).toLowerCase().includes(term));
-				const sectorMatch = (w.sector || "").toLowerCase().includes(term);
-				const statusMatch = (w.status || "").toLowerCase().includes(term);
-				const proxyMatch = (w.proxyUrl || "").toLowerCase().includes(term);
+				let sessionNumber = w.number || w.phone_number || "";
+				if (!sessionNumber && w.session) {
+					try {
+						const session = typeof w.session === "string" ? JSON.parse(w.session) : w.session;
+						sessionNumber = session?.me?.id || session?.creds?.me?.id || session?.user?.id || "";
+					} catch (e) {}
+				}
+
+				const nameMatch = normalizeSearchText(w.name).includes(term);
+				const numberMatch = matchesPhoneSearch(searchParam, sessionNumber) ||
+					(term && digitsOnly(sessionNumber).includes(digitsOnly(searchParam)));
+				const queryDigits = digitsOnly(searchParam);
+				const idMatch = Boolean(queryDigits) && String(w.id || "").includes(queryDigits);
+				const sectorMatch = normalizeSearchText(w.sector).includes(term);
+				const statusMatch = normalizeSearchText(w.status).includes(term);
+				const proxyMatch = normalizeSearchText(w.proxyUrl).includes(term);
 				const chip = getMatchedChip(w);
 				const timerMatch =
 					chip &&
-					((chip.status && String(chip.status).toLowerCase().includes(term)) ||
-						(chip.name && String(chip.name).toLowerCase().includes(term)));
-				return nameMatch || numberMatch || sectorMatch || statusMatch || proxyMatch || timerMatch;
+					((chip.status && normalizeSearchText(chip.status).includes(term)) ||
+						(chip.name && normalizeSearchText(chip.name).includes(term)) ||
+						(chip.phone_number && matchesPhoneSearch(searchParam, chip.phone_number)));
+				return nameMatch || numberMatch || idMatch || sectorMatch || statusMatch || proxyMatch || timerMatch;
 			});
 		}
 

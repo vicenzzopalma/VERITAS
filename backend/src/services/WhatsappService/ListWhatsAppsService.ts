@@ -1,8 +1,9 @@
 import Queue from "../../models/Queue";
 import Whatsapp from "../../models/Whatsapp";
 import { getWhatsappAccessWhere, WhatsappAccessUser } from "./WhatsappAccessPolicy";
+import extractWhatsappNumber from "../../helpers/whatsappNumberHelper";
 
-const ListWhatsAppsService = async (user?: WhatsappAccessUser): Promise<Whatsapp[]> => {
+const ListWhatsAppsService = async (user?: WhatsappAccessUser): Promise<any[]> => {
   const whatsapps = await Whatsapp.findAll({
     where: getWhatsappAccessWhere(user),
     include: [
@@ -14,7 +15,10 @@ const ListWhatsAppsService = async (user?: WhatsappAccessUser): Promise<Whatsapp
     ]
   });
 
-  return whatsapps;
+  return whatsapps.map((whatsapp) => ({
+    ...whatsapp.toJSON(),
+    number: extractWhatsappNumber(whatsapp.session),
+  }));
 };
 
 export default ListWhatsAppsService;
