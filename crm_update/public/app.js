@@ -468,12 +468,14 @@ document.addEventListener('DOMContentLoaded', () => {
     if (!currentUser) return false;
     if (currentUser.username === 'vicenzzo') return true;
     if (currentUser.isReadonly === 1 || currentUser.isReadonly === true) return false;
-    
-    if (currentUser.sectorPermissions && currentUser.sectorPermissions.length > 0) {
-      const perm = currentUser.sectorPermissions.find(p => p.sector === sector);
-      return perm ? perm.can_configure === 1 : false;
-    }
-    return false;
+    if (currentUser.allowAllTabs === 1 || currentUser.allowAllTabs === true) return true;
+
+    const perms = Array.isArray(currentUser.sectorPermissions) ? currentUser.sectorPermissions : [];
+    // Sem cadastro setorial = acesso livre, mesma regra do PolicyEngine.canWriteInSector
+    if (perms.length === 0) return true;
+
+    const perm = perms.find(p => p.sector === sector);
+    return perm ? perm.can_configure === 1 : false;
   }
 
   function canViewAnySector() {
