@@ -1,12 +1,35 @@
-import { Op } from "sequelize";
+﻿import { Op } from "sequelize";
 import Whatsapp from "../../models/Whatsapp";
+
+export const MASTER_ADMIN_EMAIL = "vicenzzo.mastronikolis@realess.com.br";
+export const MASTER_ADMIN_PROFILE = "admin_master";
+export const OPERATIONAL_ADMIN_PROFILE = "admin_operational";
+
+export const DEFAULT_OPERATIONAL_SECTORS = [
+  "Junior",
+  "Senior",
+  "Pesquisa",
+  "Comercial",
+  "Jurídico",
+  "PA FIXA 1",
+  "PA FIXA 2"
+];
 
 export const WHATSAPP_CONTROL_SECTORS = ["PA FIXA 1", "PA FIXA 2"];
 
+export type SectorPermissionItem = {
+  sector: string;
+  canView: boolean;
+  canConfigure: boolean;
+};
+
 export type WhatsappAccessUser = {
+  id?: number | string;
+  email?: string;
   profile?: string;
   canAccessConnections?: boolean;
   connectionSectors?: string[];
+  sectorPermissions?: SectorPermissionItem[];
 };
 
 export const normalizeConnectionSectors = (sectors: unknown): string[] => {
@@ -23,6 +46,24 @@ export const normalizeConnectionSectors = (sectors: unknown): string[] => {
   }
 
   return [];
+};
+
+export const isMasterAdmin = (user?: WhatsappAccessUser): boolean => {
+  if (!user) return false;
+  const email = String(user.email || "").trim().toLowerCase();
+  const profile = String(user.profile || "").trim().toLowerCase();
+  return email === MASTER_ADMIN_EMAIL || profile === MASTER_ADMIN_PROFILE;
+};
+
+export const isOperationalAdmin = (user?: WhatsappAccessUser): boolean => {
+  if (!user) return false;
+  if (isMasterAdmin(user)) return false;
+  const profile = String(user.profile || "").trim().toLowerCase();
+  return profile === OPERATIONAL_ADMIN_PROFILE || profile === "admin";
+};
+
+export const isAnyAdmin = (user?: WhatsappAccessUser): boolean => {
+  return isMasterAdmin(user) || isOperationalAdmin(user);
 };
 
 export const isWhatsappControlProfile = (profile?: string): boolean => {
@@ -52,21 +93,56 @@ export const canAccessWhatsapp = (
   user: WhatsappAccessUser | undefined,
   whatsapp: Pick<Whatsapp, "sector">
 ): boolean => {
-  const profile = String(user?.profile || "").toLowerCase();
-  if (profile === "admin") return true;
+  if (isMasterAdmin(user)) return true;
 
+  if (isOperationalAdmin(user)) {
+    if (user && Array.isArray(user.sectorPermissions) && user.sectorPermissions.length > 0) {
+      const perms = user.sectorPermissions;
+      const perm = perms.find((p: SectorPermissionItem) => p.sector === (whatsapp.sector || ""));
+      return perm ? perm.canView === true : false;
+    }
+    return true; // Retrocompatibilidade: sem restrições explícitas, acesso total
+  }
+
+  const profile = String(user?.profile || "").toLowerCase();
   const isManager = isWhatsappControlProfile(profile);
   const hasAccess = isManager || user?.canAccessConnections === true;
   return hasAccess && getEffectiveUserSectors(user).includes(whatsapp.sector || "");
 };
 
 export const getWhatsappAccessWhere = (user?: WhatsappAccessUser) => {
-  const profile = String(user?.profile || "").toLowerCase();
-  if (profile === "admin") return undefined;
+  if (isMasterAdmin(user)) return undefined; // Master vê tudo sem filtro
 
+  if (isOperationalAdmin(user)) {
+    if (user && Array.isArray(user.sectorPermissions) && user.sectorPermissions.length > 0) {
+      const perms = user.sectorPermissions;
+      const allowed = perms
+        .filter((p: SectorPermissionItem) => p.canView)
+        .map((p: SectorPermissionItem) => p.sector);
+      return { sector: { [Op.in]: allowed } };
+    }
+    return undefined; // Retrocompatibilidade: vê todos os setores
+  }
+
+  const profile = String(user?.profile || "").toLowerCase();
   const isManager = isWhatsappControlProfile(profile);
   const hasAccess = isManager || user?.canAccessConnections === true;
   return hasAccess
     ? { sector: { [Op.in]: getEffectiveUserSectors(user) } }
     : { sector: { [Op.in]: [] } };
+};
+
+export const canConfigureSector = (user: WhatsappAccessUser | undefined, sector: string): boolean => {
+  if (isMasterAdmin(user)) return true;
+
+  if (isOperationalAdmin(user)) {
+    if (user && Array.isArray(user.sectorPermissions) && user.sectorPermissions.length > 0) {
+      const perms = user.sectorPermissions;
+      const perm = perms.find((p: SectorPermissionItem) => p.sector === sector);
+      return perm ? perm.canConfigure === true : false;
+    }
+    return true; // Sem restrições explícitas, permite edição
+  }
+
+  return false;
 };

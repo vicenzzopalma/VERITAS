@@ -10,6 +10,7 @@ import ShowUserService from "../UserServices/ShowUserService";
 import Whatsapp from "../../models/Whatsapp";
 import { getPhoneSearchVariants } from "../../helpers/phoneSearchHelper";
 import { getSearchTerms } from "../../helpers/searchTermHelper";
+import { getOperationalTicketSectorFilter } from "./TicketAccessPolicy";
 
 interface Request {
   searchParam?: string;
@@ -39,7 +40,7 @@ const ListTicketsService = async ({
   withUnreadMessages
 }: Request): Promise<Response> => {
   const user = await User.findByPk(userId);
-  const isOperator = user?.profile === "operator" || Boolean(user?.whatsappId && user?.profile !== "admin");
+  const isOperator = user?.profile === "operator" || Boolean(user?.whatsappId && !["admin", "admin_master", "admin_operational"].includes(user?.profile || ""));
 
   let whereCondition: Filterable["where"];
 
@@ -74,7 +75,7 @@ const ListTicketsService = async ({
     {
       model: Whatsapp,
       as: "whatsapp",
-      attributes: ["name"]
+      attributes: ["name", "sector"]
     }
   ];
 
@@ -184,6 +185,11 @@ const ListTicketsService = async ({
 
   const limit = 40;
   const offset = limit * (+pageNumber - 1);
+
+  const allowedSectors = await getOperationalTicketSectorFilter(userId);
+  if (allowedSectors && allowedSectors.length > 0) {
+    whereCondition = { ...whereCondition, "$whatsapp.sector$": { [Op.in]: allowedSectors } };
+  }
 
   const { count, rows: tickets } = await Ticket.findAndCountAll({
     where: whereCondition,

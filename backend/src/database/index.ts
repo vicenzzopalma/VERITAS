@@ -1,4 +1,4 @@
-import { Sequelize } from "sequelize-typescript";
+﻿import { Sequelize } from "sequelize-typescript";
 import User from "../models/User";
 import Setting from "../models/Setting";
 import Contact from "../models/Contact";
@@ -12,10 +12,11 @@ import UserQueue from "../models/UserQueue";
 import QuickAnswer from "../models/QuickAnswer";
 import WppKey from "../models/WppKey";
 import LidMapping from "../models/LidMapping";
+import Sector from "../models/Sector";
+import UserSectorPermission from "../models/UserSectorPermission";
 
 // eslint-disable-next-line
 const dbConfig = require("../config/database");
-// import dbConfig from "../config/database";
 
 const sequelize = new Sequelize(dbConfig);
 
@@ -32,7 +33,9 @@ const models = [
   UserQueue,
   QuickAnswer,
   WppKey,
-  LidMapping
+  LidMapping,
+  Sector,
+  UserSectorPermission
 ];
 
 sequelize.addModels(models);
@@ -42,6 +45,47 @@ if (dbConfig.dialect === "sqlite") {
   sequelize.query("PRAGMA synchronous = NORMAL;").catch(() => {});
   sequelize.query("PRAGMA cache_size = -64000;").catch(() => {});
   sequelize.query("PRAGMA temp_store = MEMORY;").catch(() => {});
+
+  // Criação segura e resiliente das tabelas caso não existam
+  sequelize.query(`
+    CREATE TABLE IF NOT EXISTS Sectors (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      name VARCHAR(255) NOT NULL UNIQUE,
+      minimumProfile VARCHAR(255) NOT NULL DEFAULT 'admin_operational',
+      active BOOLEAN NOT NULL DEFAULT 1,
+      createdAt DATETIME,
+      updatedAt DATETIME
+    );
+  `).then(async () => {
+    const defaultSectors = [
+      "Junior",
+      "Senior",
+      "Pesquisa",
+      "Comercial",
+      "Jurídico",
+      "PA FIXA 1",
+      "PA FIXA 2"
+    ];
+    for (const sec of defaultSectors) {
+      await sequelize.query(
+        "INSERT OR IGNORE INTO Sectors (name, minimumProfile, active, createdAt, updatedAt) VALUES (?, 'admin_operational', 1, datetime('now'), datetime('now'))",
+        { replacements: [sec] }
+      ).catch(() => {});
+    }
+  }).catch(() => {});
+
+  sequelize.query(`
+    CREATE TABLE IF NOT EXISTS UserSectorPermissions (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      userId INTEGER NOT NULL,
+      sector VARCHAR(255) NOT NULL,
+      canView BOOLEAN NOT NULL DEFAULT 1,
+      canConfigure BOOLEAN NOT NULL DEFAULT 0,
+      createdAt DATETIME,
+      updatedAt DATETIME,
+      UNIQUE(userId, sector)
+    );
+  `).catch(() => {});
 }
 
 export default sequelize;

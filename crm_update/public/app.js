@@ -462,7 +462,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const chatSendBtn = document.getElementById('chat-send-btn');
   const chatCloseBtn = document.getElementById('chat-close-btn');
 
-  const availableSectors = ['Junior', 'Senior', 'PA FIXA 1', 'PA FIXA 2', 'Pesquisa', 'Juridico', 'Comercial'];
+  let availableSectors = ['Junior', 'Senior', 'PA FIXA 1', 'PA FIXA 2', 'Pesquisa', 'Juridico', 'Comercial'];
 
   function canConfigureSector(sector) {
     if (!currentUser) return false;
@@ -648,6 +648,9 @@ document.addEventListener('DOMContentLoaded', () => {
       const serverUser = data.user;
       if (!currentUser) {
         currentUser = serverUser;
+        if (Array.isArray(currentUser.availableSectors) && currentUser.availableSectors.length) {
+          availableSectors = currentUser.availableSectors;
+        }
         return;
       }
 

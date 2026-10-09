@@ -1,3 +1,4 @@
+import { assertTicketAccess } from "../services/TicketServices/TicketAccessPolicy";
 import { Request, Response } from "express";
 
 import SetTicketMessagesAsRead from "../helpers/SetTicketMessagesAsRead";
@@ -44,6 +45,7 @@ export const store = async (req: Request, res: Response): Promise<Response> => {
   const medias = req.files as Express.Multer.File[];
 
   const ticket = await ShowTicketService(ticketId, req.user?.id);
+  await assertTicketAccess(ticket, req.user?.id, true);
 
   SetTicketMessagesAsRead(ticket);
 

@@ -1,3 +1,4 @@
+import { isAnyAdmin } from "../services/WhatsappService/WhatsappAccessPolicy";
 import { Request, Response } from "express";
 
 import { getIO } from "../libs/socket";
@@ -7,7 +8,7 @@ import UpdateSettingService from "../services/SettingServices/UpdateSettingServi
 import ListSettingsService from "../services/SettingServices/ListSettingsService";
 
 export const index = async (req: Request, res: Response): Promise<Response> => {
-  if (req.user.profile !== "admin") {
+  if (!req.user || !isAnyAdmin(req.user)) {
     throw new AppError("ERR_NO_PERMISSION", 403);
   }
 

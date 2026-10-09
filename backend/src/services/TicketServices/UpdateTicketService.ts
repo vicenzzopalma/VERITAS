@@ -1,3 +1,4 @@
+import { assertTicketAccess } from "./TicketAccessPolicy";
 import CheckContactOpenTickets from "../../helpers/CheckContactOpenTickets";
 import SetTicketMessagesAsRead from "../../helpers/SetTicketMessagesAsRead";
 import { getIO } from "../../libs/socket";
@@ -7,6 +8,7 @@ import ShowWhatsAppService from "../WhatsappService/ShowWhatsAppService";
 import ShowTicketService from "./ShowTicketService";
 
 interface TicketData {
+  requestUserId?: string | number;
   status?: string;
   userId?: number;
   queueId?: number;
@@ -37,6 +39,9 @@ const UpdateTicketService = async ({
     await CheckContactOpenTickets(ticket.contactId, whatsappId);
   }
 
+  if (ticketData.requestUserId) {
+    await assertTicketAccess(ticket, ticketData.requestUserId, true);
+  }
   const oldStatus = ticket.status;
   const oldUserId = ticket.user?.id;
 

@@ -1,3 +1,8 @@
+
+async function getAvailableSectorCatalog(role) {
+  const fallback = ['Junior', 'Senior', 'PA FIXA 1', 'PA FIXA 2', 'Pesquisa', 'Juridico', 'Comercial'];
+  return fallback;
+}
 const express = require('express');
 const http = require('http');
 const WebSocket = require('ws');
@@ -897,7 +902,9 @@ app.get('/api/auth/me', async (req, res) => {
             allowEditDevices: !!user.allow_edit_devices,
             allowManageUsers: !!user.allow_manage_users,
             allowDashboard: PolicyEngine.canViewDashboard(user) ? 1 : 0,
-            sectorPermissions: perms
+            sectorPermissions: perms,
+            availableSectors: await getAvailableSectorCatalog(PolicyEngine.determineRole(user)),
+            role: PolicyEngine.determineRole(user)
           } 
         });
       }

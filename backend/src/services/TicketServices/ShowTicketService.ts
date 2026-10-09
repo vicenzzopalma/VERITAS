@@ -1,3 +1,4 @@
+import { assertTicketAccess } from "./TicketAccessPolicy";
 import Ticket from "../../models/Ticket";
 import AppError from "../../errors/AppError";
 import Contact from "../../models/Contact";
@@ -43,13 +44,14 @@ const ShowTicketService = async (
     const user = await User.findByPk(userId);
     const isOperator =
       user?.profile === "operator" ||
-      Boolean(user?.whatsappId && user?.profile !== "admin");
+      Boolean(user?.whatsappId && !["admin", "admin_master", "admin_operational"].includes(user?.profile || ""));
 
     if (isOperator && ticket.whatsappId !== user?.whatsappId) {
       throw new AppError("ERR_NO_PERMISSION", 403);
     }
   }
 
+  await assertTicketAccess(ticket, userId, false);
   return ticket;
 };
 

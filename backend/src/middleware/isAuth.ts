@@ -1,10 +1,16 @@
-import { verify } from "jsonwebtoken";
+﻿import { verify } from "jsonwebtoken";
 import { Request, Response, NextFunction } from "express";
 
 import AppError from "../errors/AppError";
 import authConfig from "../config/auth";
 import User from "../models/User";
-import { normalizeConnectionSectors } from "../services/WhatsappService/WhatsappAccessPolicy";
+import UserSectorPermission from "../models/UserSectorPermission";
+import {
+  MASTER_ADMIN_EMAIL,
+  MASTER_ADMIN_PROFILE,
+  OPERATIONAL_ADMIN_PROFILE,
+  normalizeConnectionSectors
+} from "../services/WhatsappService/WhatsappAccessPolicy";
 
 interface TokenPayload {
   id: string;
@@ -35,21 +41,42 @@ const isAuth = async (req: Request, res: Response, next: NextFunction): Promise<
     const decoded = verify(token, authConfig.secret);
     const { id, profile } = decoded as TokenPayload;
     const user = await User.findByPk(id, {
-      attributes: ["id", "profile", "canAccessConnections", "connectionSectors"]
+      attributes: ["id", "email", "profile", "canAccessConnections", "connectionSectors"]
     });
 
     if (!user) {
       throw new AppError("ERR_SESSION_EXPIRED", 401);
     }
 
-    const userProfile = user.profile || profile;
+    const email = String(user.email || "").toLowerCase().trim();
+    const isMaster = email === MASTER_ADMIN_EMAIL;
+    const userProfile = isMaster
+      ? MASTER_ADMIN_PROFILE
+      : (user.profile === "admin" ? OPERATIONAL_ADMIN_PROFILE : (user.profile || profile));
+
     const isManager = userProfile === "whatsapp_control" || userProfile === "whatsapp_control_high";
+
+    let sectorPermissions: any[] = [];
+    try {
+      sectorPermissions = await UserSectorPermission.findAll({
+        where: { userId: id },
+        attributes: ["sector", "canView", "canConfigure"]
+      });
+    } catch (_err) {
+      sectorPermissions = [];
+    }
 
     req.user = {
       id,
+      email,
       profile: userProfile,
       canAccessConnections: isManager ? true : Boolean(user.canAccessConnections),
-      connectionSectors: normalizeConnectionSectors(user.connectionSectors)
+      connectionSectors: normalizeConnectionSectors(user.connectionSectors),
+      sectorPermissions: (sectorPermissions || []).map(p => ({
+        sector: p.sector,
+        canView: !!p.canView,
+        canConfigure: !!p.canConfigure
+      }))
     };
   } catch (err) {
     throw new AppError(

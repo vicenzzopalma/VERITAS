@@ -1,4 +1,4 @@
-import {
+﻿import {
   Table,
   Column,
   CreatedAt,
@@ -20,6 +20,7 @@ import Ticket from "./Ticket";
 import Queue from "./Queue";
 import UserQueue from "./UserQueue";
 import Whatsapp from "./Whatsapp";
+import UserSectorPermission from "./UserSectorPermission";
 
 @Table
 class User extends Model<User> {
@@ -44,7 +45,7 @@ class User extends Model<User> {
   @Column
   tokenVersion: number;
 
-  @Default("admin")
+  @Default("user")
   @Column
   profile: string;
 
@@ -78,6 +79,9 @@ class User extends Model<User> {
 
   @BelongsToMany(() => Queue, () => UserQueue)
   queues: Queue[];
+
+  @HasMany(() => UserSectorPermission)
+  sectorPermissions: UserSectorPermission[];
 
   @BeforeUpdate
   @BeforeCreate

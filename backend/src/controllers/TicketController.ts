@@ -90,7 +90,7 @@ export const update = async (
   const ticketData: TicketData = req.body;
 
   const { ticket } = await UpdateTicketService({
-    ticketData,
+    ticketData: { ...ticketData, requestUserId: req.user?.id },
     ticketId
   });
 

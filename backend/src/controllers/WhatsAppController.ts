@@ -250,7 +250,7 @@ export const syncAllAudit = async (
   req: Request,
   res: Response
 ): Promise<Response> => {
-  if (String(req.user?.profile || "").toLowerCase() !== "admin") {
+  if (!isAnyAdmin(req.user)) {
     throw new AppError("ERR_NO_PERMISSION", 403);
   }
 

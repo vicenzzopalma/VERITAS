@@ -1,4 +1,4 @@
-import { Router } from "express";
+﻿import { Router } from "express";
 
 import userRoutes from "./userRoutes";
 import authRoutes from "./authRoutes";
@@ -13,12 +13,14 @@ import quickAnswerRoutes from "./quickAnswerRoutes";
 import apiRoutes from "./apiRoutes";
 import auditRoutes from "./auditRoutes";
 import dashboardRoutes from "./dashboardRoutes";
+import sectorRoutes from "./sectorRoutes";
 
 const routes = Router();
 
 routes.use(auditRoutes);
 routes.use(dashboardRoutes);
 routes.use(userRoutes);
+routes.use(sectorRoutes);
 routes.use("/auth", authRoutes);
 routes.use(settingRoutes);
 routes.use(contactRoutes);

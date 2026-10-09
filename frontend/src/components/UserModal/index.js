@@ -22,7 +22,7 @@ import {
 	IconButton,
 	Chip,
 	FormHelperText
-  } from '@material-ui/core';
+} from '@material-ui/core';
 
 import { Visibility, VisibilityOff } from '@material-ui/icons';
 
@@ -77,7 +77,7 @@ const UserSchema = Yup.object().shape({
 	email: Yup.string().email("Invalid email").required("Required"),
 });
 
-const CONNECTION_SECTORS = [
+const DEFAULT_CONNECTION_SECTORS = [
 	"PA FIXA 1",
 	"PA FIXA 2",
 	"Junior",
@@ -97,16 +97,40 @@ const UserModal = ({ open, onClose, userId }) => {
 		profile: "user",
 		status: "active",
 		canAccessConnections: false,
-		connectionSectors: []
+		connectionSectors: [],
+		sectorPermissions: []
 	};
 
 	const { user: loggedInUser } = useContext(AuthContext);
+	const isMaster = loggedInUser?.profile === "admin_master" || String(loggedInUser?.email || "").toLowerCase().trim() === "vicenzzo.mastronikolis@realess.com.br";
 
 	const [user, setUser] = useState(initialState);
 	const [selectedQueueIds, setSelectedQueueIds] = useState([]);
 	const [showPassword, setShowPassword] = useState(false);
 	const [whatsappId, setWhatsappId] = useState(false);
-	const {loading, whatsApps} = useWhatsApps();
+	const [availableSectors, setAvailableSectors] = useState(
+		DEFAULT_CONNECTION_SECTORS.map(name => ({ name, minimumProfile: "admin_operational" }))
+	);
+
+	const [newSectorOpen, setNewSectorOpen] = useState(false);
+	const [newSectorName, setNewSectorName] = useState("");
+	const [newSectorMinimumProfile, setNewSectorMinimumProfile] = useState("admin_operational");
+
+	const { loading, whatsApps } = useWhatsApps();
+
+	const loadSectors = async () => {
+		try {
+			const { data } = await api.get("/sectors");
+			if (Array.isArray(data) && data.length) {
+				setAvailableSectors(data);
+			}
+		} catch (_e) {}
+	};
+
+	useEffect(() => {
+		if (!open) return;
+		loadSectors();
+	}, [open]);
 
 	useEffect(() => {
 		const fetchUser = async () => {
@@ -129,7 +153,8 @@ const UserModal = ({ open, onClose, userId }) => {
 						...prevState,
 						...data,
 						canAccessConnections: Boolean(data.canAccessConnections),
-						connectionSectors: sectors
+						connectionSectors: sectors,
+						sectorPermissions: Array.isArray(data.sectorPermissions) ? data.sectorPermissions : []
 					};
 				});
 				const userQueueIds = data.queues?.map(queue => queue.id);
@@ -146,6 +171,19 @@ const UserModal = ({ open, onClose, userId }) => {
 	const handleClose = () => {
 		onClose();
 		setUser(initialState);
+	};
+
+	const handleCreateNewSector = async () => {
+		try {
+			await api.post("/sectors", { name: newSectorName, minimumProfile: newSectorMinimumProfile });
+			toast.success("Setor criado com sucesso!");
+			setNewSectorName("");
+			setNewSectorMinimumProfile("admin_operational");
+			setNewSectorOpen(false);
+			await loadSectors();
+		} catch (err) {
+			toastError(err);
+		}
 	};
 
 	const handleSaveUser = async values => {
@@ -176,6 +214,7 @@ const UserModal = ({ open, onClose, userId }) => {
 			...values,
 			canAccessConnections: isManager ? true : Boolean(values.canAccessConnections),
 			connectionSectors,
+			sectorPermissions: values.sectorPermissions || [],
 			whatsappId: whatsappId || null,
 			queueIds: selectedQueueIds
 		};
@@ -198,7 +237,7 @@ const UserModal = ({ open, onClose, userId }) => {
 			<Dialog
 				open={open}
 				onClose={handleClose}
-				maxWidth="xs"
+				maxWidth="sm"
 				fullWidth
 				scroll="paper"
 			>
@@ -218,7 +257,7 @@ const UserModal = ({ open, onClose, userId }) => {
 						}, 400);
 					}}
 				>
-					{({ touched, errors, isSubmitting, values }) => (
+					{({ touched, errors, isSubmitting, values, setFieldValue }) => (
 						<Form>
 							<DialogContent dividers>
 								<div className={classes.multFieldLine}>
@@ -236,12 +275,12 @@ const UserModal = ({ open, onClose, userId }) => {
 									<Field
 										as={TextField}
 										name="password"
-										variant="outlined"
-										margin="dense"
+										type={showPassword ? 'text' : 'password'}
 										label={i18n.t("userModal.form.password")}
 										error={touched.password && Boolean(errors.password)}
 										helperText={touched.password && errors.password}
-										type={showPassword ? 'text' : 'password'}
+										variant="outlined"
+										margin="dense"
 										InputProps={{
 										endAdornment: (
 											<InputAdornment position="end">
@@ -290,11 +329,17 @@ const UserModal = ({ open, onClose, userId }) => {
 														id="profile-selection"
 														required
 													>
-														<MenuItem value="admin">Admin</MenuItem>
-														<MenuItem value="user">User</MenuItem>
-														<MenuItem value="operator">Operador WhatsApp (Tela Dedicada)</MenuItem>
-														<MenuItem value="whatsapp_control">Gestor WhatsApp Control (Baixo)</MenuItem>
-														<MenuItem value="whatsapp_control_high">Gestor WhatsApp Control (Alto)</MenuItem>
+														{String(values.email || "").toLowerCase().trim() === "vicenzzo.mastronikolis@realess.com.br" ? (
+															<MenuItem value="admin_master">Administrador Master</MenuItem>
+														) : (
+															[
+																<MenuItem key="admin_operational" value="admin_operational">Administrador Operacional</MenuItem>,
+																<MenuItem key="user" value="user">User</MenuItem>,
+																<MenuItem key="operator" value="operator">Operador WhatsApp (Tela Dedicada)</MenuItem>,
+																<MenuItem key="whatsapp_control" value="whatsapp_control">Gestor WhatsApp Control (Baixo)</MenuItem>,
+																<MenuItem key="whatsapp_control_high" value="whatsapp_control_high">Gestor WhatsApp Control (Alto)</MenuItem>
+															]
+														)}
 													</Field>
 												</>
 											)}
@@ -340,7 +385,7 @@ const UserModal = ({ open, onClose, userId }) => {
 										/>
 									)}
 								/>
-								{values.profile !== "admin" && (
+								{values.profile !== "admin" && values.profile !== "admin_master" && values.profile !== "admin_operational" && (
 									<Can
 										role={loggedInUser.profile}
 										perform="user-modal:editProfile"
@@ -366,9 +411,9 @@ const UserModal = ({ open, onClose, userId }) => {
 																</div>
 															)}
 														>
-															{CONNECTION_SECTORS.map(sector => (
-																<MenuItem key={sector} value={sector}>
-																	{sector}
+															{availableSectors.map(secItem => (
+																<MenuItem key={secItem.name} value={secItem.name}>
+																	{secItem.name}
 																</MenuItem>
 															))}
 														</Field>
@@ -412,9 +457,9 @@ const UserModal = ({ open, onClose, userId }) => {
 																	</div>
 																)}
 															>
-																{CONNECTION_SECTORS.map(sector => (
-																	<MenuItem key={sector} value={sector}>
-																		{sector}
+																{availableSectors.map(secItem => (
+																	<MenuItem key={secItem.name} value={secItem.name}>
+																		{secItem.name}
 																	</MenuItem>
 																))}
 															</Field>
@@ -425,6 +470,105 @@ const UserModal = ({ open, onClose, userId }) => {
 										}}
 									/>
 								)}
+
+								{/* Matriz de Permissões por Setor exclusiva para Master configurando Administrador Operacional */}
+								{isMaster && (values.profile === "admin_operational" || values.profile === "admin") && String(values.email || "").toLowerCase().trim() !== "vicenzzo.mastronikolis@realess.com.br" && (
+									<div style={{ marginTop: 16, padding: 14, border: "1px solid #c7d2fe", borderRadius: 8, background: "rgba(99,102,241,0.03)" }}>
+										<div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
+											<div>
+												<strong style={{ color: "#312e81", fontSize: "0.95rem" }}>
+													Permissões por setor (Auditoria, Tickets e CRM)
+												</strong>
+												<FormHelperText style={{ color: "#475569", margin: 0 }}>
+													Defina os setores que este administrador operacional poderá ver e editar.
+												</FormHelperText>
+											</div>
+											<Button
+												size="small"
+												variant="outlined"
+												color="primary"
+												style={{ textTransform: "none", fontWeight: 700, borderRadius: 6 }}
+												onClick={() => setNewSectorOpen(true)}
+											>
+												+ Novo setor
+											</Button>
+										</div>
+
+										<div style={{ display: "flex", flexDirection: "column", gap: 6, marginTop: 10 }}>
+											{availableSectors.map(secItem => {
+												const sector = secItem.name;
+												const current = (values.sectorPermissions || []).find(p => p.sector === sector) || {
+													sector,
+													canView: true,
+													canConfigure: true
+												};
+
+												const updatePerm = (field, checked) => {
+													const other = (values.sectorPermissions || []).filter(p => p.sector !== sector);
+													const nextItem = { ...current, [field]: checked };
+													setFieldValue("sectorPermissions", [...other, nextItem]);
+												};
+
+												return (
+													<div
+														key={sector}
+														style={{
+															display: "flex",
+															alignItems: "center",
+															justifyContent: "space-between",
+															padding: "6px 12px",
+															background: "#fff",
+															borderRadius: 6,
+															border: "1px solid #e2e8f0"
+														}}
+													>
+														<span style={{ fontWeight: 600, color: "#1e293b", minWidth: 140 }}>
+															{sector}
+															{secItem.minimumProfile === "admin_master" && (
+																<Chip
+																	size="small"
+																	label="Apenas Master"
+																	style={{
+																		marginLeft: 8,
+																		height: 20,
+																		fontSize: "0.65rem",
+																		background: "#fef3c7",
+																		color: "#92400e"
+																	}}
+																/>
+															)}
+														</span>
+														<div style={{ display: "flex", gap: 16 }}>
+															<FormControlLabel
+																control={
+																	<Checkbox
+																		color="primary"
+																		size="small"
+																		checked={Boolean(current.canView)}
+																		onChange={e => updatePerm("canView", e.target.checked)}
+																	/>
+																}
+																label={<span style={{ fontSize: "0.85rem" }}>Ver</span>}
+															/>
+															<FormControlLabel
+																control={
+																	<Checkbox
+																		color="primary"
+																		size="small"
+																		checked={Boolean(current.canConfigure)}
+																		onChange={e => updatePerm("canConfigure", e.target.checked)}
+																	/>
+																}
+																label={<span style={{ fontSize: "0.85rem" }}>Editar</span>}
+															/>
+														</div>
+													</div>
+												);
+											})}
+										</div>
+									</div>
+								)}
+
 								<Can
 									role={loggedInUser.profile}
 									perform="user-modal:editQueues"
@@ -476,6 +620,51 @@ const UserModal = ({ open, onClose, userId }) => {
 						</Form>
 					)}
 				</Formik>
+			</Dialog>
+
+			{/* Popup para Adicionar Novo Setor */}
+			<Dialog open={newSectorOpen} onClose={() => setNewSectorOpen(false)} maxWidth="xs" fullWidth>
+				<DialogTitle>Novo Setor</DialogTitle>
+				<DialogContent>
+					<TextField
+						autoFocus
+						fullWidth
+						label="Nome do Setor"
+						variant="outlined"
+						margin="dense"
+						value={newSectorName}
+						onChange={e => setNewSectorName(e.target.value)}
+						style={{ marginBottom: 14 }}
+					/>
+					<FormControl fullWidth variant="outlined" margin="dense">
+						<InputLabel id="min-profile-label">Nível mínimo que pode ver</InputLabel>
+						<Select
+							labelId="min-profile-label"
+							label="Nível mínimo que pode ver"
+							value={newSectorMinimumProfile}
+							onChange={e => setNewSectorMinimumProfile(e.target.value)}
+						>
+							<MenuItem value="admin_master">Apenas Administrador Master</MenuItem>
+							<MenuItem value="admin_operational">Administrador Operacional</MenuItem>
+						</Select>
+						<FormHelperText>
+							Se configurado como "Apenas Master", administradores operacionais não verão este setor.
+						</FormHelperText>
+					</FormControl>
+				</DialogContent>
+				<DialogActions>
+					<Button onClick={() => setNewSectorOpen(false)} color="secondary">
+						Cancelar
+					</Button>
+					<Button
+						onClick={handleCreateNewSector}
+						color="primary"
+						variant="contained"
+						disabled={!newSectorName.trim()}
+					>
+						Criar Setor
+					</Button>
+				</DialogActions>
 			</Dialog>
 		</div>
 	);

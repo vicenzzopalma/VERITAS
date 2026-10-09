@@ -1,7 +1,10 @@
-import { sign } from "jsonwebtoken";
+﻿import { sign } from "jsonwebtoken";
 import authConfig from "../config/auth";
 import User from "../models/User";
 import {
+  MASTER_ADMIN_EMAIL,
+  MASTER_ADMIN_PROFILE,
+  OPERATIONAL_ADMIN_PROFILE,
   normalizeConnectionSectors,
   isWhatsappControlProfile,
   getEffectiveUserSectors
@@ -15,12 +18,18 @@ export const createAccessToken = (user: User): string => {
     connectionSectors: user.connectionSectors
   });
 
+  const email = String(user.email || "").toLowerCase().trim();
+  const isMaster = email === MASTER_ADMIN_EMAIL;
+  const profile = isMaster
+    ? MASTER_ADMIN_PROFILE
+    : (user.profile === "admin" ? OPERATIONAL_ADMIN_PROFILE : user.profile);
+
   return sign(
     {
       usarname: user.name,
       username: user.name,
       email: user.email,
-      profile: user.profile,
+      profile,
       id: user.id,
       canAccessConnections: isManager ? true : Boolean(user.canAccessConnections),
       connectionSectors: effectiveSectors
