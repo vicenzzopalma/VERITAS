@@ -976,7 +976,7 @@ const Audit = () => {
   // Se o aparelho selecionado não pertencer ao setor ativo, auto-seleciona o primeiro do setor
   useEffect(() => {
     if (filteredDevices.length > 0) {
-      const stillInList = filteredDevices.some((d) => String(d.id) === String(selectedDevice?.id));
+      const stillInList = filteredDevices.some((d) => d.id === selectedDevice?.id);
       if (!stillInList) {
         handleSelectDevice(filteredDevices[0]);
       }
@@ -992,7 +992,7 @@ const Audit = () => {
           (digitsOnly(globalSearchInput) && String(d.id).includes(digitsOnly(globalSearchInput))) ||
           matchesPhoneSearch(globalSearchInput, d.number)
       );
-      if (matched.length === 1 && String(selectedDevice?.id) !== String(matched[0].id)) {
+      if (matched.length === 1 && selectedDevice?.id !== matched[0].id) {
         handleSelectDevice(matched[0]);
       }
     }
@@ -1056,7 +1056,7 @@ const Audit = () => {
     setGlobalSearchInput("");
 
     // 1. Encontrar o smartphone do resultado na lista
-    const targetDevice = devices.find((d) => String(d.id) === String(result.whatsappId)) || {
+    const targetDevice = devices.find((d) => d.id === result.whatsappId) || {
       id: result.whatsappId,
       name: result.deviceName,
       status: result.deviceStatus,
@@ -1656,7 +1656,7 @@ const Audit = () => {
           </Typography>
         ) : (
           filteredDevices.map((device) => {
-            const isSelected = String(selectedDevice?.id) === String(device.id);
+            const isSelected = selectedDevice?.id === device.id;
             const normalizedStatus = String(
               device.status || device.sessionStatus || device.connectionStatus || ""
             ).trim().toUpperCase();
@@ -1818,7 +1818,7 @@ const Audit = () => {
             ) : (
               <>
                 {chats.map((chat) => {
-                  const isSelected = String(selectedChat?.ticketId) === String(chat.ticketId);
+                  const isSelected = selectedChat?.ticketId === chat.ticketId;
                   return (
                     <div
                       key={chat.ticketId}
