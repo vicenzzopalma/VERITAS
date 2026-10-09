@@ -2,11 +2,14 @@ import { Sequelize, Op } from "sequelize";
 import Queue from "../../models/Queue";
 import User from "../../models/User";
 import Whatsapp from "../../models/Whatsapp";
+import Sector from "../../models/Sector";
+import UserSectorPermission from "../../models/UserSectorPermission";
 import { MASTER_ADMIN_EMAIL, MASTER_ADMIN_PROFILE } from "../WhatsappService/WhatsappAccessPolicy";
 
 interface Request {
   searchParam?: string;
   pageNumber?: string | number;
+  accessUser?: any;
 }
 
 interface Response {
@@ -15,9 +18,17 @@ interface Response {
   hasMore: boolean;
 }
 
+export const getHiddenUserIdsForOperationalAdmin = async (): Promise<number[]> => {
+  const sectors = await Sector.findAll({ where: { active: true, minimumProfile: "admin_master" }, attributes: ["name"] });
+  if (sectors.length === 0) return [];
+  const permissions = await UserSectorPermission.findAll({ where: { sector: { [Op.in]: sectors.map(item => item.name) } }, attributes: ["userId"], group: ["userId"] });
+  return permissions.map(permission => permission.userId);
+};
+
 const ListUsersService = async ({
   searchParam = "",
-  pageNumber = "1"
+  pageNumber = "1",
+  accessUser
 }: Request): Promise<Response> => {
   const whereCondition = {
     [Op.or]: [
@@ -31,11 +42,14 @@ const ListUsersService = async ({
       { email: { [Op.like]: `%${searchParam.toLowerCase()}%` } }
     ]
   };
+  const hiddenIds = accessUser?.profile === "admin_operational" ? await getHiddenUserIdsForOperationalAdmin() : [];
+  const userWhere: any = { ...whereCondition };
+  if (hiddenIds.length > 0) userWhere.id = { [Op.notIn]: hiddenIds };
   const limit = 20;
   const offset = limit * (+pageNumber - 1);
 
   const { count, rows: users } = await User.findAndCountAll({
-    where: whereCondition,
+    where: userWhere,
     attributes: ["name", "id", "email", "profile", "status", "createdAt"],
     limit,
     offset,

@@ -77,7 +77,7 @@ const UserSchema = Yup.object().shape({
 	email: Yup.string().email("Invalid email").required("Required"),
 });
 
-const CONNECTION_SECTORS = [
+const DEFAULT_CONNECTION_SECTORS = [
 	"PA FIXA 1",
 	"PA FIXA 2",
 	"Junior",
@@ -87,7 +87,7 @@ const CONNECTION_SECTORS = [
 	"Jurídico"
 ];
 
-const UserModal = ({ open, onClose, userId }) => {
+const UserModal = ({ open, onClose, userId, sectorRefreshKey = 0 }) => {
 	const classes = useStyles();
 
 	const initialState = {
@@ -107,7 +107,15 @@ const UserModal = ({ open, onClose, userId }) => {
 	const [selectedQueueIds, setSelectedQueueIds] = useState([]);
 	const [showPassword, setShowPassword] = useState(false);
 	const [whatsappId, setWhatsappId] = useState(false);
+	const [availableSectors, setAvailableSectors] = useState(DEFAULT_CONNECTION_SECTORS.map(name => ({ name, minimumProfile: "admin_operational" })));
 	const {loading, whatsApps} = useWhatsApps();
+
+	useEffect(() => {
+		if (!open) return;
+		api.get("/sectors").then(({ data }) => {
+			if (Array.isArray(data) && data.length) setAvailableSectors(data);
+		}).catch(toastError);
+	}, [open, sectorRefreshKey]);
 
 	useEffect(() => {
 		const fetchUser = async () => {
@@ -378,11 +386,11 @@ const UserModal = ({ open, onClose, userId }) => {
 																</div>
 															)}
 														>
-															{CONNECTION_SECTORS.map(sector => (
+										{availableSectors.map(sectorItem => { const sector = sectorItem.name; return (
 																<MenuItem key={sector} value={sector}>
 																	{sector}
 																</MenuItem>
-															))}
+										); })}
 														</Field>
 														<FormHelperText style={{ color: "#6366f1", fontWeight: 500 }}>
 															{values.profile === "whatsapp_control_high"
@@ -424,11 +432,11 @@ const UserModal = ({ open, onClose, userId }) => {
 																	</div>
 																)}
 															>
-																{CONNECTION_SECTORS.map(sector => (
+											{availableSectors.map(sectorItem => { const sector = sectorItem.name; return (
 																	<MenuItem key={sector} value={sector}>
 																		{sector}
 																	</MenuItem>
-																))}
+											); })}
 															</Field>
 														</FormControl>
 													)}
@@ -441,7 +449,8 @@ const UserModal = ({ open, onClose, userId }) => {
 									<div style={{ marginTop: 12, padding: 12, border: "1px solid #ddd", borderRadius: 6 }}>
 										<strong>Permissões por setor</strong>
 										<FormHelperText>Visualização e edição valem para Auditoria, Tickets e CRM.</FormHelperText>
-										{CONNECTION_SECTORS.map(sector => {
+										{availableSectors.map(sectorItem => {
+											const sector = sectorItem.name;
 											const current = (values.sectorPermissions || []).find(permission => permission.sector === sector) || { sector, canView: false, canConfigure: false };
 											const updatePermission = (field, value) => {
 												const next = (values.sectorPermissions || []).filter(permission => permission.sector !== sector);
