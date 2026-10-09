@@ -2,7 +2,6 @@ import Queue from "../models/Queue";
 import User from "../models/User";
 import Whatsapp from "../models/Whatsapp";
 import UserSectorPermission from "../models/UserSectorPermission";
-import { MASTER_ADMIN_EMAIL, MASTER_ADMIN_PROFILE } from "../services/WhatsappService/WhatsappAccessPolicy";
 
 interface SerializedUser {
   id: number;
@@ -23,7 +22,7 @@ export const SerializeUser = (user: User, sectorPermissions: UserSectorPermissio
     id: user.id,
     name: user.name,
     email: user.email,
-    profile: String(user.email || "").trim().toLowerCase() === MASTER_ADMIN_EMAIL ? MASTER_ADMIN_PROFILE : user.profile,
+    profile: user.profile,
     status: user.status,
     canAccessConnections: user.canAccessConnections,
     connectionSectors: user.connectionSectors || [],

@@ -47,18 +47,13 @@ const isAuth = async (req: Request, res: Response, next: NextFunction): Promise<
       throw new AppError("ERR_SESSION_EXPIRED", 401);
     }
 
-    const isMasterByEmail = String(user.email || "").trim().toLowerCase() === MASTER_ADMIN_EMAIL;
-    const userProfile = isMasterByEmail ? MASTER_ADMIN_PROFILE : (user.profile || profile);
+    const userProfile = user.profile || profile;
     const isManager = userProfile === "whatsapp_control" || userProfile === "whatsapp_control_high";
-    const isMasterAdmin = isMasterByEmail;
+    const isMasterAdmin = userProfile === MASTER_ADMIN_PROFILE && String(user.email || "").toLowerCase() === MASTER_ADMIN_EMAIL;
     const sectorPermissions = await UserSectorPermission.findAll({
       where: { userId: id },
       attributes: ["sector", "canView", "canConfigure"]
     });
-
-    if (isMasterByEmail && user.profile !== MASTER_ADMIN_PROFILE) {
-      await user.update({ profile: MASTER_ADMIN_PROFILE });
-    }
 
     req.user = {
       id,

@@ -19,7 +19,7 @@ export const MASTER_ADMIN_PROFILE = "admin_master";
 export const isMasterAdmin = (user?: WhatsappAccessUser): boolean => {
   return Boolean(user && (
     user.isMasterAdmin === true ||
-    String(user.email || "").trim().toLowerCase() === MASTER_ADMIN_EMAIL
+    (String(user.email || "").trim().toLowerCase() === MASTER_ADMIN_EMAIL && String(user.profile || "").toLowerCase() === MASTER_ADMIN_PROFILE)
   ));
 };
 
