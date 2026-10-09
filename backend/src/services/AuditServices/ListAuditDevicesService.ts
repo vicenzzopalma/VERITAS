@@ -8,7 +8,6 @@ import {
   getWhatsappAccessWhere,
   WhatsappAccessUser
 } from "../WhatsappService/WhatsappAccessPolicy";
-import extractWhatsappNumber from "../../helpers/whatsappNumberHelper";
 
 export interface AuditDeviceResponse {
   id: number;
@@ -80,7 +79,7 @@ const ListAuditDevicesService = async ({ user }: Request = {}): Promise<AuditDev
       name: w.name || `WhatsApp ${w.id}`,
       status: liveStatus,
       sector: w.sector || "Junior",
-      number: extractWhatsappNumber(w.session),
+      number: (w as any).number || "",
       isDefault: w.isDefault || false,
       battery: w.battery || "",
       plugged: w.plugged || false,

@@ -1,9 +1,8 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 import { getHoursCloseTicketsAuto } from "../../config";
 import toastError from "../../errors/toastError";
 
 import api from "../../services/api";
-import { normalizeSearchText } from "../../helpers/searchHelper";
 
 const useTickets = ({
     searchParam,
@@ -18,17 +17,15 @@ const useTickets = ({
     const [hasMore, setHasMore] = useState(false);
     const [tickets, setTickets] = useState([]);
     const [count, setCount] = useState(0);
-    const requestIdRef = useRef(0);
 
     useEffect(() => {
-        const requestId = ++requestIdRef.current;
         setLoading(true);
         const delayDebounceFn = setTimeout(() => {
             const fetchTickets = async() => {
                 try {
                     const { data } = await api.get("/tickets", {
                         params: {
-                            searchParam: normalizeSearchText(searchParam),
+                            searchParam,
                             pageNumber,
                             status,
                             date,
@@ -37,7 +34,6 @@ const useTickets = ({
                             withUnreadMessages,
                         },
                     })
-                    if (requestId !== requestIdRef.current) return;
                     setTickets(Array.isArray(data?.tickets) ? data.tickets : []);
 
                     let horasFecharAutomaticamente = getHoursCloseTicketsAuto(); 
@@ -57,12 +53,10 @@ const useTickets = ({
                         })
                     }
 
-                    if (requestId !== requestIdRef.current) return;
                     setHasMore(data.hasMore)
                     setCount(data.count)
                     setLoading(false)
                 } catch (err) {
-                    if (requestId !== requestIdRef.current) return;
                     setLoading(false)
                     toastError(err)
                 }

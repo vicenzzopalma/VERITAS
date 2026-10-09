@@ -4,7 +4,6 @@ import Ticket from "../../models/Ticket";
 import Contact from "../../models/Contact";
 import Whatsapp from "../../models/Whatsapp";
 import { getSearchTerms } from "../../helpers/searchTermHelper";
-import { getPhoneSearchVariants } from "../../helpers/phoneSearchHelper";
 import {
   getWhatsappAccessWhere,
   WhatsappAccessUser
@@ -88,28 +87,15 @@ const ListAuditMessagesService = async ({
 
   if (search && search.trim()) {
     const searchTerms = getSearchTerms(search);
-    const terms = searchTerms.length > 0 ? searchTerms : [search.trim().toLowerCase()];
-    const termGroups = terms.map((term) => ({
-      [Op.or]: [
-        { body: { [Op.like]: `%${term}%` } },
-        { "$ticket.contact.name$": { [Op.like]: `%${term}%` } },
-        { "$ticket.contact.lid$": { [Op.like]: `%${term}%` } },
-      ],
-    }));
-
-    const phoneVariants = search.replace(/\D/g, "").length >= 2
-      ? getPhoneSearchVariants(search)
-      : [];
-    if (phoneVariants.length > 0) {
-      termGroups.push({
-        [Op.or]: phoneVariants.reduce((conditions: any[], variant: string) => conditions.concat([
-          { "$ticket.contact.number$": { [Op.like]: `%${variant}%` } },
-          { "$ticket.contact.lid$": { [Op.like]: `%${variant}%` } },
-        ]), []),
-      });
+    if (searchTerms.length > 0) {
+      whereConditions[Op.or] = searchTerms.map((term) => ({
+        body: { [Op.like]: `%${term}%` }
+      }));
+    } else {
+      whereConditions.body = {
+        [Op.like]: `%${search.trim()}%`
+      };
     }
-
-    whereConditions[Op.and] = termGroups;
   }
 
   const parseDateFilter = (val: string, isEnd: boolean): Date => {

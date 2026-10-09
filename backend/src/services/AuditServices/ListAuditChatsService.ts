@@ -1,4 +1,4 @@
-import { Op, fn, where, col, Sequelize } from "sequelize";
+import { Op, fn, where, col } from "sequelize";
 import sequelize from "../../database";
 import Ticket from "../../models/Ticket";
 import Contact from "../../models/Contact";
@@ -9,7 +9,6 @@ import { getSearchTerms } from "../../helpers/searchTermHelper";
 interface Request {
   whatsappId: number | string;
   search?: string;
-  ticketId?: string | number;
   pageNumber?: string | number;
   limit?: number;
 }
@@ -35,7 +34,6 @@ interface Response {
 const ListAuditChatsService = async ({
   whatsappId,
   search = "",
-  ticketId,
   pageNumber = 1,
   limit = 40
 }: Request): Promise<Response> => {
@@ -44,37 +42,35 @@ const ListAuditChatsService = async ({
 
   const cleanSearch = (search || "").trim().toLowerCase();
   const searchTerms = getSearchTerms(search || "");
-  const hasPhoneSearch = cleanSearch.replace(/\D/g, "").length >= 2;
 
   let ticketWhere: any = {
     whatsappId: Number(whatsappId),
     id: {
-      [Op.in]: Sequelize.literal(`(SELECT MAX(id) FROM Tickets WHERE whatsappId = ${Number(whatsappId)} GROUP BY contactId)`)
+      [Op.in]: sequelize.literal(`(SELECT MAX(id) FROM Tickets WHERE whatsappId = ${Number(whatsappId)} GROUP BY contactId)`)
     }
   };
 
   const contactOrConditions: any[] = [];
   if (cleanSearch) {
     const searchPatterns = searchTerms.length > 0 ? searchTerms : [cleanSearch];
-    const termGroups = searchPatterns.map((term) => ({
-      [Op.or]: [
-        where(fn("LOWER", col("contact.name")), "LIKE", `%${term}%`),
-        where(fn("LOWER", col("lastMessage")), "LIKE", `%${term}%`),
-        { "$contact.lid$": { [Op.like]: `%${term}%` } },
-      ],
-    }));
 
-    contactOrConditions.push({ [Op.and]: termGroups });
+    for (const term of searchPatterns) {
+      contactOrConditions.push(
+        where(fn("LOWER", col("contact.name")), "LIKE", `%${term}%`)
+      );
 
-    if (hasPhoneSearch) {
-      const phoneVariants = getPhoneSearchVariants(search);
-      if (phoneVariants.length > 0) {
+      const phoneVariants = getPhoneSearchVariants(term);
+      for (const variant of phoneVariants) {
         contactOrConditions.push({
-          [Op.or]: phoneVariants.reduce((conditions: any[], variant: string) => conditions.concat([
-            { "$contact.number$": { [Op.like]: `%${variant}%` } },
-            { "$contact.lid$": { [Op.like]: `%${variant}%` } },
-          ]), []),
+          "$contact.number$": { [Op.like]: `%${variant}%` }
         });
+      }
+
+      const isShortDigits = /^\d{1,5}$/.test(term);
+      if (!isShortDigits) {
+        contactOrConditions.push(
+          where(fn("LOWER", col("lastMessage")), "LIKE", `%${term}%`)
+        );
       }
     }
 
@@ -84,7 +80,7 @@ const ListAuditChatsService = async ({
     };
   }
 
-  const result = await Ticket.findAndCountAll({
+  const { count, rows: tickets } = await Ticket.findAndCountAll({
     where: ticketWhere,
     include: [
       {
@@ -97,19 +93,6 @@ const ListAuditChatsService = async ({
     offset,
     order: [["updatedAt", "DESC"]]
   });
-
-  let tickets = result.rows;
-  let count = result.count;
-
-  if (ticketId) {
-    const target = await Ticket.findOne({
-      where: { id: Number(ticketId), whatsappId: Number(whatsappId) },
-      include: [{ model: Contact, as: "contact", required: true }],
-    });
-    if (target && !tickets.some((ticket) => String(ticket.id) === String(target.id))) {
-      tickets = [target, ...tickets];
-    }
-  }
 
   const ticketIds = tickets.map((t) => t.id);
   const msgStatsMap = new Map<number, { total: number; deleted: number }>();
@@ -175,7 +158,7 @@ const ListAuditChatsService = async ({
     })().catch(() => {});
   });
 
-  const hasMore = count > offset + result.rows.length;
+  const hasMore = count > offset + tickets.length;
 
   return {
     chats,
