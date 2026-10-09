@@ -5,7 +5,7 @@ import CheckSettingsHelper from "../helpers/CheckSettings";
 import AppError from "../errors/AppError";
 
 import CreateUserService from "../services/UserServices/CreateUserService";
-import ListUsersService from "../services/UserServices/ListUsersService";
+import ListUsersService, { getHiddenUserIdsForOperationalAdmin } from "../services/UserServices/ListUsersService";
 import UpdateUserService from "../services/UserServices/UpdateUserService";
 import ShowUserService from "../services/UserServices/ShowUserService";
 import DeleteUserService from "../services/UserServices/DeleteUserService";
@@ -22,7 +22,8 @@ export const index = async (req: Request, res: Response): Promise<Response> => {
 
   const { users, count, hasMore } = await ListUsersService({
     searchParam,
-    pageNumber
+    pageNumber,
+    accessUser: req.user
   });
 
   return res.json({ users, count, hasMore });
@@ -76,6 +77,10 @@ export const store = async (req: Request, res: Response): Promise<Response> => {
 export const show = async (req: Request, res: Response): Promise<Response> => {
   const { userId } = req.params;
 
+  if (req.user?.profile === OPERATIONAL_ADMIN_PROFILE) {
+    const hidden = await getHiddenUserIdsForOperationalAdmin();
+    if (hidden.includes(Number(userId))) throw new AppError("ERR_NO_PERMISSION", 403);
+  }
   const user = await ShowUserService(userId);
 
   return res.status(200).json(user);
@@ -103,6 +108,10 @@ export const update = async (
   }
 
   const { userId } = req.params;
+  if (req.user.profile === OPERATIONAL_ADMIN_PROFILE) {
+    const hidden = await getHiddenUserIdsForOperationalAdmin();
+    if (hidden.includes(Number(userId))) throw new AppError("ERR_NO_PERMISSION", 403);
+  }
   const { email, password, name, profile, queueIds, whatsappId, status, canAccessConnections, connectionSectors } = req.body;
   const target = await ShowUserService(userId);
   const normalizedProfile = profile === "admin" ? OPERATIONAL_ADMIN_PROFILE : profile;
