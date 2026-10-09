@@ -466,7 +466,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const chatSendBtn = document.getElementById('chat-send-btn');
   const chatCloseBtn = document.getElementById('chat-close-btn');
 
-  let availableSectors = ['Junior', 'Senior', 'PA FIXA 1', 'PA FIXA 2', 'Pesquisa', 'Juridico', 'Comercial'];
+  const availableSectors = ['Junior', 'Senior', 'PA FIXA 1', 'PA FIXA 2', 'Pesquisa', 'Juridico', 'Comercial'];
 
   function canConfigureSector(sector) {
     if (!currentUser) return false;
@@ -668,9 +668,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
       const wasAbleToManageUsers = isMasterUser(currentUser) || currentUser.allowManageUsers === 1 || currentUser.allowManageUsers === true;
       currentUser = serverUser;
-      if (Array.isArray(currentUser.availableSectors) && currentUser.availableSectors.length) {
-        availableSectors = currentUser.availableSectors;
-      }
 
       updateAllTabsVisibility();
       setupReadonlyMode();
@@ -710,9 +707,6 @@ document.addEventListener('DOMContentLoaded', () => {
         return;
       }
       currentUser = data.user;
-      if (Array.isArray(currentUser.availableSectors) && currentUser.availableSectors.length) {
-        availableSectors = currentUser.availableSectors;
-      }
       userDisplayName.textContent = currentUser.name;
 
       if (isRestrictedPaFixaUser(currentUser)) {

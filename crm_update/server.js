@@ -21,23 +21,6 @@ const wss = new WebSocket.Server({ noServer: true });
 
 const PORT = process.env.PORT || 3000;
 
-async function getAvailableSectorCatalog(role) {
-  const fallback = ['Junior', 'Senior', 'PA FIXA 1', 'PA FIXA 2', 'Pesquisa', 'Juridico', 'Comercial'];
-  try {
-    const sqlite3 = require('sqlite3');
-    const { open } = require('sqlite');
-    const veritasDbPath = path.resolve(__dirname, '..', 'backend', 'whaticket.sqlite');
-    if (!fs.existsSync(veritasDbPath)) return fallback;
-    const db = await open({ filename: veritasDbPath, driver: sqlite3.Database });
-    const rows = await db.all('SELECT name, minimumProfile FROM Sectors WHERE active = 1 ORDER BY name ASC');
-    await db.close();
-    if (!rows || rows.length === 0) return fallback;
-    return rows.filter(row => role === 'admin_master' || row.minimumProfile !== 'admin_master').map(row => row.name);
-  } catch (err) {
-    return fallback;
-  }
-}
-
 app.set('trust proxy', 1);
 
 // Configurar o middleware de sessão com banco persistente para evitar vazamento de memória
@@ -938,8 +921,7 @@ app.get('/api/auth/me', async (req, res) => {
             allowEditDevices: !!user.allow_edit_devices,
             allowManageUsers: !!user.allow_manage_users,
             allowDashboard: PolicyEngine.canViewDashboard(user) ? 1 : 0,
-            sectorPermissions: perms,
-            availableSectors: await getAvailableSectorCatalog(user.role)
+            sectorPermissions: perms
           } 
         });
       }

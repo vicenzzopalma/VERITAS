@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useReducer, useContext } from "react";
+import React, { useState, useEffect, useReducer } from "react";
 import { toast } from "react-toastify";
 import openSocket from "../../services/socket-io";
 
@@ -16,14 +16,6 @@ import TextField from "@material-ui/core/TextField";
 import InputAdornment from "@material-ui/core/InputAdornment";
 import Chip from "@material-ui/core/Chip";
 import Tooltip from "@material-ui/core/Tooltip";
-import Dialog from "@material-ui/core/Dialog";
-import DialogTitle from "@material-ui/core/DialogTitle";
-import DialogContent from "@material-ui/core/DialogContent";
-import DialogActions from "@material-ui/core/DialogActions";
-import FormControl from "@material-ui/core/FormControl";
-import InputLabel from "@material-ui/core/InputLabel";
-import Select from "@material-ui/core/Select";
-import MenuItem from "@material-ui/core/MenuItem";
 
 import DeleteOutlineIcon from "@material-ui/icons/DeleteOutline";
 import EditIcon from "@material-ui/icons/Edit";
@@ -40,7 +32,6 @@ import TableRowSkeleton from "../../components/TableRowSkeleton";
 import UserModal from "../../components/UserModal";
 import ConfirmationModal from "../../components/ConfirmationModal";
 import toastError from "../../errors/toastError";
-import { AuthContext } from "../../context/Auth/AuthContext";
 
 const reducer = (state, action) => {
   if (action.type === "LOAD_USERS") {
@@ -107,12 +98,6 @@ const Users = () => {
   const [confirmModalOpen, setConfirmModalOpen] = useState(false);
   const [searchParam, setSearchParam] = useState("");
   const [users, dispatch] = useReducer(reducer, []);
-  const [sectorDialogOpen, setSectorDialogOpen] = useState(false);
-  const [sectorName, setSectorName] = useState("");
-  const [sectorMinimumProfile, setSectorMinimumProfile] = useState("admin_operational");
-  const [sectorRefreshKey, setSectorRefreshKey] = useState(0);
-  const { user: loggedInUser } = useContext(AuthContext);
-  const isMaster = String(loggedInUser?.email || "").toLowerCase() === "vicenzzo.mastronikolis@realess.com.br";
 
   useEffect(() => {
     dispatch({ type: "RESET" });
@@ -202,19 +187,6 @@ const Users = () => {
     setPageNumber(1);
   };
 
-  const handleCreateSector = async () => {
-    try {
-      await api.post("/sectors", { name: sectorName, minimumProfile: sectorMinimumProfile });
-      toast.success("Setor criado com sucesso.");
-      setSectorName("");
-      setSectorMinimumProfile("admin_operational");
-      setSectorDialogOpen(false);
-      setSectorRefreshKey(value => value + 1);
-    } catch (err) {
-      toastError(err);
-    }
-  };
-
   const loadMore = () => {
     setPageNumber((prevState) => prevState + 1);
   };
@@ -247,25 +219,7 @@ const Users = () => {
         onClose={handleCloseUserModal}
         aria-labelledby="form-dialog-title"
         userId={selectedUser && selectedUser.id}
-        sectorRefreshKey={sectorRefreshKey}
       />
-      <Dialog open={sectorDialogOpen} onClose={() => setSectorDialogOpen(false)} fullWidth maxWidth="xs">
-        <DialogTitle>Novo setor</DialogTitle>
-        <DialogContent>
-          <TextField autoFocus fullWidth margin="dense" label="Nome do setor" value={sectorName} onChange={event => setSectorName(event.target.value)} />
-          <FormControl fullWidth variant="outlined" margin="dense">
-            <InputLabel>Nível mínimo para visualizar</InputLabel>
-            <Select value={sectorMinimumProfile} onChange={event => setSectorMinimumProfile(event.target.value)} label="Nível mínimo para visualizar">
-              <MenuItem value="admin_master">Administrador Master</MenuItem>
-              <MenuItem value="admin_operational">Administrador Operacional</MenuItem>
-            </Select>
-          </FormControl>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setSectorDialogOpen(false)}>Cancelar</Button>
-          <Button color="primary" variant="contained" disabled={!sectorName.trim()} onClick={handleCreateSector}>Criar setor</Button>
-        </DialogActions>
-      </Dialog>
       <MainHeader>
         <Title>{i18n.t("users.title")}</Title>
         <MainHeaderButtonsWrapper>
@@ -289,7 +243,6 @@ const Users = () => {
           >
             {i18n.t("users.buttons.add")}
           </Button>
-          {isMaster && <Button variant="outlined" color="primary" onClick={() => setSectorDialogOpen(true)}>+ Novo setor</Button>}
         </MainHeaderButtonsWrapper>
       </MainHeader>
       <Paper
