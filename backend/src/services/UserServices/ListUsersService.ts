@@ -2,6 +2,7 @@ import { Sequelize, Op } from "sequelize";
 import Queue from "../../models/Queue";
 import User from "../../models/User";
 import Whatsapp from "../../models/Whatsapp";
+import { MASTER_ADMIN_EMAIL, MASTER_ADMIN_PROFILE } from "../WhatsappService/WhatsappAccessPolicy";
 
 interface Request {
   searchParam?: string;
@@ -43,6 +44,12 @@ const ListUsersService = async ({
       { model: Queue, as: "queues", attributes: ["id", "name", "color"] },
       { model: Whatsapp, as: "whatsapp", attributes: ["id", "name"] }
     ]
+  });
+
+  users.forEach(user => {
+    if (String(user.email || "").trim().toLowerCase() === MASTER_ADMIN_EMAIL) {
+      user.profile = MASTER_ADMIN_PROFILE;
+    }
   });
 
   const hasMore = count > offset + users.length;
