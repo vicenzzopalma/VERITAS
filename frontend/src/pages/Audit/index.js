@@ -734,13 +734,28 @@ const Audit = () => {
   const history = useHistory();
   const location = useLocation();
 
+  const isMaster = user?.profile === "admin_master";
+  const isOperational = user?.profile === "admin_operational" || user?.profile === "admin";
   const isManagerHigh = user?.profile === "whatsapp_control_high";
-  const canAccessAudit = user?.profile === "admin" || isManagerHigh;
-  const isRestrictedUser = user?.profile !== "admin";
+  const canAccessAudit = isMaster || isOperational || isManagerHigh;
+
   const allowedSectors = useMemo(() => {
-    if (!isRestrictedUser) return null;
-    let raw = [];
+    if (isMaster) return null;
+
+    if (isOperational) {
+      if (Array.isArray(user?.sectorPermissions) && user.sectorPermissions.length > 0) {
+        const permitted = user.sectorPermissions
+          .filter((p) => p && p.canView)
+          .map((p) => p.sector);
+        if (permitted.length > 0) {
+          return Array.from(new Set(permitted));
+        }
+      }
+      return null;
+    }
+
     if (isManagerHigh) {
+      let raw = [];
       if (Array.isArray(user?.connectionSectors)) {
         raw = user.connectionSectors;
       } else if (typeof user?.connectionSectors === "string") {
@@ -754,19 +769,21 @@ const Audit = () => {
       if (raw.length === 0) {
         raw = ["PA FIXA 1", "PA FIXA 2"];
       }
+      const expanded = [];
+      if (Array.isArray(raw)) {
+        raw.forEach((s) => {
+          if (s === "PA FIXA") {
+            expanded.push("PA FIXA 1", "PA FIXA 2");
+          } else {
+            expanded.push(s);
+          }
+        });
+      }
+      return Array.from(new Set(expanded));
     }
-    const expanded = [];
-    if (Array.isArray(raw)) {
-      raw.forEach((s) => {
-        if (s === "PA FIXA") {
-          expanded.push("PA FIXA 1", "PA FIXA 2");
-        } else {
-          expanded.push(s);
-        }
-      });
-    }
-    return Array.from(new Set(expanded));
-  }, [isRestrictedUser, isManagerHigh, user?.connectionSectors]);
+
+    return [];
+  }, [isMaster, isOperational, isManagerHigh, user?.sectorPermissions, user?.connectionSectors]);
 
   useEffect(() => {
     if (user && !canAccessAudit) {

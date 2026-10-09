@@ -196,7 +196,7 @@ const WhatsAppModal = ({ open, onClose, whatsAppId }) => {
 	const { fetchWhatsApps } = useContext(WhatsAppsContext);
 	const { user } = useContext(AuthContext);
 	const isManager = user?.profile === "whatsapp_control" || user?.profile === "whatsapp_control_high";
-	const isRestrictedUser = user?.profile !== "admin";
+	const isRestrictedUser = !["admin", "admin_master", "admin_operational"].includes(user?.profile);
 	const availableSectors = isRestrictedUser && (isManager || user?.canAccessConnections)
 		? (user?.connectionSectors && user.connectionSectors.length > 0 ? user.connectionSectors : OFFICIAL_SECTORS)
 		: OFFICIAL_SECTORS;

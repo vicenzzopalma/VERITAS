@@ -264,10 +264,22 @@ const Connections = () => {
 
 	const { whatsApps, loading, fetchWhatsApps } = useContext(WhatsAppsContext);
 	const { user } = useContext(AuthContext);
+	const isMaster = user?.profile === "admin_master";
+	const isOperational = user?.profile === "admin_operational" || user?.profile === "admin";
 	const isManager = user?.profile === "whatsapp_control" || user?.profile === "whatsapp_control_high";
-	const isRestrictedUser = user?.profile !== "admin";
 	const allowedSectors = React.useMemo(() => {
-		if (!isRestrictedUser) return null;
+		if (isMaster) return null;
+		if (isOperational) {
+			if (Array.isArray(user?.sectorPermissions) && user.sectorPermissions.length > 0) {
+				const permitted = user.sectorPermissions
+					.filter(p => p && p.canView)
+					.map(p => p.sector);
+				if (permitted.length > 0) {
+					return Array.from(new Set(permitted));
+				}
+			}
+			return null;
+		}
 		let userSectors = [];
 		if (Array.isArray(user?.connectionSectors)) {
 			userSectors = user.connectionSectors;
@@ -295,7 +307,7 @@ const Connections = () => {
 			});
 		}
 		return Array.from(new Set(expanded));
-	}, [isRestrictedUser, isManager, user?.canAccessConnections, user?.connectionSectors]);
+	}, [isMaster, isOperational, isManager, user?.canAccessConnections, user?.connectionSectors, user?.sectorPermissions]);
 	const [whatsAppModalOpen, setWhatsAppModalOpen] = useState(false);
 	const [qrModalOpen, setQrModalOpen] = useState(false);
 	const [selectedWhatsApp, setSelectedWhatsApp] = useState(null);
