@@ -188,7 +188,15 @@ const ListTicketsService = async ({
 
   const allowedSectors = await getOperationalTicketSectorFilter(userId);
   if (allowedSectors !== null) {
-    whereCondition = { ...whereCondition, "$whatsapp.sector$": { [Op.in]: allowedSectors } };
+    const allowedWhatsapps = await Whatsapp.findAll({
+      attributes: ["id"],
+      where: { sector: { [Op.in]: allowedSectors } }
+    });
+    const allowedWhatsappIds = allowedWhatsapps.map(w => w.id);
+    whereCondition = {
+      ...whereCondition,
+      whatsappId: { [Op.in]: allowedWhatsappIds }
+    };
   }
 
   const { count, rows: tickets } = await Ticket.findAndCountAll({

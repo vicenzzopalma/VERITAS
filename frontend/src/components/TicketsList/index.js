@@ -173,23 +173,41 @@ const reducer = (state, action) => {
 		queueIds: JSON.stringify(selectedQueueIds),
 	});
 
+	const userSectorPerms = Array.isArray(user?.sectorPermissions) ? user.sectorPermissions : [];
+	const allowedSectorsSet = new Set(
+		userSectorPerms.filter(p => p.canView).map(p => p.sector)
+	);
+	const hasSectorRestrictions = userSectorPerms.length > 0 && user?.profile !== "admin_master";
+
+	const isSectorAllowed = (ticket) => {
+		if (!hasSectorRestrictions) return true;
+		const ticketSector = ticket?.whatsapp?.sector;
+		if (!ticketSector) return true;
+		return allowedSectorsSet.has(ticketSector);
+	};
+
 	useEffect(() => {
 		if (!status && !searchParam) return;
+		const filteredTickets = hasSectorRestrictions
+			? tickets.filter(isSectorAllowed)
+			: tickets;
 		dispatch({
 			type: "LOAD_TICKETS",
-			payload: tickets,
+			payload: filteredTickets,
 		});
-	}, [tickets]);
+	}, [tickets, hasSectorRestrictions]);
 
 	useEffect(() => {
 		const socket = openSocket();
 
 		const shouldUpdateTicket = ticket => !searchParam &&
 			(!ticket.userId || ticket.userId === user?.id || showAll) &&
-			(!ticket.queueId || selectedQueueIds.indexOf(ticket.queueId) > -1);
+			(!ticket.queueId || selectedQueueIds.indexOf(ticket.queueId) > -1) &&
+			isSectorAllowed(ticket);
 
 		const notBelongsToUserQueues = ticket =>
-			ticket.queueId && selectedQueueIds.indexOf(ticket.queueId) === -1;
+			(ticket.queueId && selectedQueueIds.indexOf(ticket.queueId) === -1) ||
+			!isSectorAllowed(ticket);
 
 		socket.on("connect", () => {
 			if (status) {
