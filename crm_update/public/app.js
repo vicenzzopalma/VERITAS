@@ -490,7 +490,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
   function updateAllTabsVisibility() {
     const tabAll = document.getElementById('tab-all');
-    if (!tabAll) return;
+    const sectorTabsContainer = document.getElementById('sector-tabs');
+    if (!tabAll || !sectorTabsContainer) return;
 
     const isPaFixaOnly = isRestrictedPaFixaUser(currentUser);
     if (isPaFixaOnly && currentUser) {
@@ -498,69 +499,110 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     const hasGlobalTabs = !isPaFixaOnly && currentUser && (currentUser.username === 'vicenzzo' || currentUser.allowAllTabs === 1 || currentUser.allowAllTabs === true);
+    const perms = Array.isArray(currentUser ? currentUser.sectorPermissions : []) ? currentUser.sectorPermissions : [];
+
+    // 1. Garantir que todas as abas de setores (incluindo setores dinâmicos como ADM, RH, Financeiro) existam no DOM
+    const allKnownSectors = ['Junior', 'Senior', 'PA FIXA', 'Pesquisa', 'Juridico', 'Comercial'];
+    const sectorsToCreate = new Set();
+    perms.forEach(p => { if (p && p.sector) sectorsToCreate.add(p.sector.trim()); });
+    (availableSectors || []).forEach(s => { if (s) sectorsToCreate.add(String(s).trim()); });
+    if (currentUser && Array.isArray(currentUser.availableSectors)) {
+      currentUser.availableSectors.forEach(s => { if (s) sectorsToCreate.add(String(s).trim()); });
+    }
+    if (Array.isArray(devicesData)) {
+      devicesData.forEach(d => {
+        const dSec = (d.origin_sector || d.sector || '').trim();
+        if (dSec) sectorsToCreate.add(dSec);
+      });
+    }
+
+    sectorsToCreate.forEach(secName => {
+      if (secName && !allKnownSectors.includes(secName) && secName !== 'PA FIXA 1' && secName !== 'PA FIXA 2') {
+        const normSec = secName.trim();
+        let existingBtn = sectorTabsContainer.querySelector(`.tab-btn[data-sector="${normSec}"]`);
+        if (!existingBtn && normSec.toLowerCase() === 'jurídico') {
+          existingBtn = sectorTabsContainer.querySelector('.tab-btn[data-sector="Juridico"]');
+        }
+        if (!existingBtn) {
+          const newBtn = document.createElement('button');
+          newBtn.className = 'tab-btn';
+          newBtn.setAttribute('data-sector', normSec);
+          newBtn.textContent = normSec;
+          sectorTabsContainer.insertBefore(newBtn, tabAll);
+        }
+      }
+    });
 
     if (hasGlobalTabs) {
       tabAll.style.display = 'inline-block';
+      sectorTabsContainer.querySelectorAll('.tab-btn').forEach(btn => {
+        btn.style.display = 'inline-block';
+      });
     } else {
       tabAll.style.display = 'none';
-      if (currentSector === 'Todos') {
-        currentSector = isPaFixaOnly ? 'PA FIXA' : 'Junior';
-        persistCurrentSector();
-      }
-    }
 
-    if (!hasGlobalTabs) {
-      const perms = Array.isArray(currentUser ? currentUser.sectorPermissions : []) ? currentUser.sectorPermissions : [];
-      const canViewJunior = !isPaFixaOnly && perms.some(p => p.sector === 'Junior' && p.can_view === 1);
-      const canViewSenior = !isPaFixaOnly && perms.some(p => p.sector === 'Senior' && p.can_view === 1);
-      const canViewPA1 = isPaFixaOnly || perms.some(p => p.sector === 'PA FIXA 1' && p.can_view === 1);
-      const canViewPA2 = isPaFixaOnly || perms.some(p => p.sector === 'PA FIXA 2' && p.can_view === 1);
-      const canViewPesquisa = !isPaFixaOnly && perms.some(p => p.sector === 'Pesquisa' && p.can_view === 1);
-      const canViewJuridico = !isPaFixaOnly && perms.some(p => p.sector === 'Juridico' && p.can_view === 1);
-      const canViewComercial = !isPaFixaOnly && perms.some(p => p.sector === 'Comercial' && p.can_view === 1);
-
-      document.querySelectorAll('#sector-tabs .tab-btn').forEach(btn => {
-        const sec = btn.getAttribute('data-sector');
-        if (sec === 'Junior') {
-          btn.style.display = canViewJunior ? 'inline-block' : 'none';
-        } else if (sec === 'Senior') {
-          btn.style.display = canViewSenior ? 'inline-block' : 'none';
-        } else if (sec === 'PA FIXA') {
-          btn.style.display = (canViewPA1 || canViewPA2) ? 'inline-block' : 'none';
-        } else if (sec === 'Pesquisa') {
-          btn.style.display = canViewPesquisa ? 'inline-block' : 'none';
-        } else if (sec === 'Juridico') {
-          btn.style.display = canViewJuridico ? 'inline-block' : 'none';
-        } else if (sec === 'Comercial') {
-          btn.style.display = canViewComercial ? 'inline-block' : 'none';
+      const canViewSector = (secName) => {
+        if (!secName) return false;
+        const norm = secName.toLowerCase().trim();
+        if (norm === 'pa fixa') {
+          return isPaFixaOnly || perms.some(p => (p.sector === 'PA FIXA 1' || p.sector === 'PA FIXA 2') && p.can_view === 1);
         }
+        if (isPaFixaOnly) return false;
+        return perms.some(p => {
+          const pNorm = (p.sector || '').toLowerCase().trim();
+          if (norm === 'juridico' || norm === 'jurídico') {
+            return (pNorm === 'juridico' || pNorm === 'jurídico') && p.can_view === 1;
+          }
+          return pNorm === norm && p.can_view === 1;
+        });
+      };
+
+      sectorTabsContainer.querySelectorAll('.tab-btn').forEach(btn => {
+        if (btn.id === 'tab-all') {
+          btn.style.display = 'none';
+          return;
+        }
+        const sec = btn.getAttribute('data-sector');
+        btn.style.display = canViewSector(sec) ? 'inline-block' : 'none';
       });
 
-      const activeBtn = document.querySelector(`#sector-tabs .tab-btn[data-sector="${currentSector}"]`);
-      if (currentSector !== 'Todos' && (!activeBtn || activeBtn.style.display === 'none')) {
-        const prevSector = currentSector;
-        if (isPaFixaOnly) currentSector = 'PA FIXA';
-        else if (canViewJunior) currentSector = 'Junior';
-        else if (canViewSenior) currentSector = 'Senior';
-        else if (canViewPA1 || canViewPA2) currentSector = 'PA FIXA';
-        else if (canViewPesquisa) currentSector = 'Pesquisa';
-        else if (canViewJuridico) currentSector = 'Juridico';
-        else if (canViewComercial) currentSector = 'Comercial';
-        else currentSector = 'PA FIXA';
+      // Se o currentSector for 'Todos' ou estiver invisível/proibido, trocar para a primeira aba visível
+      const currentBtn = sectorTabsContainer.querySelector(`.tab-btn[data-sector="${currentSector}"]`);
+      if (currentSector === 'Todos' || !currentBtn || currentBtn.style.display === 'none') {
+        const firstVisibleBtn = Array.from(sectorTabsContainer.querySelectorAll('.tab-btn'))
+          .find(b => b.id !== 'tab-all' && b.style.display !== 'none');
         
+        if (firstVisibleBtn) {
+          currentSector = firstVisibleBtn.getAttribute('data-sector') || 'PA FIXA';
+          if (currentSector === 'PA FIXA') currentSubSector = 'PA FIXA 1';
+        } else {
+          currentSector = isPaFixaOnly ? 'PA FIXA' : 'Junior';
+        }
         persistCurrentSector();
-
-        if (prevSector !== currentSector && devicesData && devicesData.length > 0) {
+        syncSectorTabsUI();
+        if (devicesData && devicesData.length > 0) {
           renderDevices();
         }
       }
-    } else {
-      document.querySelectorAll('#sector-tabs .tab-btn').forEach(btn => {
-        if (btn.id !== 'tab-all' || hasGlobalTabs) {
-          btn.style.display = 'inline-block';
+    }
+
+    // 2. Atualizar selects de setores nos modais para incluir os setores disponíveis
+    const updateSelectOptions = (selectId) => {
+      const select = document.getElementById(selectId);
+      if (!select) return;
+      const existingOpts = Array.from(select.options).map(o => o.value);
+      
+      sectorsToCreate.forEach(sec => {
+        if (sec && !existingOpts.includes(sec)) {
+          const opt = document.createElement('option');
+          opt.value = sec;
+          opt.textContent = sec;
+          select.appendChild(opt);
         }
       });
-    }
+    };
+    updateSelectOptions('device-sector-select');
+    updateSelectOptions('edit-device-sector-select');
 
     // Controlar a visibilidade das choices do split button PA FIXA
     const p1Choice = document.querySelector('.split-choice[data-subsector="PA FIXA 1"]');

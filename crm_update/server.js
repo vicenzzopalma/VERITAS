@@ -1,7 +1,55 @@
 
 async function getAvailableSectorCatalog(role) {
-  const fallback = ['Junior', 'Senior', 'PA FIXA 1', 'PA FIXA 2', 'Pesquisa', 'Juridico', 'Comercial'];
-  return fallback;
+  const defaultSectors = ['Junior', 'Senior', 'PA FIXA 1', 'PA FIXA 2', 'Pesquisa', 'Juridico', 'Comercial'];
+  const allSectors = new Set(defaultSectors);
+
+  // 1. Setores existentes em aparelhos (devices) do CRM
+  try {
+    const db = getDb();
+    if (db) {
+      const devSectors = await db.all("SELECT DISTINCT sector FROM devices WHERE sector IS NOT NULL AND TRIM(sector) != ''");
+      (devSectors || []).forEach(d => {
+        if (d.sector && d.sector.trim()) allSectors.add(d.sector.trim());
+      });
+    }
+  } catch (e) {}
+
+  // 2. Setores cadastrados dinamicamente no Whaticket
+  try {
+    const pathMod = require('path');
+    const fsMod = require('fs');
+    const possiblePaths = [
+      process.env.WHATICKET_DB_PATH,
+      pathMod.resolve(__dirname, '..', 'backend', 'whaticket.sqlite'),
+      pathMod.resolve(__dirname, 'backend', 'whaticket.sqlite'),
+      'D:/VERITAS/backend/whaticket.sqlite',
+      'D:/VERITAS - Copia/backend/whaticket.sqlite',
+      '/var/www/VERITAS/backend/whaticket.sqlite'
+    ].filter(Boolean);
+
+    for (const wPath of possiblePaths) {
+      if (fsMod.existsSync(wPath)) {
+        const sqlite3 = require('sqlite3');
+        const wDb = new sqlite3.Database(wPath, sqlite3.OPEN_READONLY);
+        await new Promise((resolve) => {
+          wDb.all("SELECT name FROM Sectors WHERE active = 1", (err, rows) => {
+            if (!err && Array.isArray(rows)) {
+              rows.forEach(r => {
+                if (r.name && r.name.trim()) allSectors.add(r.name.trim());
+              });
+            }
+            wDb.close();
+            resolve();
+          });
+        });
+        break;
+      }
+    }
+  } catch (e) {
+    console.error("[CRM] Erro ao carregar setores do Whaticket:", e.message);
+  }
+
+  return Array.from(allSectors);
 }
 const express = require('express');
 const http = require('http');
@@ -74,7 +122,9 @@ async function resolveUserFromSsoToken(ssoToken) {
 
     const profile = (decoded.profile || 'user').toLowerCase().trim();
     const isWhatsappControl = profile === 'whatsapp_control' || profile === 'whatsapp_control_high';
-    const isAdmin = profile === 'admin' || (decoded.email || '').toLowerCase().startsWith('admin');
+    const normalizedEmail = (decoded.email || '').toLowerCase().trim();
+    const isMasterAdmin = normalizedEmail === 'vicenzzo.mastronikolis@realess.com.br' && (profile === 'admin_master' || profile === 'admin');
+    const isAdmin = ['admin', 'admin_master', 'admin_operational'].includes(profile) || normalizedEmail.startsWith('admin');
 
     let rawSectors = decoded.connectionSectors;
     if (typeof rawSectors === 'string') {
@@ -144,6 +194,10 @@ async function resolveUserFromSsoToken(ssoToken) {
 
     // 1. Tentar bater por emailPrefix ou rawName exato no CRM
     let targetUser = await db.get(
+      'SELECT * FROM users WHERE LOWER(email) = ? LIMIT 1',
+      [email]
+    );
+    if (!targetUser) targetUser = await db.get(
       'SELECT * FROM users WHERE LOWER(username) = ? LIMIT 1',
       [emailPrefix.toLowerCase()]
     );
@@ -163,22 +217,29 @@ async function resolveUserFromSsoToken(ssoToken) {
     }
 
     // 3. Se ainda não existe no CRM, cria o usuário para preservar a identidade individual
-    const allowAllTabs = isAdmin ? 1 : 0;
+    const allowAllTabs = isMasterAdmin ? 1 : 0;
     if (!targetUser && (rawName || emailPrefix)) {
       const newUsername = (emailPrefix || rawName.toLowerCase().replace(/\s+/g, '.')).slice(0, 30);
       const newName = rawName || emailPrefix;
       const defaultPasswordHash = await bcrypt.hash(Math.random().toString(36), 10);
 
       const insertRes = await db.run(
-        `INSERT INTO users (username, password_hash, name, is_readonly, allow_all_tabs, allow_edit_devices, allow_manage_users, allow_dashboard, is_active, criado_em)
-         VALUES (?, ?, ?, ?, ?, ?, ?, 1, 1, datetime('now'))`,
-        [newUsername, defaultPasswordHash, newName, 0, allowAllTabs, 1, isAdmin ? 1 : 0]
+        `INSERT INTO users (username, email, role, password_hash, name, is_readonly, allow_all_tabs, allow_edit_devices, allow_manage_users, allow_dashboard, is_active, criado_em)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 1, 1, datetime('now'))`,
+        [newUsername, email, isMasterAdmin ? 'MASTER' : (isAdmin ? 'MANAGER' : 'MANAGER'), defaultPasswordHash, newName, 0, allowAllTabs, 1, isAdmin ? 1 : 0]
       );
       targetUser = await db.get('SELECT * FROM users WHERE id = ?', [insertRes.lastID]);
       console.log(`[SSO] Usuário sincronizado automaticamente do Veritas: ${newUsername} (${newName}) [allow_all_tabs=${allowAllTabs}]`);
     }
 
-    if (targetUser && isWhatsappControl) {
+    if (targetUser) {
+      const nextRole = isMasterAdmin ? 'MASTER' : (isAdmin && targetUser.role !== 'VIEWER' ? 'MANAGER' : (targetUser.role || 'MANAGER'));
+      await db.run('UPDATE users SET email = ?, role = ? WHERE id = ?', [email, nextRole, targetUser.id]);
+      targetUser.email = email;
+      targetUser.role = nextRole;
+    }
+
+    if (targetUser) {
       const lockKey = String(targetUser.id);
       const previousLock = ssoPermissionLocks.get(lockKey);
       let releaseLock;
@@ -189,26 +250,56 @@ async function resolveUserFromSsoToken(ssoToken) {
       if (previousLock) await previousLock;
 
       try {
-        let expectedSectors = [...new Set(veritasUser.connectionSectors)];
-        const allKnownSectors = ['Junior', 'Senior', 'PA FIXA 1', 'PA FIXA 2', 'Pesquisa', 'Comercial', 'Juridico'];
-        const isMaiara = (targetUser.username || '').toLowerCase().includes('maiara') || (targetUser.name || '').toLowerCase().includes('maiara');
-        if (isMaiara) {
-          expectedSectors = ['PA FIXA 1', 'PA FIXA 2'];
-        }
-        const hasAllSectors = expectedSectors.length >= 5 && ['Junior', 'Senior', 'PA FIXA 1', 'PA FIXA 2', 'Pesquisa'].every(s => expectedSectors.includes(s));
-        const shouldAllowAll = !isMaiara && !isWhatsappControl && (isAdmin || hasAllSectors);
-        await db.run('UPDATE users SET allow_all_tabs = ?, atualizado_em = datetime(\'now\') WHERE id = ?', [shouldAllowAll ? 1 : 0, targetUser.id]);
-        
-        await db.run('DELETE FROM user_sector_permissions WHERE user_id = ?', [targetUser.id]);
-        for (const sector of expectedSectors) {
-          await db.run(
-            'INSERT OR IGNORE INTO user_sector_permissions (user_id, sector, can_view, can_configure) VALUES (?, ?, 1, 1)',
-            [targetUser.id, sector]
+        const veritasDbPath = path.resolve(__dirname, '..', 'backend', 'whaticket.sqlite');
+        let explicitSectorPerms = [];
+        if (fs.existsSync(veritasDbPath)) {
+          const sqlite3 = require('sqlite3');
+          const { open } = require('sqlite');
+          const vDb = await open({ filename: veritasDbPath, driver: sqlite3.Database });
+          explicitSectorPerms = await vDb.all(
+            'SELECT sector, canView, canConfigure FROM UserSectorPermissions WHERE userId = ?',
+            [decoded.id]
           );
+          await vDb.close();
         }
-        targetUser.allow_all_tabs = shouldAllowAll ? 1 : 0;
-        console.log(`[SSO] Setores do gestor ${targetUser.username} (${targetUser.name}) atualizados estritamente para:`, expectedSectors, `[allow_all_tabs=${targetUser.allow_all_tabs}]`);
-        await refreshUserSessions(targetUser.id);
+
+        const isMaiara = (targetUser.username || '').toLowerCase().includes('maiara') || (targetUser.name || '').toLowerCase().includes('maiara');
+
+        if (Array.isArray(explicitSectorPerms) && explicitSectorPerms.length > 0) {
+          const hasAllSectors = explicitSectorPerms.length >= 5 && explicitSectorPerms.every(p => p.canView === 1 || p.canView === true);
+          const shouldAllowAll = isMasterAdmin || (!isMaiara && hasAllSectors);
+
+          await db.run('UPDATE users SET allow_all_tabs = ?, atualizado_em = datetime(\'now\') WHERE id = ?', [shouldAllowAll ? 1 : 0, targetUser.id]);
+          await db.run('DELETE FROM user_sector_permissions WHERE user_id = ?', [targetUser.id]);
+          for (const sp of explicitSectorPerms) {
+            await db.run(
+              'INSERT OR IGNORE INTO user_sector_permissions (user_id, sector, can_view, can_configure) VALUES (?, ?, ?, ?)',
+              [targetUser.id, sp.sector, sp.canView ? 1 : 0, sp.canConfigure ? 1 : 0]
+            );
+          }
+          targetUser.allow_all_tabs = shouldAllowAll ? 1 : 0;
+          console.log(`[SSO] Permissões setoriais de ${targetUser.username} sincronizadas do Veritas. allow_all_tabs=${targetUser.allow_all_tabs}`);
+          await refreshUserSessions(targetUser.id);
+        } else if (isWhatsappControl) {
+          let expectedSectors = [...new Set(veritasUser.connectionSectors)];
+          if (isMaiara) {
+            expectedSectors = ['PA FIXA 1', 'PA FIXA 2'];
+          }
+          const hasAllSectors = expectedSectors.length >= 5 && ['Junior', 'Senior', 'PA FIXA 1', 'PA FIXA 2', 'Pesquisa'].every(s => expectedSectors.includes(s));
+          const shouldAllowAll = !isMaiara && !isWhatsappControl && (isAdmin || hasAllSectors);
+          await db.run('UPDATE users SET allow_all_tabs = ?, atualizado_em = datetime(\'now\') WHERE id = ?', [shouldAllowAll ? 1 : 0, targetUser.id]);
+          
+          await db.run('DELETE FROM user_sector_permissions WHERE user_id = ?', [targetUser.id]);
+          for (const sector of expectedSectors) {
+            await db.run(
+              'INSERT OR IGNORE INTO user_sector_permissions (user_id, sector, can_view, can_configure) VALUES (?, ?, 1, 1)',
+              [targetUser.id, sector]
+            );
+          }
+          targetUser.allow_all_tabs = shouldAllowAll ? 1 : 0;
+          console.log(`[SSO] Setores do gestor ${targetUser.username} (${targetUser.name}) atualizados estritamente para:`, expectedSectors, `[allow_all_tabs=${targetUser.allow_all_tabs}]`);
+          await refreshUserSessions(targetUser.id);
+        }
       } finally {
         releaseLock();
         if (ssoPermissionLocks.get(lockKey) === currentLock) {
@@ -245,8 +336,8 @@ app.use(async (req, res, next) => {
         req.session.name = targetUser.name;
         req.session.userName = targetUser.name;
         req.session.isReadonly = targetUser.is_readonly === 1;
-        req.session.allowEditDevices = targetUser.allow_edit_devices === 1 || targetUser.username === 'vicenzzo' || targetUser.username === 'admin' || targetUser.username === 'yasmin';
-        req.session.allowManageUsers = targetUser.allow_manage_users === 1 || targetUser.username === 'vicenzzo' || targetUser.username === 'admin' || targetUser.username === 'yasmin';
+        req.session.allowEditDevices = PolicyEngine.canEditDevices(targetUser);
+        req.session.allowManageUsers = PolicyEngine.canManageUsers(targetUser);
         req.session.allowDashboard = PolicyEngine.canViewDashboard(targetUser) ? 1 : 0;
         return req.session.save((err) => {
           if (err) console.error('[SSO] Erro ao salvar sessão:', err);
@@ -345,8 +436,8 @@ server.on('upgrade', (request, socket, head) => {
         request.session.name = targetUser.name;
         request.session.userName = targetUser.name;
         request.session.isReadonly = targetUser.is_readonly === 1;
-        request.session.allowEditDevices = targetUser.allow_edit_devices === 1 || targetUser.username === 'vicenzzo' || targetUser.username === 'admin' || targetUser.username === 'yasmin';
-        request.session.allowManageUsers = targetUser.allow_manage_users === 1 || targetUser.username === 'vicenzzo' || targetUser.username === 'admin' || targetUser.username === 'yasmin';
+        request.session.allowEditDevices = PolicyEngine.canEditDevices(targetUser);
+        request.session.allowManageUsers = PolicyEngine.canManageUsers(targetUser);
       }
     }
 
@@ -386,7 +477,7 @@ async function buildSessionUserFromDb(req) {
 
 function getPermittedCollaboratorSectors(user) {
   if (!user) return [];
-  if (user.username === 'vicenzzo' || user.allow_all_tabs === 1 || user.allow_all_tabs === true) {
+  if (PolicyEngine.determineRole(user) === 'MASTER' || user.allow_all_tabs === 1 || user.allow_all_tabs === true) {
     return null;
   }
   return (user.sectorPermissions || [])
@@ -476,6 +567,15 @@ async function requireMasterAccess(req, res, next) {
     return res.status(403).json({ error: 'Acesso negado. Apenas o administrador mestre ou gestores autorizados podem realizar esta aÃ§Ã£o.' });
   }
   next();
+}
+
+async function requireSectorAdminAccess(req, res, next) {
+  const sessionUser = await buildSessionUserFromDb(req);
+  if (!sessionUser || !PolicyEngine.canConfigureSectorPermissions(sessionUser)) {
+    return res.status(403).json({ error: 'Apenas o Administrador Master pode configurar setores.' });
+  }
+  req.sessionUser = sessionUser;
+  return next();
 }
 
 // Inicializar serviÃ§os globais apÃ³s a conexÃ£o do banco
@@ -861,15 +961,15 @@ app.get('/api/auth/me', async (req, res) => {
   }
 
   if (ssoToken) {
-    const ssoUser = await resolveUserFromSsoToken(ssoToken);
+      const ssoUser = await resolveUserFromSsoToken(ssoToken);
     if (ssoUser) {
       req.session.userId = ssoUser.id;
       req.session.username = ssoUser.username;
       req.session.name = ssoUser.name;
       req.session.userName = ssoUser.name;
       req.session.isReadonly = ssoUser.is_readonly === 1;
-      req.session.allowEditDevices = ssoUser.allow_edit_devices === 1 || ssoUser.username === 'vicenzzo' || ssoUser.username === 'admin' || ssoUser.username === 'yasmin';
-      req.session.allowManageUsers = ssoUser.allow_manage_users === 1 || ssoUser.username === 'vicenzzo' || ssoUser.username === 'admin' || ssoUser.username === 'yasmin';
+      req.session.allowEditDevices = PolicyEngine.canEditDevices(ssoUser);
+      req.session.allowManageUsers = PolicyEngine.canManageUsers(ssoUser);
       req.session.allowDashboard = PolicyEngine.canViewDashboard(ssoUser) ? 1 : 0;
     }
   }
@@ -1605,7 +1705,7 @@ app.put('/api/users/:id/dashboard', requireMasterAccess, async (req, res) => {
   }
 });
 
-app.get('/api/users/:id/permissions/sectors', requireMasterAccess, async (req, res) => {
+app.get('/api/users/:id/permissions/sectors', requireSectorAdminAccess, async (req, res) => {
   const userId = parseInt(req.params.id);
   if (isNaN(userId)) {
     return res.status(400).json({ error: 'ID invÃ¡lido' });
@@ -1620,7 +1720,7 @@ app.get('/api/users/:id/permissions/sectors', requireMasterAccess, async (req, r
   }
 });
 
-app.put('/api/users/:id/permissions/sectors', requireMasterAccess, async (req, res) => {
+app.put('/api/users/:id/permissions/sectors', requireSectorAdminAccess, async (req, res) => {
   const userId = parseInt(req.params.id);
   const { permissions } = req.body;
   

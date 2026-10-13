@@ -199,35 +199,46 @@ const WhatsAppModal = ({ open, onClose, whatsAppId }) => {
 	const isRestrictedUser = !["admin", "admin_master", "admin_operational"].includes(user?.profile);
 	const [dynamicSectors, setDynamicSectors] = useState([]);
 
+	const loadSectors = async () => {
+		try {
+			const { data } = await api.get("/sectors");
+			if (Array.isArray(data) && data.length) {
+				setDynamicSectors(data.map(s => s.name));
+			}
+		} catch (_err) {}
+	};
+
 	useEffect(() => {
-		api.get("/sectors")
-			.then(({ data }) => {
-				if (Array.isArray(data)) setDynamicSectors(data.map(s => s.name));
-			})
-			.catch(() => {});
-	}, []);
+		loadSectors();
+	}, [whatsAppId]);
 
 	const allKnownSectors = React.useMemo(() => {
 		return Array.from(new Set([...(dynamicSectors || []), ...OFFICIAL_SECTORS]));
 	}, [dynamicSectors]);
 
 	const availableSectors = React.useMemo(() => {
-		if (user?.profile === "admin_master") return allKnownSectors;
-		if (user?.profile === "admin_operational" || user?.profile === "admin") {
+		const isMaster = user?.profile === "admin_master" || 
+			user?.profile === "admin" || 
+			String(user?.email || "").toLowerCase().trim() === "vicenzzo.mastronikolis@realess.com.br";
+
+		if (isMaster) return allKnownSectors;
+
+		if (user?.profile === "admin_operational") {
 			if (Array.isArray(user?.sectorPermissions) && user.sectorPermissions.length > 0) {
 				const permitted = user.sectorPermissions
 					.filter(p => p && (p.canConfigure || p.canView))
 					.map(p => p.sector);
-				return Array.from(new Set(permitted));
+				return Array.from(new Set([...permitted, ...(dynamicSectors || [])]));
 			}
 			return allKnownSectors;
 		}
+
 		if (isRestrictedUser && (isManager || user?.canAccessConnections)) {
 			const raw = Array.isArray(user?.connectionSectors) ? user.connectionSectors : [];
 			return raw.length > 0 ? raw : allKnownSectors;
 		}
 		return allKnownSectors;
-	}, [user, allKnownSectors, isRestrictedUser, isManager]);
+	}, [user, allKnownSectors, dynamicSectors, isRestrictedUser, isManager]);
 	const initialState = {
 		name: "",
 		greetingMessage: "",

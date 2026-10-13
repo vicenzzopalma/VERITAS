@@ -264,7 +264,9 @@ const Connections = () => {
 
 	const { whatsApps, loading, fetchWhatsApps } = useContext(WhatsAppsContext);
 	const { user } = useContext(AuthContext);
-	const isMaster = user?.profile === "admin_master";
+	const isMaster = user?.profile === "admin_master" || 
+		user?.profile === "admin" || 
+		String(user?.email || "").toLowerCase().trim() === "vicenzzo.mastronikolis@realess.com.br";
 	const isOperational = user?.profile === "admin_operational" || user?.profile === "admin";
 	const isManager = user?.profile === "whatsapp_control" || user?.profile === "whatsapp_control_high";
 	const allowedSectors = React.useMemo(() => {
@@ -494,9 +496,6 @@ const Connections = () => {
 	);
 
 	const sectorsList = React.useMemo(() => {
-		if (Array.isArray(allowedSectors)) {
-			return allowedSectors;
-		}
 		const defaultOrder = dynamicSectors.length > 0 ? dynamicSectors : [
 			"Junior",
 			"Senior",
@@ -510,8 +509,12 @@ const Connections = () => {
 		whatsApps?.forEach(w => {
 			if (!isArchivedWhatsapp(w) && w.sector) presentSectors.add(w.sector);
 		});
-		return Array.from(new Set([...defaultOrder, ...presentSectors]));
-	}, [whatsApps, allowedSectors, isArchivedWhatsapp, dynamicSectors]);
+		const merged = Array.from(new Set([...defaultOrder, ...presentSectors, ...dynamicSectors]));
+		if (Array.isArray(allowedSectors) && allowedSectors.length > 0 && !isMaster) {
+			return merged.filter(s => allowedSectors.includes(s));
+		}
+		return merged;
+	}, [whatsApps, allowedSectors, isArchivedWhatsapp, dynamicSectors, isMaster]);
 
 	const sectorCounts = React.useMemo(() => {
 		const visibleWhatsApps = allowedSectors

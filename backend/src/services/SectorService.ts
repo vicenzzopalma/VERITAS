@@ -85,6 +85,31 @@ export const createSector = async ({
     active: true
   });
 
+  if (user && user.id) {
+    try {
+      const UserSectorPermission = require("../models/UserSectorPermission").default;
+      await UserSectorPermission.create({
+        userId: user.id,
+        sector: cleanName,
+        canView: true,
+        canConfigure: true
+      });
+    } catch (_e) {}
+  }
+
+  try {
+    const { getIO } = require("../libs/socket");
+    const io = getIO();
+    io.emit("sector", {
+      action: "create",
+      sector: {
+        id: created.id,
+        name: created.name,
+        minimumProfile: created.minimumProfile
+      }
+    });
+  } catch (_e) {}
+
   return {
     id: created.id,
     name: created.name,
