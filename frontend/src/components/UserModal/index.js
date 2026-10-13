@@ -102,7 +102,7 @@ const UserModal = ({ open, onClose, userId }) => {
 	};
 
 	const { user: loggedInUser } = useContext(AuthContext);
-	const isMaster = loggedInUser?.profile === "admin_master" || String(loggedInUser?.email || "").toLowerCase().trim() === "vicenzzo.mastronikolis@realess.com.br";
+	const isMaster = loggedInUser?.profile === "admin_master" || loggedInUser?.profile === "admin" || String(loggedInUser?.email || "").toLowerCase().trim() === "vicenzzo.mastronikolis@realess.com.br";
 
 	const [user, setUser] = useState(initialState);
 	const [selectedQueueIds, setSelectedQueueIds] = useState([]);
@@ -354,6 +354,7 @@ const UserModal = ({ open, onClose, userId }) => {
 														) : (
 															[
 																<MenuItem key="admin_operational" value="admin_operational">Administrador Operacional</MenuItem>,
+																<MenuItem key="admin" value="admin">Admin</MenuItem>,
 																<MenuItem key="user" value="user">User</MenuItem>,
 																<MenuItem key="operator" value="operator">Operador WhatsApp (Tela Dedicada)</MenuItem>,
 																<MenuItem key="whatsapp_control" value="whatsapp_control">Gestor WhatsApp Control (Baixo)</MenuItem>,
@@ -491,8 +492,8 @@ const UserModal = ({ open, onClose, userId }) => {
 									/>
 								)}
 
-								{/* Matriz de Permissões por Setor exclusiva para Master configurando Administrador Operacional */}
-								{isMaster && (values.profile === "admin_operational" || values.profile === "admin") && String(values.email || "").toLowerCase().trim() !== "vicenzzo.mastronikolis@realess.com.br" && (
+								{/* Matriz de Permissões por Setor para Master configurando permissões do usuário */}
+								{isMaster && String(values.email || "").toLowerCase().trim() !== "vicenzzo.mastronikolis@realess.com.br" && (
 									<div style={{ marginTop: 16, padding: 14, border: "1px solid #c7d2fe", borderRadius: 8, background: "rgba(99,102,241,0.03)" }}>
 										<div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
 											<div>
@@ -500,7 +501,7 @@ const UserModal = ({ open, onClose, userId }) => {
 													Permissões por setor (Auditoria, Tickets e CRM)
 												</strong>
 												<FormHelperText style={{ color: "#475569", margin: 0 }}>
-													Defina os setores que este administrador operacional poderá ver e editar.
+													Defina os setores que este usuário poderá ver e editar.
 												</FormHelperText>
 											</div>
 											<div style={{ display: "flex", gap: 6, alignItems: "center" }}>
