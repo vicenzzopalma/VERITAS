@@ -53,7 +53,7 @@ export const RefreshTokenService = async (
     const newToken = createAccessToken(user);
     const refreshToken = createRefreshToken(user);
 
-    const serializedUser = SerializeUser(user);
+    const serializedUser = await ShowUserService(user.id);
 
     return { user: serializedUser, newToken, refreshToken };
   } catch (err) {

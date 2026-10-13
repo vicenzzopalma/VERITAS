@@ -270,15 +270,13 @@ const Connections = () => {
 	const allowedSectors = React.useMemo(() => {
 		if (isMaster) return null;
 		if (isOperational) {
-			if (Array.isArray(user?.sectorPermissions) && user.sectorPermissions.length > 0) {
+			if (Array.isArray(user?.sectorPermissions)) {
 				const permitted = user.sectorPermissions
 					.filter(p => p && p.canView)
 					.map(p => p.sector);
-				if (permitted.length > 0) {
-					return Array.from(new Set(permitted));
-				}
+				return Array.from(new Set(permitted));
 			}
-			return null;
+			return [];
 		}
 		let userSectors = [];
 		if (Array.isArray(user?.connectionSectors)) {
@@ -357,6 +355,16 @@ const Connections = () => {
 			window.removeEventListener("storage", syncSavedSector);
 		};
 	}, [allowedSectors, selectedSector]);
+
+	const [dynamicSectors, setDynamicSectors] = useState([]);
+	useEffect(() => {
+		api.get("/sectors")
+			.then(({ data }) => {
+				if (Array.isArray(data)) setDynamicSectors(data.map(s => s.name));
+			})
+			.catch(() => {});
+	}, []);
+
 	const [searchParam, setSearchParam] = useState("");
 	const [crmChips, setCrmChips] = useState([]);
 	const [nowTime, setNowTime] = useState(Date.now());
@@ -486,7 +494,10 @@ const Connections = () => {
 	);
 
 	const sectorsList = React.useMemo(() => {
-		const defaultOrder = [
+		if (Array.isArray(allowedSectors)) {
+			return allowedSectors;
+		}
+		const defaultOrder = dynamicSectors.length > 0 ? dynamicSectors : [
 			"Junior",
 			"Senior",
 			"Pesquisa",
@@ -499,9 +510,8 @@ const Connections = () => {
 		whatsApps?.forEach(w => {
 			if (!isArchivedWhatsapp(w) && w.sector) presentSectors.add(w.sector);
 		});
-		const sectors = Array.from(new Set([...defaultOrder, ...presentSectors]));
-		return allowedSectors ? sectors.filter(sector => allowedSectors.includes(sector)) : sectors;
-	}, [whatsApps, allowedSectors, isArchivedWhatsapp]);
+		return Array.from(new Set([...defaultOrder, ...presentSectors]));
+	}, [whatsApps, allowedSectors, isArchivedWhatsapp, dynamicSectors]);
 
 	const sectorCounts = React.useMemo(() => {
 		const visibleWhatsApps = allowedSectors
@@ -509,12 +519,15 @@ const Connections = () => {
 			: whatsApps || [];
 		const activeList = visibleWhatsApps.filter(w => !isArchivedWhatsapp(w));
 		const counts = { TODOS: activeList.length };
+		(sectorsList || []).forEach(sec => {
+			counts[sec] = 0;
+		});
 		activeList.forEach(w => {
 			const sec = w.sector || "Junior";
 			counts[sec] = (counts[sec] || 0) + 1;
 		});
 		return counts;
-	}, [whatsApps, allowedSectors, isArchivedWhatsapp]);
+	}, [whatsApps, allowedSectors, isArchivedWhatsapp, sectorsList]);
 
 	const getStatusPriority = status => {
 		if (status === "qrcode") return 1; // Prioridade Máxima: QR pronto na tela

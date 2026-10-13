@@ -69,6 +69,22 @@ const Route = ({ component: Component, isPrivate = false, ...rest }) => {
     }
   }
 
+    // Bloqueio rigoroso de rota para /users e /settings (apenas perfil admin_master)
+  if (
+    isAuth &&
+    (rest.path === "/users" || rest.path === "/settings" || rest.path === "/Settings")
+  ) {
+    if (user?.profile !== "admin_master") {
+      let fallback = "/tickets";
+      if (user?.profile === "whatsapp_control" || user?.profile === "whatsapp_control_high") {
+        fallback = "/whatsapp-control";
+      } else if (user?.profile === "operator") {
+        fallback = "/live";
+      }
+      return <Redirect to={{ pathname: fallback }} />;
+    }
+  }
+
   return (
     <RouterRoute {...rest} component={Component} />
   );

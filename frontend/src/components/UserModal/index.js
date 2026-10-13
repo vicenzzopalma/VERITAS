@@ -210,11 +210,31 @@ const UserModal = ({ open, onClose, userId }) => {
 			return;
 		}
 
+		let finalSectorPermissions = values.sectorPermissions || [];
+		if (values.profile === "admin_operational" || values.profile === "admin") {
+			finalSectorPermissions = availableSectors.map(secItem => {
+				const sector = secItem.name;
+				const found = (values.sectorPermissions || []).find(p => p.sector === sector);
+				if (found) {
+					return {
+						sector,
+						canView: Boolean(found.canView),
+						canConfigure: Boolean(found.canConfigure)
+					};
+				}
+				return {
+					sector,
+					canView: Boolean(userId),
+					canConfigure: Boolean(userId)
+				};
+			});
+		}
+
 		const userData = {
 			...values,
 			canAccessConnections: isManager ? true : Boolean(values.canAccessConnections),
 			connectionSectors,
-			sectorPermissions: values.sectorPermissions || [],
+			sectorPermissions: finalSectorPermissions,
 			whatsappId: whatsappId || null,
 			queueIds: selectedQueueIds
 		};
@@ -483,15 +503,49 @@ const UserModal = ({ open, onClose, userId }) => {
 													Defina os setores que este administrador operacional poderá ver e editar.
 												</FormHelperText>
 											</div>
-											<Button
-												size="small"
-												variant="outlined"
-												color="primary"
-												style={{ textTransform: "none", fontWeight: 700, borderRadius: 6 }}
-												onClick={() => setNewSectorOpen(true)}
-											>
-												+ Novo setor
-											</Button>
+											<div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+												<Button
+													size="small"
+													variant="text"
+													color="primary"
+													style={{ textTransform: "none", fontSize: "0.75rem", fontWeight: 700 }}
+													onClick={() => {
+														const allPerms = availableSectors.map(s => ({
+															sector: s.name,
+															canView: true,
+															canConfigure: true
+														}));
+														setFieldValue("sectorPermissions", allPerms);
+													}}
+												>
+													Marcar Todos
+												</Button>
+												<Button
+													size="small"
+													variant="text"
+													color="secondary"
+													style={{ textTransform: "none", fontSize: "0.75rem", fontWeight: 700 }}
+													onClick={() => {
+														const nonePerms = availableSectors.map(s => ({
+															sector: s.name,
+															canView: false,
+															canConfigure: false
+														}));
+														setFieldValue("sectorPermissions", nonePerms);
+													}}
+												>
+													Desmarcar Todos
+												</Button>
+												<Button
+													size="small"
+													variant="outlined"
+													color="primary"
+													style={{ textTransform: "none", fontWeight: 700, borderRadius: 6 }}
+													onClick={() => setNewSectorOpen(true)}
+												>
+													+ Novo setor
+												</Button>
+											</div>
 										</div>
 
 										<div style={{ display: "flex", flexDirection: "column", gap: 6, marginTop: 10 }}>
@@ -499,14 +553,30 @@ const UserModal = ({ open, onClose, userId }) => {
 												const sector = secItem.name;
 												const current = (values.sectorPermissions || []).find(p => p.sector === sector) || {
 													sector,
-													canView: true,
-													canConfigure: true
+													canView: false,
+													canConfigure: false
 												};
 
 												const updatePerm = (field, checked) => {
-													const other = (values.sectorPermissions || []).filter(p => p.sector !== sector);
-													const nextItem = { ...current, [field]: checked };
-													setFieldValue("sectorPermissions", [...other, nextItem]);
+													const permsMap = new Map();
+													availableSectors.forEach(s => {
+														const existing = (values.sectorPermissions || []).find(p => p.sector === s.name);
+														permsMap.set(s.name, existing ? { ...existing } : {
+															sector: s.name,
+															canView: false,
+															canConfigure: false
+														});
+													});
+													const target = permsMap.get(sector) || { sector, canView: false, canConfigure: false };
+													target[field] = checked;
+													if (field === "canView" && !checked) {
+														target.canConfigure = false;
+													}
+													if (field === "canConfigure" && checked) {
+														target.canView = true;
+													}
+													permsMap.set(sector, target);
+													setFieldValue("sectorPermissions", Array.from(permsMap.values()));
 												};
 
 												return (
@@ -644,11 +714,11 @@ const UserModal = ({ open, onClose, userId }) => {
 							value={newSectorMinimumProfile}
 							onChange={e => setNewSectorMinimumProfile(e.target.value)}
 						>
-							<MenuItem value="admin_master">Apenas Administrador Master</MenuItem>
 							<MenuItem value="admin_operational">Administrador Operacional</MenuItem>
+							<MenuItem value="admin_master">Apenas Administrador Master</MenuItem>
 						</Select>
 						<FormHelperText>
-							Se configurado como "Apenas Master", administradores operacionais não verão este setor.
+							Setores operacionais podem ser distribuídos para administradores operacionais.
 						</FormHelperText>
 					</FormControl>
 				</DialogContent>

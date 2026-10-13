@@ -187,7 +187,7 @@ const ListTicketsService = async ({
   const offset = limit * (+pageNumber - 1);
 
   const allowedSectors = await getOperationalTicketSectorFilter(userId);
-  if (allowedSectors && allowedSectors.length > 0) {
+  if (allowedSectors !== null) {
     whereCondition = { ...whereCondition, "$whatsapp.sector$": { [Op.in]: allowedSectors } };
   }
 

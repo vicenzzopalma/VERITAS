@@ -217,6 +217,7 @@ const MainListItems = (props) => {
   const { user, handleLogout } = useContext(AuthContext);
   const { whatsApps } = useContext(WhatsAppsContext);
   const isWhatsappControl = location.pathname.startsWith("/whatsapp-control") || user?.profile === "whatsapp_control" || user?.profile === "whatsapp_control_high";
+  const isMaster = user?.profile === "admin_master";
   const [connectionWarning, setConnectionWarning] = useState(false);
 
   useEffect(() => {
@@ -465,15 +466,17 @@ const MainListItems = (props) => {
                 {i18n.t("mainDrawer.listItems.administration")}
               </ListSubheader>
             )}
-            <ListItemLink
-              to="/users"
-              primary={i18n.t("mainDrawer.listItems.users")}
-              icon={<PeopleAltOutlinedIcon />}
-              className={getItemClass("/users")}
-              isWhatsappControl={isWhatsappControl}
-              active={location.pathname === "/users"}
-              collapsed={collapsed}
-            />
+            {isMaster && (
+              <ListItemLink
+                to="/users"
+                primary={i18n.t("mainDrawer.listItems.users")}
+                icon={<PeopleAltOutlinedIcon />}
+                className={getItemClass("/users")}
+                isWhatsappControl={isWhatsappControl}
+                active={location.pathname === "/users"}
+                collapsed={collapsed}
+              />
+            )}
             <ListItemLink
               to="/queues"
               primary={i18n.t("mainDrawer.listItems.queues")}
@@ -483,15 +486,17 @@ const MainListItems = (props) => {
               active={location.pathname === "/queues"}
               collapsed={collapsed}
             />
-            <ListItemLink
-              to="/settings"
-              primary={i18n.t("mainDrawer.listItems.settings")}
-              icon={<SettingsOutlinedIcon />}
-              className={getItemClass("/settings")}
-              isWhatsappControl={isWhatsappControl}
-              active={location.pathname === "/settings"}
-              collapsed={collapsed}
-            />
+            {isMaster && (
+              <ListItemLink
+                to="/settings"
+                primary={i18n.t("mainDrawer.listItems.settings")}
+                icon={<SettingsOutlinedIcon />}
+                className={getItemClass("/settings")}
+                isWhatsappControl={isWhatsappControl}
+                active={location.pathname === "/settings"}
+                collapsed={collapsed}
+              />
+            )}
           </>
         )}
       />

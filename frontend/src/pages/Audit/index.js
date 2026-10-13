@@ -743,15 +743,13 @@ const Audit = () => {
     if (isMaster) return null;
 
     if (isOperational) {
-      if (Array.isArray(user?.sectorPermissions) && user.sectorPermissions.length > 0) {
+      if (Array.isArray(user?.sectorPermissions)) {
         const permitted = user.sectorPermissions
           .filter((p) => p && p.canView)
           .map((p) => p.sector);
-        if (permitted.length > 0) {
-          return Array.from(new Set(permitted));
-        }
+        return Array.from(new Set(permitted));
       }
-      return null;
+      return [];
     }
 
     if (isManagerHigh) {
@@ -851,16 +849,27 @@ const Audit = () => {
     };
   }, [allowedSectors, selectedSector]);
 
+  const [dynamicSectors, setDynamicSectors] = useState([]);
+  useEffect(() => {
+    api.get("/sectors")
+      .then(({ data }) => {
+        if (Array.isArray(data)) setDynamicSectors(data.map((s) => s.name));
+      })
+      .catch(() => {});
+  }, []);
+
   const sectorsList = useMemo(() => {
-    const defaultOrder = OFFICIAL_SECTORS;
+    if (Array.isArray(allowedSectors)) {
+      return allowedSectors;
+    }
+    const defaultOrder = dynamicSectors.length > 0 ? dynamicSectors : OFFICIAL_SECTORS;
     const presentSectors = new Set();
     const safeDevices = Array.isArray(devices) ? devices : [];
     safeDevices.forEach((d) => {
       if (d && d.sector) presentSectors.add(d.sector);
     });
-    const sectors = Array.from(new Set([...defaultOrder, ...presentSectors]));
-    return allowedSectors ? sectors.filter((s) => allowedSectors.includes(s)) : sectors;
-  }, [devices, allowedSectors]);
+    return Array.from(new Set([...defaultOrder, ...presentSectors]));
+  }, [devices, allowedSectors, dynamicSectors]);
 
   const sectorCounts = useMemo(() => {
     const safeDevices = Array.isArray(devices) ? devices : [];
@@ -868,12 +877,15 @@ const Audit = () => {
       ? safeDevices.filter((d) => allowedSectors.includes(d.sector || "Junior"))
       : safeDevices;
     const counts = { TODOS: visibleDevices.length };
+    (sectorsList || []).forEach((sec) => {
+      counts[sec] = 0;
+    });
     visibleDevices.forEach((d) => {
       const sec = d.sector || "Junior";
       counts[sec] = (counts[sec] || 0) + 1;
     });
     return counts;
-  }, [devices, allowedSectors]);
+  }, [devices, allowedSectors, sectorsList]);
 
   const handleSelectDevice = (device) => {
     if (!device) return;

@@ -1,4 +1,4 @@
-﻿import { Request, Response } from "express";
+import { Request, Response } from "express";
 import { getIO } from "../libs/socket";
 
 import CheckSettingsHelper from "../helpers/CheckSettings";
@@ -28,6 +28,10 @@ type IndexQuery = {
 };
 
 export const index = async (req: Request, res: Response): Promise<Response> => {
+  if (!req.user || !isMasterAdmin(req.user)) {
+    throw new AppError("ERR_NO_PERMISSION", 403);
+  }
+
   const { searchParam, pageNumber } = req.query as IndexQuery;
 
   const { users, count, hasMore } = await ListUsersService({
@@ -48,7 +52,7 @@ export const store = async (req: Request, res: Response): Promise<Response> => {
     (await CheckSettingsHelper("userCreation")) === "disabled"
   ) {
     throw new AppError("ERR_USER_CREATION_DISABLED", 403);
-  } else if (req.url !== "/signup" && (!req.user || !isAnyAdmin(req.user))) {
+  } else if (req.url !== "/signup" && (!req.user || !isMasterAdmin(req.user))) {
     throw new AppError("ERR_NO_PERMISSION", 403);
   }
 
@@ -79,13 +83,15 @@ export const store = async (req: Request, res: Response): Promise<Response> => {
     await updateUserSectorPermissions(user.id, sectorPermissions, req.user);
   }
 
+  const finalUser = await ShowUserService(user.id);
+
   const io = getIO();
   io.emit("user", {
     action: "create",
-    user
+    user: finalUser
   });
 
-  return res.status(200).json(user);
+  return res.status(200).json(finalUser);
 };
 
 export const show = async (req: Request, res: Response): Promise<Response> => {
@@ -100,7 +106,7 @@ export const update = async (
   req: Request,
   res: Response
 ): Promise<Response> => {
-  if (!req.user || !isAnyAdmin(req.user)) {
+  if (!req.user || !isMasterAdmin(req.user)) {
     throw new AppError("ERR_NO_PERMISSION", 403);
   }
 
@@ -136,13 +142,15 @@ export const update = async (
     await updateUserSectorPermissions(userId, sectorPermissions, req.user);
   }
 
+  const finalUser = await ShowUserService(userId);
+
   const io = getIO();
   io.emit("user", {
     action: "update",
-    user
+    user: finalUser
   });
 
-  return res.status(200).json(user);
+  return res.status(200).json(finalUser);
 };
 
 export const remove = async (
@@ -151,7 +159,7 @@ export const remove = async (
 ): Promise<Response> => {
   const { userId } = req.params;
 
-  if (!req.user || !isAnyAdmin(req.user)) {
+  if (!req.user || !isMasterAdmin(req.user)) {
     throw new AppError("ERR_NO_PERMISSION", 403);
   }
 
@@ -172,12 +180,18 @@ export const remove = async (
 };
 
 export const sectorPermissions = async (req: Request, res: Response): Promise<Response> => {
+  if (!req.user || !isMasterAdmin(req.user)) {
+    throw new AppError("ERR_NO_PERMISSION", 403);
+  }
   const { userId } = req.params;
   const permissions = await getUserSectorPermissions(userId);
   return res.status(200).json(permissions);
 };
 
 export const updateSectorPermissions = async (req: Request, res: Response): Promise<Response> => {
+  if (!req.user || !isMasterAdmin(req.user)) {
+    throw new AppError("ERR_NO_PERMISSION", 403);
+  }
   const { userId } = req.params;
   const { permissions } = req.body;
   const updated = await updateUserSectorPermissions(userId, permissions, req.user);

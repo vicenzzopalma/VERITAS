@@ -197,9 +197,37 @@ const WhatsAppModal = ({ open, onClose, whatsAppId }) => {
 	const { user } = useContext(AuthContext);
 	const isManager = user?.profile === "whatsapp_control" || user?.profile === "whatsapp_control_high";
 	const isRestrictedUser = !["admin", "admin_master", "admin_operational"].includes(user?.profile);
-	const availableSectors = isRestrictedUser && (isManager || user?.canAccessConnections)
-		? (user?.connectionSectors && user.connectionSectors.length > 0 ? user.connectionSectors : OFFICIAL_SECTORS)
-		: OFFICIAL_SECTORS;
+	const [dynamicSectors, setDynamicSectors] = useState([]);
+
+	useEffect(() => {
+		api.get("/sectors")
+			.then(({ data }) => {
+				if (Array.isArray(data)) setDynamicSectors(data.map(s => s.name));
+			})
+			.catch(() => {});
+	}, []);
+
+	const allKnownSectors = React.useMemo(() => {
+		return Array.from(new Set([...(dynamicSectors || []), ...OFFICIAL_SECTORS]));
+	}, [dynamicSectors]);
+
+	const availableSectors = React.useMemo(() => {
+		if (user?.profile === "admin_master") return allKnownSectors;
+		if (user?.profile === "admin_operational" || user?.profile === "admin") {
+			if (Array.isArray(user?.sectorPermissions) && user.sectorPermissions.length > 0) {
+				const permitted = user.sectorPermissions
+					.filter(p => p && (p.canConfigure || p.canView))
+					.map(p => p.sector);
+				return Array.from(new Set(permitted));
+			}
+			return allKnownSectors;
+		}
+		if (isRestrictedUser && (isManager || user?.canAccessConnections)) {
+			const raw = Array.isArray(user?.connectionSectors) ? user.connectionSectors : [];
+			return raw.length > 0 ? raw : allKnownSectors;
+		}
+		return allKnownSectors;
+	}, [user, allKnownSectors, isRestrictedUser, isManager]);
 	const initialState = {
 		name: "",
 		greetingMessage: "",

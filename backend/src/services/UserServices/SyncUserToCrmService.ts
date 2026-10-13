@@ -1,4 +1,4 @@
-﻿import path from "path";
+import path from "path";
 import fs from "fs";
 import { Database } from "sqlite3";
 import {
@@ -62,9 +62,12 @@ export const syncUserToCrm = async (userData: CrmSyncUserData): Promise<void> =>
             return resolve();
           }
 
-          const allowAllTabs = isMaster ? 1 : (isAdmin ? 1 : 0);
+          const hasAllSectors = Array.isArray(sectorPermissions) && sectorPermissions.length > 0
+            ? sectorPermissions.every(p => p.canView)
+            : false;
+          const allowAllTabs = isMaster ? 1 : (hasAllSectors ? 1 : 0);
           const allowEdit = 1;
-          const allowManage = isMaster ? 1 : (isAdmin ? 1 : 0);
+          const allowManage = isMaster ? 1 : 0;
           const isReadonly = 0;
 
           if (existingUser) {

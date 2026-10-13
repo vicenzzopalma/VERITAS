@@ -7,6 +7,7 @@ import {
 import { SerializeUser } from "../../helpers/SerializeUser";
 import Queue from "../../models/Queue";
 import Whatsapp from "../../models/Whatsapp";
+import { getUserSectorPermissions } from "./SectorPermissionService";
 
 interface SerializedUser {
   id: number;
@@ -53,7 +54,8 @@ const AuthUserService = async ({
   const token = createAccessToken(user);
   const refreshToken = createRefreshToken(user);
 
-  const serializedUser = SerializeUser(user);
+  const sectorPermissions = await getUserSectorPermissions(user.id);
+  const serializedUser = SerializeUser(user, sectorPermissions);
 
   return {
     serializedUser,

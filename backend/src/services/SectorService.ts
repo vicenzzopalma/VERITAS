@@ -1,4 +1,4 @@
-﻿import { Op } from "sequelize";
+import { Op } from "sequelize";
 import AppError from "../errors/AppError";
 import Sector from "../models/Sector";
 import {
@@ -10,16 +10,26 @@ import {
 export const listSectors = async (user?: any) => {
   try {
     const isMaster = isMasterAdmin(user);
-    const where: any = { active: true };
-    if (!isMaster) {
-      where.minimumProfile = { [Op.ne]: MASTER_ADMIN_PROFILE };
-    }
-
-    const sectors = await Sector.findAll({
-      where,
+    let sectors = await Sector.findAll({
+      where: { active: true },
       order: [["name", "ASC"]],
       attributes: ["id", "name", "minimumProfile"]
     });
+
+    if (!isMaster && user && user.id) {
+      const UserSectorPermission = require("../models/UserSectorPermission").default;
+      const userPermissions = await UserSectorPermission.findAll({
+        where: { userId: user.id, canView: true },
+        attributes: ["sector"]
+      }).catch(() => []);
+      const explicitlyAllowedSectors = new Set((userPermissions || []).map((p: any) => p.sector));
+
+      if (explicitlyAllowedSectors.size > 0) {
+        sectors = sectors.filter((s: any) => explicitlyAllowedSectors.has(s.name));
+      } else {
+        sectors = sectors.filter((s: any) => s.minimumProfile !== MASTER_ADMIN_PROFILE);
+      }
+    }
 
     if (sectors && sectors.length > 0) {
       return sectors.map((s: any) => ({
