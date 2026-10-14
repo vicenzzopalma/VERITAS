@@ -201,10 +201,13 @@ select,
 /*
  * Keep the visual language intact on older machines while reducing the
  * number of expensive paint operations (large shadows, blur and transitions).
+ * IMPORTANT: Toasts and notifications MUST NEVER have their animation-duration
+ * forced to 0.001ms, otherwise the progress bar and timers end instantly and
+ * dismiss the message in 0.1 second!
  */
-.veritas-low-performance *,
-.veritas-low-performance *::before,
-.veritas-low-performance *::after {
+.veritas-low-performance *:not(.Toastify):not(.Toastify *),
+.veritas-low-performance *:not(.Toastify):not(.Toastify *)::before,
+.veritas-low-performance *:not(.Toastify):not(.Toastify *)::after {
   animation-duration: 0.001ms !important;
   animation-iteration-count: 1 !important;
   transition-duration: 0.001ms !important;
@@ -212,6 +215,30 @@ select,
 
 .veritas-low-performance {
   scroll-behavior: auto;
+}
+
+/* Proteção explícita para react-toastify */
+.Toastify,
+.Toastify *,
+.Toastify *::before,
+.Toastify *::after {
+  animation-duration: revert !important;
+  transition-duration: revert !important;
+}
+
+.Toastify__toast-container {
+  z-index: 999999 !important;
+}
+
+.Toastify__toast {
+  font-family: 'Outfit', 'Inter', sans-serif !important;
+  font-weight: 600 !important;
+  border-radius: 12px !important;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.4) !important;
+}
+
+.Toastify__progress-bar--animated {
+  animation-duration: inherit !important;
 }
 
 .veritas-low-performance .MuiPaper-root {

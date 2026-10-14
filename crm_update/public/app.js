@@ -947,7 +947,7 @@ document.addEventListener('DOMContentLoaded', () => {
             }
             break;
           case 'ERROR':
-            alert(message.message || 'Ocorreu um erro no servidor.');
+            showToast(message.message || 'Ocorreu um erro no servidor.', 'error', 7000);
             break;
           case 'CHAT_HISTORY':
             if (message.data && message.data.sector) {
@@ -2130,6 +2130,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 openRestrictionSettingsModal(num.id, newStatus, isAlreadyRestricted);
               } else {
                 sendWSMessage('UPDATE_NUMBER_STATUS', { numberId: num.id, status: newStatus, versao: getNumberVersion(num.id) });
+                showToast(`Status atualizado para "${newStatus}"!`, 'success', 5000);
               }
             });
           }
@@ -4277,22 +4278,40 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
 
-  function showToast(message) {
-    const container = document.getElementById('toast-container');
-    if (!container) return;
+  function showToast(message, type = 'success', duration = 5000) {
+    let container = document.getElementById('toast-container');
+    if (!container) {
+      container = document.createElement('div');
+      container.id = 'toast-container';
+      container.className = 'toast-container';
+      document.body.appendChild(container);
+    }
     const toast = document.createElement('div');
-    toast.className = 'toast';
+    toast.className = `toast toast-${type}`;
+    const icon = type === 'error' ? '❌' : type === 'warning' ? '⚠️' : type === 'info' ? 'ℹ️' : '✔️';
     toast.innerHTML = `
-      <span class="toast-success-icon">✔️</span>
-      <span>${escapeHTML(message)}</span>
+      <span class="toast-success-icon">${icon}</span>
+      <span>${escapeHTML(String(message || ''))}</span>
     `;
     container.appendChild(toast);
-    setTimeout(() => {
+
+    let dismissed = false;
+    const dismissToast = () => {
+      if (dismissed) return;
+      dismissed = true;
       toast.classList.add('toast-out');
-      toast.addEventListener('animationend', () => {
-        toast.remove();
-      });
-    }, 3000);
+      setTimeout(() => {
+        if (toast.parentNode) {
+          toast.remove();
+        }
+      }, 350);
+    };
+
+    const autoTimer = setTimeout(dismissToast, duration);
+    toast.addEventListener('click', () => {
+      clearTimeout(autoTimer);
+      dismissToast();
+    });
   }
 
   function openSelectHolderModal(numberId, currentHolder) {

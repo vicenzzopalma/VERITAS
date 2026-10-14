@@ -1120,9 +1120,9 @@ main {
 /* --- Toast Notificação Premium --- */
 .toast-container {
   position: fixed;
-  bottom: 25px;
+  top: 25px;
   right: 25px;
-  z-index: 2000;
+  z-index: 99999;
   display: flex;
   flex-direction: column;
   gap: 10px;
@@ -1131,25 +1131,39 @@ main {
 
 .toast {
   background: rgba(20, 22, 37, 0.95);
-  /* PERF: blur removido (sem GPU) */
-  /* PERF: blur removido (sem GPU) */
-  border: 1px solid rgba(88, 101, 242, 0.3);
+  border: 1px solid rgba(88, 101, 242, 0.35);
   color: var(--text-primary);
   padding: 12px 20px;
   border-radius: 10px;
-  font-size: 0.82rem;
+  font-size: 0.85rem;
   font-weight: 600;
   box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 10px;
   pointer-events: auto;
+  cursor: pointer;
   animation: toast-in 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
   transition: all 0.3s ease;
 }
 
+.toast.toast-error {
+  border-color: rgba(255, 71, 87, 0.5);
+  background: rgba(35, 15, 20, 0.95);
+}
+
+.toast.toast-warning {
+  border-color: rgba(255, 165, 2, 0.5);
+  background: rgba(35, 28, 15, 0.95);
+}
+
+.toast.toast-info {
+  border-color: rgba(30, 144, 255, 0.5);
+  background: rgba(15, 25, 40, 0.95);
+}
+
 @keyframes toast-in {
-  from { transform: translateY(20px) scale(0.9); opacity: 0; }
+  from { transform: translateY(-20px) scale(0.95); opacity: 0; }
   to { transform: translateY(0) scale(1); opacity: 1; }
 }
 
@@ -1159,11 +1173,12 @@ main {
 
 @keyframes toast-out {
   from { transform: translateY(0) opacity: 1; }
-  to { transform: translateY(-10px) opacity: 0; }
+  to { transform: translateY(-15px) opacity: 0; }
 }
 
 .toast-success-icon {
   color: var(--status-free);
+  font-size: 1.1rem;
 }
 
 /* --- Cards de Permissão no Modal --- */
@@ -4166,9 +4181,9 @@ header {
    Mantém o layout, só corta os repaints de animação contínua.
    ========================================================================= */
 @media (prefers-reduced-motion: reduce) {
-  *,
-  *::before,
-  *::after {
+  *:not(#toast-container):not(#toast-container *):not(.toast):not(.toast *),
+  *:not(#toast-container):not(#toast-container *):not(.toast):not(.toast *)::before,
+  *:not(#toast-container):not(#toast-container *):not(.toast):not(.toast *)::after {
     animation-duration: 0.001ms !important;
     animation-iteration-count: 1 !important;
     transition-duration: 0.001ms !important;
