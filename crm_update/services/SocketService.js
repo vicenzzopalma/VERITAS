@@ -684,6 +684,15 @@ class SocketService {
               break;
             }
 
+            case 'REORDER_DEVICES': {
+              const { orderedIds } = message.payload;
+              if (Array.isArray(orderedIds) && orderedIds.length > 0) {
+                await this.crmService.reorderDevices(orderedIds, currentUser);
+                await this.broadcastDelta('DEVICES_REORDERED', { orderedIds });
+              }
+              break;
+            }
+
             case 'ADD_NUMBER': {
               const { deviceId, phoneNumber, name, holder } = message.payload;
               const res = await this.crmService.addNumber({ deviceId, phoneNumber, name, holder }, currentUser);

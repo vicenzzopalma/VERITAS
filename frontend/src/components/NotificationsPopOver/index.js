@@ -178,7 +178,8 @@ const NotificationsPopOver = () => {
 			return [...list, notification];
 		});
 
-		soundAlertRef.current();
+		// Som de notificação de novo ticket desativado a pedido do usuário
+		// soundAlertRef.current();
 	};
 
 	const handleClick = () => {

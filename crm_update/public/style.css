@@ -4615,3 +4615,134 @@ button.filter-pill-btn {
   }
 }
 
+/* =========================================================================
+   MODO DE REORDENAÇÃO DE APARELHOS ESTILO ANDROID (LONG-PRESS + JIGGLE + DRAG)
+   ========================================================================= */
+
+@keyframes android-jiggle {
+  0% {
+    transform: rotate(-1.2deg) scale(1.01);
+  }
+  50% {
+    transform: rotate(1.2deg) scale(1.01);
+  }
+  100% {
+    transform: rotate(-1.2deg) scale(1.01);
+  }
+}
+
+.device-card.reorder-active {
+  animation: android-jiggle 0.28s infinite alternate ease-in-out !important;
+  cursor: grab !important;
+  user-select: none !important;
+  -webkit-user-select: none !important;
+  box-shadow: 0 10px 25px rgba(88, 101, 242, 0.28), 0 0 12px rgba(88, 101, 242, 0.2) !important;
+  border: 1.5px dashed rgba(88, 101, 242, 0.85) !important;
+  touch-action: none;
+  position: relative;
+}
+
+.device-card.reorder-active:hover {
+  transform: scale(1.02);
+}
+
+.device-card.reorder-dragging {
+  opacity: 0.35 !important;
+  transform: scale(1.05) rotate(0deg) !important;
+  animation: none !important;
+  cursor: grabbing !important;
+  border: 2px dashed #818cf8 !important;
+  box-shadow: 0 15px 35px rgba(0, 0, 0, 0.5) !important;
+}
+
+.device-card.reorder-drag-over {
+  border: 2px solid #5865f2 !important;
+  box-shadow: 0 0 24px rgba(88, 101, 242, 0.6) !important;
+  transform: scale(1.02) !important;
+  transition: all 0.15s ease-out;
+}
+
+.reorder-floating-bar {
+  position: fixed;
+  bottom: 24px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 99999;
+  background: rgba(15, 23, 42, 0.94);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(88, 101, 242, 0.65);
+  padding: 10px 24px;
+  border-radius: 40px;
+  box-shadow: 0 14px 40px rgba(0, 0, 0, 0.75), 0 0 25px rgba(88, 101, 242, 0.4);
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  animation: reorderSlideUp 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes reorderSlideUp {
+  from {
+    transform: translate(-50%, 80px);
+    opacity: 0;
+  }
+  to {
+    transform: translate(-50%, 0);
+    opacity: 1;
+  }
+}
+
+.reorder-floating-bar .bar-title {
+  font-weight: 700;
+  font-size: 0.88rem;
+  color: #f8fafc;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  white-space: nowrap;
+}
+
+.reorder-floating-bar .bar-btn-save {
+  background: #10b981;
+  color: #ffffff;
+  border: none;
+  padding: 7px 18px;
+  border-radius: 20px;
+  font-weight: 700;
+  font-size: 0.82rem;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 0 4px 14px rgba(16, 185, 129, 0.35);
+}
+
+.reorder-floating-bar .bar-btn-save:hover {
+  background: #059669;
+  transform: scale(1.05);
+  box-shadow: 0 6px 18px rgba(16, 185, 129, 0.45);
+}
+
+.reorder-floating-bar .bar-btn-cancel {
+  background: rgba(255, 255, 255, 0.12);
+  color: #cbd5e1;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  padding: 7px 16px;
+  border-radius: 20px;
+  font-weight: 600;
+  font-size: 0.82rem;
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.reorder-floating-bar .bar-btn-cancel:hover {
+  background: rgba(255, 255, 255, 0.22);
+  color: #ffffff;
+}
+
+.device-card {
+  user-select: none;
+  -webkit-touch-callout: none;
+}
+

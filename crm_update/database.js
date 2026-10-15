@@ -175,18 +175,19 @@ async function initDb() {
       );
     `, 'id, username, password_hash, name, allow_all_tabs, is_readonly, is_active, allow_edit_devices, allow_manage_users, allow_dashboard, ramal, criado_em, atualizado_em, excluido_em');
 
-    // 2. Tabela devices (com ciclo de vida)
+    // 2. Tabela devices (com ciclo de vida e ordem de exibição)
     await migrateTable('devices', `
       CREATE TABLE devices (
         id INTEGER CONSTRAINT pk_devices PRIMARY KEY AUTOINCREMENT,
         name TEXT NOT NULL,
         sector TEXT NOT NULL,
         origin_sector TEXT DEFAULT 'Junior',
+        display_order INTEGER DEFAULT 0,
         criado_em TEXT DEFAULT CURRENT_TIMESTAMP,
         atualizado_em TEXT DEFAULT CURRENT_TIMESTAMP,
         excluido_em TEXT
       );
-    `, 'id, name, sector, origin_sector, criado_em, atualizado_em, excluido_em');
+    `, 'id, name, sector, origin_sector, display_order, criado_em, atualizado_em, excluido_em');
 
     // 3. Tabela numbers (com ciclo de vida e concorrência otimista)
     await migrateTable('numbers', `
@@ -320,6 +321,14 @@ async function initDb() {
     await db.exec('ALTER TABLE devices ADD COLUMN origin_sector TEXT DEFAULT "Junior"');
     console.log('Coluna origin_sector adicionada com sucesso na tabela devices (migração).');
     await db.run('UPDATE devices SET origin_sector = sector WHERE origin_sector IS NULL OR origin_sector = "" OR origin_sector = "Junior"');
+  } catch (err) {
+    // A coluna já existe, ignora o erro
+  }
+
+  // Migrar banco de dados existente adicionando a coluna 'display_order' na tabela devices se não existir
+  try {
+    await db.exec('ALTER TABLE devices ADD COLUMN display_order INTEGER DEFAULT 0');
+    console.log('Coluna display_order adicionada com sucesso na tabela devices (migração).');
   } catch (err) {
     // A coluna já existe, ignora o erro
   }

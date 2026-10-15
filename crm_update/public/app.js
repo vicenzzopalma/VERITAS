@@ -1242,6 +1242,18 @@ document.addEventListener('DOMContentLoaded', () => {
         renderDevices();
         break;
       }
+      case 'DEVICES_REORDERED': {
+        if (Array.isArray(payload.orderedIds)) {
+          payload.orderedIds.forEach((devId, idx) => {
+            const dev = devicesData.find(d => d.id === devId);
+            if (dev) dev.display_order = idx;
+          });
+          if (!isReorderMode) {
+            renderDevices();
+          }
+        }
+        break;
+      }
       case 'LOG_ADDED': {
         const { type, log } = payload;
         if (logsData && logsData[type]) {
@@ -1561,6 +1573,241 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
 
+  // =========================================================================
+  // REORDENAÇÃO DE WHATSAPPS ESTILO ANDROID (LONG-PRESS 1.8s + JIGGLE + DRAG)
+  // =========================================================================
+  let isReorderMode = false;
+  let reorderLongPressTimer = null;
+  let draggedCard = null;
+  let touchStartPos = { x: 0, y: 0 };
+  let initialOrderSnapshot = [];
+
+  function canReorderDevices() {
+    if (!currentUser) return false;
+    return currentUser.username === 'vicenzzo' || 
+           currentUser.allowEditDevices === true || 
+           currentUser.allowEditDevices === 1 || 
+           currentUser.role === 'ADMIN' || 
+           currentUser.role === 'MANAGER';
+  }
+
+  function enterReorderMode(initialTargetCard) {
+    if (isReorderMode) return;
+    if (!canReorderDevices()) return;
+
+    isReorderMode = true;
+
+    // Feedback háptico (vibração estilo Android)
+    if (navigator.vibrate) {
+      try { navigator.vibrate([40, 60, 40]); } catch (e) {}
+    }
+
+    // Salvar snapshot da ordem inicial
+    const cards = Array.from(devicesContainer.querySelectorAll('.device-card'));
+    initialOrderSnapshot = cards.map(c => parseInt(c.dataset.deviceId, 10)).filter(Boolean);
+
+    // Ativar animação de vibração e drag em todos os cards
+    cards.forEach(c => {
+      c.classList.add('reorder-active');
+      c.setAttribute('draggable', 'true');
+    });
+
+    renderReorderFloatingBar();
+  }
+
+  function exitReorderMode() {
+    isReorderMode = false;
+    draggedCard = null;
+
+    const cards = document.querySelectorAll('.device-card');
+    cards.forEach(c => {
+      c.classList.remove('reorder-active', 'reorder-dragging', 'reorder-drag-over');
+      c.removeAttribute('draggable');
+    });
+
+    const floatingBar = document.getElementById('reorder-floating-bar');
+    if (floatingBar) {
+      floatingBar.remove();
+    }
+  }
+
+  function renderReorderFloatingBar() {
+    let bar = document.getElementById('reorder-floating-bar');
+    if (!bar) {
+      bar = document.createElement('div');
+      bar.id = 'reorder-floating-bar';
+      bar.className = 'reorder-floating-bar';
+      bar.innerHTML = `
+        <div class="bar-title">
+          <span>🔀</span>
+          <span>Modo Organização Ativo — Arraste para reposicionar os WhatsApps</span>
+        </div>
+        <button type="button" class="bar-btn-save" id="btn-save-reorder">✓ Concluir</button>
+        <button type="button" class="bar-btn-cancel" id="btn-cancel-reorder">Cancelar</button>
+      `;
+      document.body.appendChild(bar);
+
+      document.getElementById('btn-save-reorder').addEventListener('click', saveReorderedDevices);
+      document.getElementById('btn-cancel-reorder').addEventListener('click', cancelReorderedDevices);
+    }
+  }
+
+  async function saveReorderedDevices() {
+    const cards = Array.from(devicesContainer.querySelectorAll('.device-card'));
+    const orderedIds = cards.map(c => parseInt(c.dataset.deviceId, 10)).filter(Boolean);
+
+    if (orderedIds.length === 0) {
+      exitReorderMode();
+      return;
+    }
+
+    // Atualiza imediatamente display_order em memória
+    orderedIds.forEach((devId, index) => {
+      const dev = devicesData.find(d => d.id === devId);
+      if (dev) dev.display_order = index;
+    });
+
+    // Enviar via WebSocket
+    sendWSMessage('REORDER_DEVICES', { orderedIds });
+
+    // Fallback via HTTP POST
+    try {
+      await fetch('/api/devices/reorder', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ orderedIds })
+      });
+    } catch (e) {
+      console.warn('Fallback HTTP de reordenação falhou, WS já emitido:', e);
+    }
+
+    exitReorderMode();
+    showToast('Ordem dos WhatsApps atualizada com sucesso!');
+  }
+
+  function cancelReorderedDevices() {
+    exitReorderMode();
+    renderDevices();
+  }
+
+  function attachCardReorderEvents(card, device) {
+    card.dataset.deviceId = String(device.id);
+
+    // Detecção de clique contínuo (Long-press 1.8s) para ativar o modo de vibração
+    const startLongPress = (clientX, clientY, target) => {
+      if (isReorderMode) return;
+      if (!canReorderDevices()) return;
+      if (target.closest('button, select, input, a, .icon-btn, .number-status-badge, .holder-badge')) {
+        return;
+      }
+
+      touchStartPos = { x: clientX, y: clientY };
+      clearTimeout(reorderLongPressTimer);
+      reorderLongPressTimer = setTimeout(() => {
+        enterReorderMode(card);
+      }, 1800);
+    };
+
+    const cancelLongPress = () => {
+      clearTimeout(reorderLongPressTimer);
+    };
+
+    card.addEventListener('mousedown', (e) => {
+      if (e.button !== 0) return;
+      startLongPress(e.clientX, e.clientY, e.target);
+    });
+
+    window.addEventListener('mouseup', cancelLongPress);
+
+    card.addEventListener('mousemove', (e) => {
+      if (!isReorderMode && reorderLongPressTimer) {
+        const dist = Math.hypot(e.clientX - touchStartPos.x, e.clientY - touchStartPos.y);
+        if (dist > 10) {
+          cancelLongPress();
+        }
+      }
+    });
+
+    // Touch support para mobile e telas sensíveis ao toque
+    card.addEventListener('touchstart', (e) => {
+      if (e.touches.length === 1) {
+        startLongPress(e.touches[0].clientX, e.touches[0].clientY, e.target);
+      }
+    }, { passive: true });
+
+    card.addEventListener('touchmove', (e) => {
+      if (!isReorderMode && reorderLongPressTimer && e.touches.length === 1) {
+        const dist = Math.hypot(e.touches[0].clientX - touchStartPos.x, e.touches[0].clientY - touchStartPos.y);
+        if (dist > 10) {
+          cancelLongPress();
+        }
+      } else if (isReorderMode && draggedCard && e.touches.length === 1) {
+        e.preventDefault();
+        const touch = e.touches[0];
+        const targetEl = document.elementFromPoint(touch.clientX, touch.clientY);
+        const overCard = targetEl ? targetEl.closest('.device-card') : null;
+        if (overCard && overCard !== draggedCard && overCard.parentNode === devicesContainer) {
+          const rect = overCard.getBoundingClientRect();
+          const next = touch.clientY > rect.top + rect.height / 2;
+          if (next) {
+            devicesContainer.insertBefore(draggedCard, overCard.nextSibling);
+          } else {
+            devicesContainer.insertBefore(draggedCard, overCard);
+          }
+        }
+      }
+    }, { passive: false });
+
+    card.addEventListener('touchend', cancelLongPress);
+    card.addEventListener('touchcancel', cancelLongPress);
+
+    // Eventos de Drag & Drop (HTML5)
+    card.addEventListener('dragstart', (e) => {
+      if (!isReorderMode) {
+        e.preventDefault();
+        return;
+      }
+      draggedCard = card;
+      card.classList.add('reorder-dragging');
+      e.dataTransfer.effectAllowed = 'move';
+      e.dataTransfer.setData('text/plain', card.dataset.deviceId);
+    });
+
+    card.addEventListener('dragover', (e) => {
+      if (!isReorderMode || !draggedCard) return;
+      e.preventDefault();
+      e.dataTransfer.dropEffect = 'move';
+
+      if (card !== draggedCard && card.parentNode === devicesContainer) {
+        card.classList.add('reorder-drag-over');
+        const rect = card.getBoundingClientRect();
+        const isAfter = (e.clientY > rect.top + rect.height / 2) || (e.clientX > rect.left + rect.width / 2);
+        if (isAfter) {
+          devicesContainer.insertBefore(draggedCard, card.nextSibling);
+        } else {
+          devicesContainer.insertBefore(draggedCard, card);
+        }
+      }
+    });
+
+    card.addEventListener('dragleave', () => {
+      card.classList.remove('reorder-drag-over');
+    });
+
+    card.addEventListener('drop', (e) => {
+      e.preventDefault();
+      card.classList.remove('reorder-drag-over');
+    });
+
+    card.addEventListener('dragend', () => {
+      if (draggedCard) {
+        draggedCard.classList.remove('reorder-dragging');
+      }
+      document.querySelectorAll('.device-card').forEach(c => c.classList.remove('reorder-drag-over'));
+      draggedCard = null;
+    });
+  }
+
   // --- Renderização de Dispositivos e Números ---
   function renderDevices() {
     // Build holder chip count map and holder chips map
@@ -1853,6 +2100,12 @@ document.addEventListener('DOMContentLoaded', () => {
         return matchingNumbers.length > 0;
       })
       .sort((a, b) => {
+        const orderA = (a.display_order !== undefined && a.display_order !== null) ? a.display_order : 0;
+        const orderB = (b.display_order !== undefined && b.display_order !== null) ? b.display_order : 0;
+        if (orderA !== orderB) {
+          return orderA - orderB;
+        }
+
         const numA = parseInt(a.name, 10);
         const numB = parseInt(b.name, 10);
         const isNumA = !isNaN(numA);
@@ -1879,6 +2132,11 @@ document.addEventListener('DOMContentLoaded', () => {
     filteredDevices.forEach(device => {
       const card = document.createElement('div');
       card.className = 'device-card glass';
+      attachCardReorderEvents(card, device);
+      if (isReorderMode) {
+        card.classList.add('reorder-active');
+        card.setAttribute('draggable', 'true');
+      }
 
       const showActions = currentUser && currentUser.isReadonly !== 1 && currentUser.isReadonly !== true && (currentUser.username === 'vicenzzo' || currentUser.allowEditDevices === true || currentUser.allowEditDevices === 1);
 

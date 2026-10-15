@@ -1,0 +1,1190 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>WhatsApp Control CRM (Gestão de Celulares)</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css?v=20260915_2">
+  <!-- chart.js removido do <head>: era um script síncrono que bloqueava o parse
+       da página em máquinas lentas. Carregado com defer no final do body. -->
+</head>
+
+<body>
+  <div class="layout-container">
+    <!-- Header -->
+    <header class="glass">
+      <div class="header-brand">
+
+        <span class="logo-icon">📱</span>
+        <div style="display: flex; flex-direction: column; justify-content: center;">
+          <h1 style="margin: 0; line-height: 1.2; font-size: 1.35rem;">WhatsApp Control CRM</h1>
+          <span style="font-size: 0.72rem; color: #94a3b8; font-weight: 600; letter-spacing: 0.2px;">Gestão de celulares = Whatsapp control = CRM = Whatsapp Control CRM</span>
+        </div>
+        <div id="connection-status" class="conn-status offline">Desconectado</div>
+      </div>
+      <div class="header-user">
+        <div class="user-info">Olá, <span id="user-display-name">Gestor</span></div>
+        <button id="btn-open-inventory" class="btn-secondary" style="margin-right: 5px;">📊 Inventário</button>
+        <button id="btn-open-logs" class="btn-secondary" style="margin-right: 5px;">📋 Histórico</button>
+        <button id="btn-open-dashboard" class="btn-secondary" style="margin-right: 5px; display: none;">📈 Dashboard</button>
+        <button id="btn-logout" class="btn-secondary">Sair</button>
+      </div>
+    </header>
+
+    <!-- Controles Principais e Abas -->
+    <div class="controls-bar">
+      <div class="tabs-container" id="sector-tabs">
+        <button class="tab-btn active" data-sector="Junior">Junior</button>
+        <button class="tab-btn" data-sector="Senior">Senior</button>
+        <div class="tab-btn tab-btn-split" id="tab-pa-fixa" data-sector="PA FIXA">
+          <span class="split-label">PA FIXA</span>
+          <div class="split-choices">
+            <button class="split-choice" data-sector="PA FIXA" data-subsector="PA FIXA 1">1</button>
+            <button class="split-choice" data-sector="PA FIXA" data-subsector="PA FIXA 2">2</button>
+          </div>
+        </div>
+        <button class="tab-btn" data-sector="Pesquisa">Pesquisa</button>
+        <button class="tab-btn" data-sector="Juridico">Juridico</button>
+        <button class="tab-btn" data-sector="Comercial">Comercial</button>
+        <button class="tab-btn" id="tab-all" data-sector="Todos" style="display: none;">Todos</button>
+      </div>
+
+      <!-- Barra de Busca Premium -->
+      <div class="search-wrapper glass">
+        <span class="search-icon">🔍</span>
+        <input type="text" id="search-input" placeholder="Pesquisar por nome ou final do número...">
+      </div>
+
+      <div class="action-buttons">
+        <button id="btn-open-add-device" class="btn-primary" style="width: auto;">+ Adicionar Aparelho</button>
+        <a href="/api/export/inventory" class="btn-secondary" style="text-decoration: none; display: inline-flex; align-items: center;" download>📥 Exportar Excel</a>
+      </div>
+    </div>
+
+
+
+    <!-- Filtros de Status (Pílulas) -->
+    <div class="filters-container glass">
+      <span style="font-size: 0.72rem; color: var(--text-secondary); font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px;">Filtrar Aparelhos:</span>
+      <div class="filter-pills" id="status-filters">
+        <button class="filter-pill active" data-filter="all">Todos</button>
+        <button class="filter-pill" data-filter="free">Livres</button>
+        <button class="filter-pill" data-filter="inuse">Em Uso</button>
+        <button class="filter-pill" data-filter="restricted">Restritos</button>
+        <button class="filter-pill" data-filter="banned">Banidos</button>
+      </div>
+      
+      <!-- Linha divisória vertical -->
+      <div style="width: 1px; height: 20px; background: var(--border-color); margin: 0 10px;"></div>
+      
+      <!-- Toggle de Apenas Reservas -->
+      <div style="display: flex; align-items: center; gap: 8px;">
+        <label class="switch" style="position: relative; display: inline-block; width: 40px; height: 20px;">
+          <input type="checkbox" id="filter-reservas-checkbox" style="opacity: 0; width: 0; height: 0;">
+          <span class="slider" style="position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: rgba(255,255,255,0.1); transition: .4s; border-radius: 20px; border: 1px solid var(--border-color);"></span>
+        </label>
+        <span style="font-size: 0.75rem; font-weight: 600; color: var(--text-secondary); user-select: none;">Apenas Reservas</span>
+      </div>
+    </div>
+
+    <!-- Corpo Principal com Main -->
+    <div class="main-body-container">
+      <main>
+        <div class="devices-grid" id="devices-container">
+          <!-- Injetado dinamicamente via JS -->
+          <div class="empty-state">Carregando aparelhos...</div>
+        </div>
+      </main>
+    </div>
+
+    <!-- O histórico de auditoria foi movido para o modal superior -->
+  </div>
+
+  <!-- MODAL: ADICIONAR APARELHO -->
+  <div class="modal" id="modal-add-device">
+    <div class="modal-content glass">
+      <div class="modal-header">
+        <h3>Adicionar Novo Aparelho</h3>
+        <button class="modal-close" data-close="modal-add-device">&times;</button>
+      </div>
+      <form id="form-add-device">
+        <div class="input-group">
+          <label for="device-name-input">Identificação / Nome do Aparelho</label>
+          <input type="text" id="device-name-input" required placeholder="Ex: Arthur, RESERVA, 12, 13">
+        </div>
+        <div class="input-group">
+          <label for="device-sector-select">Setor de Destino</label>
+          <select id="device-sector-select" required>
+            <option value="Junior">Junior</option>
+            <option value="Senior">Senior</option>
+            <option value="PA FIXA 1">PA FIXA 1</option>
+            <option value="PA FIXA 2">PA FIXA 2</option>
+            <option value="Pesquisa">Pesquisa</option>
+            <option value="Juridico">Juridico</option>
+            <option value="Comercial">Comercial</option>
+          </select>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn-secondary" data-close="modal-add-device">Cancelar</button>
+          <button type="submit" class="btn-primary" style="width: auto;">Adicionar</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- MODAL: EDITAR APARELHO -->
+  <div class="modal" id="modal-edit-device">
+    <div class="modal-content glass" style="max-width: 480px; width: 90%;">
+      <div class="modal-header">
+        <h3>⚙️ Configurações do Aparelho</h3>
+        <button class="modal-close" data-close="modal-edit-device">&times;</button>
+      </div>
+      <form id="form-edit-device" style="display: flex; flex-direction: column; flex: 1; overflow: hidden; margin: 0;">
+        <input type="hidden" id="edit-device-id">
+        
+        <div class="modal-body">
+          <div class="input-group">
+            <label for="edit-device-name-input">Nome do Aparelho</label>
+            <input type="text" id="edit-device-name-input" required>
+          </div>
+          <div class="input-group">
+            <label for="edit-device-sector-select">Mover para Setor</label>
+            <select id="edit-device-sector-select" required>
+              <option value="Junior">Junior</option>
+              <option value="Senior">Senior</option>
+              <option value="PA FIXA 1">PA FIXA 1</option>
+              <option value="PA FIXA 2">PA FIXA 2</option>
+              <option value="Pesquisa">Pesquisa</option>
+              <option value="Juridico">Juridico</option>
+              <option value="Comercial">Comercial</option>
+            </select>
+          </div>
+          <!-- Chips contidos no aparelho para atribuição de usuário -->
+          <div class="input-group" style="margin-top: 15px; border-top: 1px solid var(--border-color); padding-top: 15px;">
+            <label style="font-weight: 700; color: var(--text-secondary); text-transform: uppercase; font-size: 0.75rem; letter-spacing: 0.5px; margin-bottom: 10px;">Chips Contidos no Aparelho</label>
+            <div id="edit-device-chips-list" style="display: flex; flex-direction: column; gap: 10px;">
+              <!-- Injetado dinamicamente via JS -->
+            </div>
+          </div>
+        </div>
+
+        <div class="modal-footer" style="justify-content: space-between; border-top: 1px solid var(--border-color); padding-top: 15px; margin-top: 0;">
+          <div style="position: relative; display: flex; align-items: center;">
+            <button type="button" id="btn-delete-device" class="btn-danger">Excluir Aparelho</button>
+            <div class="delete-confirm-popover" id="delete-device-confirm" style="display: none; position: absolute; left: 0; bottom: 30px; background: rgba(30, 30, 40, 0.98); border: 1px solid var(--border-color); border-radius: 6px; padding: 10px 14px; z-index: 10; flex-direction: column; align-items: center; gap: 8px; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5); backdrop-filter: blur(10px); min-width: 180px;">
+              <span style="font-size: 0.75rem; font-weight: 600; white-space: nowrap; color: #fff;">Excluir permanentemente?</span>
+              <span style="font-size: 0.65rem; color: var(--text-secondary); text-align: center;">Todos os chips serão apagados!</span>
+              <div style="display: flex; gap: 8px;">
+                <button type="button" id="btn-confirm-device-delete-yes" style="background: #e53e3e; border: none; color: white; padding: 4px 14px; border-radius: 4px; font-size: 0.7rem; cursor: pointer; font-weight: 600;">Sim, Excluir</button>
+                <button type="button" id="btn-confirm-device-delete-no" style="background: rgba(255, 255, 255, 0.1); border: none; color: white; padding: 4px 14px; border-radius: 4px; font-size: 0.7rem; cursor: pointer;">Cancelar</button>
+              </div>
+            </div>
+          </div>
+          <div style="display: flex; gap: 10px;">
+            <button type="button" class="btn-secondary" data-close="modal-edit-device">Cancelar</button>
+            <button type="submit" class="btn-primary" style="width: auto;">Salvar</button>
+          </div>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- MODAL: ADICIONAR NÚMERO -->
+  <div class="modal" id="modal-add-number">
+    <div class="modal-content glass">
+      <div class="modal-header">
+        <h3>Adicionar Número ao Aparelho</h3>
+        <button class="modal-close" data-close="modal-add-number">&times;</button>
+      </div>
+      <form id="form-add-number">
+        <input type="hidden" id="add-number-device-id">
+        <div class="input-group">
+          <label for="add-number-name-input">Usuário / Atribuição do Chip</label>
+          <select id="add-number-name-input" required style="padding: 10px 14px; background: rgba(0, 0, 0, 0.28); border: 1px solid var(--border-color); border-radius: 8px; color: var(--text-primary); font-size: 0.9rem; outline: none; transition: all 0.3s; width: 100%;">
+            <!-- Preenchido dinamicamente via JS -->
+          </select>
+        </div>
+        <div class="input-group">
+          <label for="add-number-phone-input">Número de WhatsApp</label>
+          <input type="text" id="add-number-phone-input" required placeholder="Ex: 47999999999">
+        </div>
+        <div class="input-group">
+          <label for="add-number-holder-input">Responsável / Com quem está (Opcional)</label>
+          <input type="text" id="add-number-holder-input" placeholder="Ex: João da Silva">
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn-secondary" data-close="modal-add-number">Cancelar</button>
+          <button type="submit" class="btn-primary" style="width: auto;">Adicionar Número</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- MODAL: CONFIGURAÇÃO DE RESTRIÇÃO UNIFICADO (24h, 7d, Custom) -->
+  <div class="modal" id="modal-restriction-settings">
+    <div class="modal-content glass">
+      <div class="modal-header">
+        <h3 id="restriction-settings-title">Configurar Restrição</h3>
+        <button class="modal-close" data-close="modal-restriction-settings">&times;</button>
+      </div>
+      <form id="form-restriction-settings">
+        <input type="hidden" id="restriction-number-id">
+        <input type="hidden" id="restriction-status-type">
+
+        <!-- Horário de Início (Obrigatório para todos) -->
+        <div class="input-group">
+          <label for="restriction-start-time">Horário de Início da Restrição</label>
+          <input type="datetime-local" id="restriction-start-time" required>
+        </div>
+
+        <!-- Responsável / Colaborador -->
+        <div class="input-group" id="restriction-holder-group">
+          <label for="restriction-holder-select">Responsável / Colaborador (Com quem está)</label>
+          <select id="restriction-holder-select">
+            <!-- Preenchido dinamicamente via JS -->
+          </select>
+        </div>
+
+        <!-- Grupo de Duração Customizada (Visível apenas para Custom) -->
+        <div id="restriction-custom-duration-group" style="display: none;">
+          <div class="input-group">
+            <label for="restriction-custom-time">Duração da Restrição</label>
+            <div style="display: flex; gap: 10px;">
+              <input type="number" id="restriction-custom-time" min="1" placeholder="Ex: 12" style="flex: 1;">
+              <select id="restriction-custom-unit" style="width: 120px;">
+                <option value="minutes">Minutos</option>
+                <option value="hours">Horas</option>
+                <option value="days">Dias</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
+        <div class="modal-footer">
+          <button type="button" class="btn-secondary" data-close="modal-restriction-settings">Cancelar</button>
+          <button type="submit" class="btn-primary" style="width: auto;">Iniciar Restrição</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- MODAL: HISTÓRICO DE AUDITORIA (LOGS) -->
+  <div class="modal" id="modal-logs">
+    <div class="modal-content glass" style="max-width: 1240px; width: 95%; max-height: 88vh; display: flex; flex-direction: column;">
+      <div class="modal-header">
+        <h3>📋 Histórico de Auditoria</h3>
+        <button class="modal-close" data-close="modal-logs">&times;</button>
+      </div>
+      
+      <!-- Abas internas do histórico -->
+      <div class="controls-bar" style="padding: 10px 0; margin-bottom: 15px; border-bottom: 1px solid var(--border-color);">
+        <div class="tabs-container" id="log-tabs">
+          <button class="tab-btn active" data-log-tab="bans">🚫 Banimentos & Restrições</button>
+          <button class="tab-btn" data-log-tab="general">⚙️ Alterações Gerais</button>
+          <button class="tab-btn" data-log-tab="reservations">🔑 Uso de Reservas</button>
+        </div>
+        <div style="display: flex; align-items: center; gap: 12px;">
+          <label style="display: inline-flex; align-items: center; gap: 6px; font-size: 0.8rem; color: var(--text-secondary); cursor: pointer; user-select: none;">
+            <input type="checkbox" id="export-today-only" style="width: 15px; height: 15px; cursor: pointer; accent-color: var(--primary-color);">
+            <span>Apenas Hoje</span>
+          </label>
+          <a id="btn-export-logs" href="/api/export/logs?type=bans" class="btn-secondary" style="text-decoration: none; display: inline-flex; align-items: center;" download>📊 Exportar Excel</a>
+        </div>
+      </div>
+
+      <!-- Filtros de Logs (Setor e Gestor) -->
+      <div class="log-filters-container" style="display: flex; gap: 15px; margin-bottom: 15px; align-items: center; background: rgba(255, 255, 255, 0.02); padding: 8px 16px; border-radius: 8px; border: 1px solid var(--border-color); flex-wrap: wrap;">
+        <span style="font-size: 0.72rem; color: var(--text-secondary); font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px;">Filtrar Logs:</span>
+        
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <label for="log-filter-sector" style="font-size: 0.75rem; color: var(--text-secondary); font-weight: 600;">Setor:</label>
+          <select id="log-filter-sector" style="background: rgba(0, 0, 0, 0.25); border: 1px solid var(--border-color); color: var(--text-primary); border-radius: 6px; padding: 4px 8px; font-size: 0.75rem; outline: none; cursor: pointer; transition: all 0.2s;">
+            <option value="all">Tudo</option>
+            <option value="Junior">Junior</option>
+            <option value="Senior">Senior</option>
+            <option value="PA FIXA 1">PA FIXA 1</option>
+            <option value="PA FIXA 2">PA FIXA 2</option>
+            <option value="Juridico">Juridico</option>
+            <option value="Comercial">Comercial</option>
+            <option value="Pesquisa">Pesquisa</option>
+          </select>
+        </div>
+
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <label for="log-filter-manager" style="font-size: 0.75rem; color: var(--text-secondary); font-weight: 600;">Gestor:</label>
+          <select id="log-filter-manager" style="background: rgba(0, 0, 0, 0.25); border: 1px solid var(--border-color); color: var(--text-primary); border-radius: 6px; padding: 4px 8px; font-size: 0.75rem; outline: none; cursor: pointer; max-width: 180px; transition: all 0.2s;">
+            <option value="all">Tudo</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- Tabelas de Logs -->
+      <div class="logs-table-wrapper" style="max-height: 500px; overflow-y: auto; flex: 1;">
+        <table class="logs-table">
+          <thead>
+            <tr>
+              <th>Data/Hora</th>
+              <th>Gestor</th>
+              <th>Setor</th>
+              <th>Aparelho</th>
+              <th>Número</th>
+              <th>Responsável</th>
+              <th>Ação Realizada</th>
+            </tr>
+          </thead>
+          <tbody id="modal-logs-tbody">
+            <!-- Injetado dinamicamente via JS -->
+          </tbody>
+        </table>
+      </div>
+      <div class="modal-footer" style="margin-top: 15px;">
+        <button type="button" class="btn-secondary" data-close="modal-logs">Fechar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL: GERENCIAMENTO DE GESTORES & EQUIPE (Novo Tema UIX Expandido) -->
+  <div class="modal" id="modal-manage-users">
+    <div class="modal-content glass manage-users-modal-uix">
+      
+      <!-- Header UIX com Badges e Título Analítico -->
+      <div class="modal-header manage-users-header">
+        <div class="manage-header-titles">
+          <div class="manage-header-badge">
+            <span class="pulse-dot" style="background: #818cf8; width: 6px; height: 6px; border-radius: 50%; display: inline-block;"></span>
+            <span>GOVERNANÇA & POLÍTICAS DE ACESSO (RBAC)</span>
+          </div>
+          <h3 style="display: flex; align-items: center; gap: 10px; font-size: 1.25rem; font-weight: 800; color: #f8fafc; margin: 0;">
+            <span>👥 Centro de Gestores & Equipe</span>
+            <span class="header-counter-tag" id="manage-users-total-badge">Carregando...</span>
+          </h3>
+          <p style="font-size: 0.76rem; color: #94a3b8; margin: 4px 0 0 0;">
+            Gerenciamento de credenciais administrativas, matriz de permissões setoriais e operadores de hardware
+          </p>
+        </div>
+        <button class="modal-close" data-close="modal-manage-users" title="Fechar Janela">&times;</button>
+      </div>
+      
+      <!-- Barra de Navegação em Cápsula UIX -->
+      <div class="manage-nav-bar">
+        <div class="manage-tabs-capsule" id="manage-users-tabs">
+          <button class="tab-btn active" data-manage-tab="users">
+            <span>👥</span> Gestores do Sistema <span class="tab-counter-pill" id="counter-tab-gestores">0</span>
+          </button>
+          <button class="tab-btn" data-manage-tab="collaborators">
+            <span>📱</span> Operadores (Celular) <span class="tab-counter-pill" id="counter-tab-colabs">0</span>
+          </button>
+          <button class="tab-btn" data-manage-tab="updates" id="tab-system-update" style="display: none;">
+            <span>⚙️</span> Manutenção & Core
+          </button>
+        </div>
+        <div style="font-size: 0.72rem; color: var(--text-secondary); display: flex; align-items: center; gap: 6px;">
+          <span style="width: 7px; height: 7px; border-radius: 50%; background: #2ed573; display: inline-block; box-shadow: 0 0 6px #2ed573;"></span>
+          <span>Autenticação Ativa via Hardware Token</span>
+        </div>
+      </div>
+
+      <div class="modal-body" style="padding: 0; flex: 1; min-height: 0; overflow: hidden;">
+        
+        <!-- ========================================== -->
+        <!-- ABA 1: GESTORES (SPLIT VIEW)              -->
+        <!-- ========================================== -->
+        <div id="manage-users-section-users" style="height: 100%;">
+          <div class="manage-split-grid">
+            
+            <!-- Coluna Esquerda: Lista de Gestores e Filtros -->
+            <div class="manage-main-column">
+              <!-- Quick Stats Ribbon -->
+              <div class="manage-stats-ribbon">
+                <div class="manage-stat-tile">
+                  <div class="manage-stat-icon">👥</div>
+                  <div class="manage-stat-content">
+                    <span class="manage-stat-value" id="stat-total-gestores">--</span>
+                    <span class="manage-stat-label">Total Cadastrado</span>
+                  </div>
+                </div>
+                <div class="manage-stat-tile">
+                  <div class="manage-stat-icon" style="background: rgba(46, 213, 115, 0.15); color: #2ed573;">⚡</div>
+                  <div class="manage-stat-content">
+                    <span class="manage-stat-value" id="stat-gestores-full" style="color: #2ed573;">--</span>
+                    <span class="manage-stat-label">Gestores (Full)</span>
+                  </div>
+                </div>
+                <div class="manage-stat-tile">
+                  <div class="manage-stat-icon" style="background: rgba(56, 189, 248, 0.15); color: #38bdf8;">👁️</div>
+                  <div class="manage-stat-content">
+                    <span class="manage-stat-value" id="stat-visualizadores" style="color: #38bdf8;">--</span>
+                    <span class="manage-stat-label">Visualizadores</span>
+                  </div>
+                </div>
+                <div class="manage-stat-tile">
+                  <div class="manage-stat-icon" style="background: rgba(168, 85, 247, 0.15); color: #a855f7;">🛡️</div>
+                  <div class="manage-stat-content">
+                    <span class="manage-stat-value" id="stat-gestores-ativos" style="color: #a855f7;">--</span>
+                    <span class="manage-stat-label">Acessos Ativos</span>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Toolbar de Busca & Filtros Rápidos -->
+              <div class="manage-filter-toolbar">
+                <div class="manage-search-bar">
+                  <span style="font-size: 0.9rem; margin-right: 6px; opacity: 0.7;">🔍</span>
+                  <input type="text" id="search-managers-input" placeholder="Buscar por nome ou @usuário...">
+                </div>
+                <div class="filter-pills-group" id="filter-manager-role-group">
+                  <button type="button" class="filter-pill-btn active" data-role-filter="all">Todos</button>
+                  <button type="button" class="filter-pill-btn" data-role-filter="gestores">🛠️ Gestores</button>
+                  <button type="button" class="filter-pill-btn" data-role-filter="viewers">👁️ Visualizadores</button>
+                </div>
+              </div>
+
+              <!-- Container dos Cards de Gestores com Scroll Suave -->
+              <div class="managers-cards-scroll-wrapper">
+                <div id="manage-users-cards-container" class="managers-cards-container">
+                  <!-- Injetado dinamicamente via JS -->
+                </div>
+              </div>
+            </div>
+
+            <!-- Coluna Direita: Formulário Fixo de Cadastro de Gestor -->
+            <div class="manage-side-form-card">
+              <div class="manage-side-header">
+                <h4><span>✨</span> Cadastrar Novo Gestor</h4>
+                <p>Defina o perfil de acesso e credenciais administrativas</p>
+              </div>
+
+              <form id="form-manage-users">
+                <div class="input-group" style="margin-bottom: 10px;">
+                  <label for="new-user-name" style="font-size: 0.74rem; font-weight: 700; color: #cbd5e1;">Nome Completo</label>
+                  <input type="text" id="new-user-name" required placeholder="Ex: Maria Rocha" style="padding: 9px 12px; font-size: 0.82rem;">
+                </div>
+
+                <div class="input-group" style="margin-bottom: 10px;">
+                  <label for="new-user-username" style="font-size: 0.74rem; font-weight: 700; color: #cbd5e1;">Usuário (Login)</label>
+                  <input type="text" id="new-user-username" required placeholder="Ex: mariarocha" style="padding: 9px 12px; font-size: 0.82rem;">
+                </div>
+
+                <div class="input-group" style="margin-bottom: 14px;">
+                  <label for="new-user-password" style="font-size: 0.74rem; font-weight: 700; color: #cbd5e1;">Senha Provisória</label>
+                  <input type="password" id="new-user-password" required placeholder="Digite uma senha forte" style="padding: 9px 12px; font-size: 0.82rem;">
+                </div>
+
+                <!-- Interruptores de Permissão em Cards UIX -->
+                <div style="display: flex; flex-direction: column; gap: 8px; margin-bottom: 16px;">
+                  <label class="perm-switch-box">
+                    <div>
+                      <div class="perm-switch-title">Apenas Visualização</div>
+                      <div style="font-size: 0.64rem; color: #64748b;">Acesso de leitura estrita (sem mutações)</div>
+                    </div>
+                    <div class="switch-container" style="margin: 0;">
+                      <input type="checkbox" id="new-user-readonly" class="switch-input">
+                      <span class="switch-slider"></span>
+                    </div>
+                  </label>
+
+                  <label class="perm-switch-box">
+                    <div>
+                      <div class="perm-switch-title">Permitir Editar Celulares</div>
+                      <div style="font-size: 0.64rem; color: #64748b;">Alterar nomes, status e trocar chips</div>
+                    </div>
+                    <div class="switch-container" style="margin: 0;">
+                      <input type="checkbox" id="new-user-edit-devices" class="switch-input">
+                      <span class="switch-slider"></span>
+                    </div>
+                  </label>
+
+                  <label class="perm-switch-box">
+                    <div>
+                      <div class="perm-switch-title">Permitir Cadastrar Gestores</div>
+                      <div style="font-size: 0.64rem; color: #64748b;">Conceder e revogar acessos no CRM</div>
+                    </div>
+                    <div class="switch-container" style="margin: 0;">
+                      <input type="checkbox" id="new-user-manage-users" class="switch-input">
+                      <span class="switch-slider"></span>
+                    </div>
+                  </label>
+
+                  <label class="perm-switch-box">
+                    <div>
+                      <div class="perm-switch-title">Visualizar Dashboard</div>
+                      <div style="font-size: 0.64rem; color: #64748b;">Acessar métricas e relatórios do Core</div>
+                    </div>
+                    <div class="switch-container" style="margin: 0;">
+                      <input type="checkbox" id="new-user-dashboard" class="switch-input">
+                      <span class="switch-slider"></span>
+                    </div>
+                  </label>
+                </div>
+
+                <div class="error-message" id="manage-users-error-msg" style="margin-bottom: 10px; text-align: left; font-size: 0.75rem;"></div>
+
+                <button type="submit" class="btn-primary" style="width: 100%; padding: 11px; font-weight: 800; font-size: 0.84rem; letter-spacing: 0.3px; border-radius: 9px; box-shadow: 0 4px 15px rgba(88, 101, 242, 0.35);">
+                  + Criar Acesso de Gestor
+                </button>
+              </form>
+            </div>
+
+          </div>
+        </div>
+
+        <!-- ========================================== -->
+        <!-- ABA 2: OPERADORES / CELULAR (SPLIT VIEW)   -->
+        <!-- ========================================== -->
+        <div id="manage-users-section-collaborators" style="display: none; height: 100%;">
+          <div class="manage-split-grid">
+            
+            <!-- Coluna Esquerda: Lista de Operadores e Filtro por Setor -->
+            <div class="manage-main-column">
+              <!-- Filtro de Setores em Pílulas -->
+              <div class="collab-sector-filters" id="collab-sector-filters-bar">
+                <button type="button" class="collab-sector-pill active" data-sector-filter="all">Todos os Setores</button>
+                <button type="button" class="collab-sector-pill" data-sector-filter="Junior">Junior</button>
+                <button type="button" class="collab-sector-pill" data-sector-filter="Senior">Senior</button>
+                <button type="button" class="collab-sector-pill" data-sector-filter="PA FIXA 1">PA FIXA 1</button>
+                <button type="button" class="collab-sector-pill" data-sector-filter="PA FIXA 2">PA FIXA 2</button>
+                <button type="button" class="collab-sector-pill" data-sector-filter="Pesquisa">Pesquisa</button>
+                <button type="button" class="collab-sector-pill" data-sector-filter="Juridico">Juridico</button>
+                <button type="button" class="collab-sector-pill" data-sector-filter="Comercial">Comercial</button>
+              </div>
+
+              <!-- Toolbar de Busca -->
+              <div class="manage-filter-toolbar">
+                <div class="manage-search-bar">
+                  <span style="font-size: 0.9rem; margin-right: 6px; opacity: 0.7;">🔍</span>
+                  <input type="text" id="search-collaborators-input" placeholder="Buscar operador por nome ou ramal...">
+                </div>
+                <div style="font-size: 0.74rem; color: var(--text-secondary); font-weight: 700;">
+                  Exibindo: <span id="collab-filtered-count" style="color: #38bdf8;">--</span> operadores
+                </div>
+              </div>
+
+              <!-- Grid de Operadores com Scroll Suave -->
+              <div class="managers-cards-scroll-wrapper">
+                <div id="manage-collaborators-cards-container" class="collaborators-grid">
+                  <!-- Injetado dinamicamente via JS -->
+                </div>
+              </div>
+            </div>
+
+            <!-- Coluna Direita: Formulário Fixo de Novo Operador -->
+            <div class="manage-side-form-card">
+              <div class="manage-side-header">
+                <h4><span>✨</span> Novo Operador (Celular)</h4>
+                <p>Cadastre um titular para vincular aos chips dos aparelhos</p>
+              </div>
+
+              <form id="form-manage-collaborators">
+                <div class="input-group" style="margin-bottom: 12px;">
+                  <label for="new-colab-name" style="font-size: 0.74rem; font-weight: 700; color: #cbd5e1;">Nome Completo</label>
+                  <input type="text" id="new-colab-name" required placeholder="Ex: Ademar Neto" style="padding: 9px 12px; font-size: 0.82rem;">
+                </div>
+
+                <div class="input-group" style="margin-bottom: 12px;">
+                  <label for="new-colab-ramal" style="font-size: 0.74rem; font-weight: 700; color: #cbd5e1;">Ramal da Máquina</label>
+                  <input type="text" id="new-colab-ramal" placeholder="Ex: 1935 ou realess-1935" style="padding: 9px 12px; font-size: 0.82rem;">
+                </div>
+
+                <div class="input-group" style="margin-bottom: 16px;">
+                  <label for="new-colab-sector" style="font-size: 0.74rem; font-weight: 700; color: #cbd5e1;">Setor de Operação</label>
+                  <select id="new-colab-sector" required style="width: 100%; padding: 10px 12px; border-radius: 8px; background: rgba(0, 0, 0, 0.4); border: 1px solid rgba(255,255,255,0.1); color: #f8fafc; font-size: 0.82rem; outline: none;">
+                    <option value="" disabled selected>Selecione o Setor</option>
+                    <option value="Junior">Junior</option>
+                    <option value="Senior">Senior</option>
+                    <option value="PA FIXA 1">PA FIXA 1</option>
+                    <option value="PA FIXA 2">PA FIXA 2</option>
+                    <option value="Pesquisa">Pesquisa</option>
+                    <option value="Juridico">Juridico</option>
+                    <option value="Comercial">Comercial</option>
+                  </select>
+                </div>
+
+                <div class="error-message" id="manage-colabs-error-msg" style="margin-bottom: 10px; text-align: left; font-size: 0.75rem;"></div>
+
+                <button type="submit" class="btn-primary" style="width: 100%; padding: 11px; font-weight: 800; font-size: 0.84rem; letter-spacing: 0.3px; border-radius: 9px; box-shadow: 0 4px 15px rgba(56, 189, 248, 0.25); background: linear-gradient(135deg, #0284c7 0%, #2563eb 100%);">
+                  + Adicionar Operador
+                </button>
+              </form>
+            </div>
+
+          </div>
+        </div>
+
+        <!-- ========================================== -->
+        <!-- ABA 3: ATUALIZAÇÃO DO SISTEMA & CORE       -->
+        <!-- ========================================== -->
+        <div id="manage-users-section-updates" style="display: none; height: 100%; overflow-y: auto; padding: 10px;">
+          <div style="max-width: 700px; margin: 20px auto; background: rgba(18, 20, 32, 0.8); border: 1px solid rgba(88, 101, 242, 0.25); border-radius: 16px; padding: 24px; box-shadow: 0 15px 40px rgba(0,0,0,0.5);">
+            <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 16px; border-bottom: 1px solid rgba(255,255,255,0.08); padding-bottom: 14px;">
+              <div style="font-size: 1.8rem; width: 48px; height: 48px; border-radius: 12px; background: rgba(88,101,242,0.15); display: flex; align-items: center; justify-content: center;">🚀</div>
+              <div>
+                <h4 style="font-size: 1.1rem; font-weight: 800; color: #f8fafc; margin: 0;">Atualizar Código do CRM Core</h4>
+                <p style="font-size: 0.78rem; color: #94a3b8; margin: 2px 0 0 0;">Deploy em tempo real com backup atômico e hot-reload PM2</p>
+              </div>
+            </div>
+
+            <p style="font-size: 0.82rem; color: #cbd5e1; line-height: 1.5; margin-bottom: 18px;">
+              Suba o pacote <strong>.zip</strong> com os arquivos atualizados do projeto. O sistema gerará um ponto de restauração instantâneo do banco de dados SQLite, extrairá os arquivos validados e reiniciará os processos sem perda de conexões ativas.
+            </p>
+
+            <form id="form-system-update">
+              <div class="input-group" style="margin-bottom: 18px;">
+                <label for="update-zip-file" style="font-size: 0.78rem; font-weight: 700; color: #94a3b8;">Selecionar Arquivo .ZIP de Build</label>
+                <input type="file" id="update-zip-file" accept=".zip" required style="padding: 14px; background: rgba(0, 0, 0, 0.35); border: 1px dashed rgba(88, 101, 242, 0.4); border-radius: 10px; width: 100%; color: #f8fafc; cursor: pointer;">
+              </div>
+
+              <div id="update-progress-container" style="display: none; margin-bottom: 18px;">
+                <div style="display: flex; justify-content: space-between; font-size: 0.78rem; color: #94a3b8; margin-bottom: 6px; font-weight: 700;">
+                  <span id="update-status-text">Aplicando patch...</span>
+                  <span id="update-percentage" style="color: #38bdf8;">0%</span>
+                </div>
+                <div style="width: 100%; height: 10px; background: rgba(0,0,0,0.5); border-radius: 5px; overflow: hidden; border: 1px solid rgba(255,255,255,0.08);">
+                  <div id="update-progress-bar" style="width: 0%; height: 100%; background: linear-gradient(90deg, #5865f2, #38bdf8); transition: width 0.1s ease;"></div>
+                </div>
+              </div>
+
+              <div class="error-message" id="update-error-msg" style="margin-bottom: 12px; text-align: left; font-size: 0.78rem;"></div>
+              <div style="color: #2ed573; font-size: 0.95rem; font-weight: 700; text-align: center; margin-bottom: 14px;" id="update-success-msg"></div>
+
+              <button type="submit" class="btn-primary" id="btn-submit-update" style="width: 100%; padding: 12px; font-weight: 800; font-size: 0.9rem; border-radius: 9px; box-shadow: 0 4px 20px rgba(88, 101, 242, 0.4);">
+                🚀 Instalar Atualização e Reiniciar Serviço
+              </button>
+            </form>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- Rodapé do Modal UIX -->
+      <div class="modal-footer" style="margin-top: 14px; border-top: 1px solid rgba(255, 255, 255, 0.08); padding-top: 14px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
+        <div style="font-size: 0.74rem; color: var(--text-secondary); display: flex; align-items: center; gap: 8px;">
+          <span style="width: 7px; height: 7px; border-radius: 50%; background: #2ed573; box-shadow: 0 0 8px #2ed573; display: inline-block;"></span>
+          <span>Esfera Security Shield • Sessão de Superusuário Autenticada</span>
+        </div>
+        <button type="button" class="btn-secondary" data-close="modal-manage-users" style="padding: 7px 22px; font-weight: 700; font-size: 0.8rem; border-radius: 8px; background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.1); color: #f8fafc; cursor: pointer;">
+          Fechar Painel
+        </button>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- MODAL: EDITAR COLABORADOR -->
+  <div class="modal" id="modal-edit-colaborador">
+    <div class="modal-content glass" style="max-width: 420px; width: 90%;">
+      <div class="modal-header">
+        <h3>Editar Usuário (Celular)</h3>
+        <button class="modal-close" data-close="modal-edit-colaborador">&times;</button>
+      </div>
+      <form id="form-edit-colaborador">
+        <div class="input-group">
+          <label for="edit-colab-name">Nome Completo</label>
+          <input type="text" id="edit-colab-name" required placeholder="Ex: Ademar Neto">
+        </div>
+        <div class="input-group">
+          <label for="edit-colab-ramal">Ramal (Opcional)</label>
+          <input type="text" id="edit-colab-ramal" placeholder="Ex: realess-1935">
+        </div>
+        <div class="input-group">
+          <label for="edit-colab-sector">Setor</label>
+          <select id="edit-colab-sector" required style="width: 100%; padding: 8px 12px; border-radius: 8px; background: rgba(0, 0, 0, 0.25); border: 1px solid var(--border-color); color: var(--text-primary); font-size: 0.8rem;">
+            <option value="Junior">Junior</option>
+            <option value="Senior">Senior</option>
+            <option value="PA FIXA 1">PA FIXA 1</option>
+            <option value="PA FIXA 2">PA FIXA 2</option>
+            <option value="Pesquisa">Pesquisa</option>
+            <option value="Juridico">Juridico</option>
+            <option value="Comercial">Comercial</option>
+          </select>
+        </div>
+        <div class="error-message" id="edit-colab-error-msg" style="margin-bottom: 10px; text-align: left;"></div>
+        <div class="modal-footer">
+          <button type="button" class="btn-secondary" data-close="modal-edit-colaborador">Cancelar</button>
+          <button type="submit" class="btn-primary" style="width: auto;">Salvar Alterações</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- MODAL: INVENTÁRIO DE CELULARES (TABELA EXCEL) -->
+  <div class="modal" id="modal-inventory">
+    <div class="modal-content glass" style="max-width: 1100px; width: 95%;">
+      <div class="modal-header">
+        <h3>📊 Inventário de Celulares</h3>
+        <button class="modal-close" data-close="modal-inventory">&times;</button>
+      </div>
+
+      <!-- Abas de setores dentro do inventário -->
+      <div class="controls-bar" style="padding: 10px 0; margin-bottom: 15px; border-bottom: 1px solid var(--border-color);">
+        <div class="tabs-container" id="inventory-sector-tabs">
+          <button class="tab-btn active" data-inv-sector="Todos">Todos</button>
+          <button class="tab-btn" data-inv-sector="Junior">Junior</button>
+          <button class="tab-btn" data-inv-sector="Senior">Senior</button>
+          <button class="tab-btn" data-inv-sector="PA FIXA 1">PA FIXA 1</button>
+          <button class="tab-btn" data-inv-sector="PA FIXA 2">PA FIXA 2</button>
+          <button class="tab-btn" data-inv-sector="Pesquisa">Pesquisa</button>
+          <button class="tab-btn" data-inv-sector="Juridico">Juridico</button>
+          <button class="tab-btn" data-inv-sector="Comercial">Comercial</button>
+        </div>
+        <div>
+          <a href="/api/export/inventory" class="btn-secondary" style="text-decoration: none; display: inline-flex; align-items: center;" download>📥 Exportar Excel</a>
+        </div>
+      </div>
+
+      <!-- Tabela de Inventário -->
+      <div class="logs-table-wrapper" style="max-height: 500px; overflow-y: auto;">
+        <table class="logs-table inventory-table" id="inventory-table">
+          <thead>
+            <tr>
+              <th style="width: 50px; text-align: center;">#</th>
+              <th>Setor</th>
+              <th>Aparelho</th>
+              <th>Identificador do Chip</th>
+              <th>Número</th>
+              <th>Responsável</th>
+              <th style="text-align: center;">Status</th>
+            </tr>
+          </thead>
+          <tbody id="inventory-tbody">
+            <!-- Injetado dinamicamente -->
+          </tbody>
+        </table>
+      </div>
+
+      <div class="modal-footer" style="margin-top: 15px; display: flex; justify-content: space-between; align-items: center;">
+        <span id="inventory-count" style="font-size: 0.78rem; color: var(--text-secondary); font-weight: 600;"></span>
+        <button type="button" class="btn-secondary" data-close="modal-inventory">Fechar</button>
+      </div>
+    </div>
+  </div>
+
+
+  <!-- MODAL: MOVER NÚMERO PARA OUTRO APARELHO -->
+  <div class="modal" id="modal-move-number">
+    <div class="modal-content glass" style="max-width: 420px; width: 90%;">
+      <div class="modal-header">
+        <h3>↔️ Mover Chip para outro Aparelho</h3>
+        <button class="modal-close" data-close="modal-move-number">&times;</button>
+      </div>
+      <form id="form-move-number">
+        <input type="hidden" id="move-number-id">
+        <div class="input-group">
+          <label for="move-device-select">Selecionar Aparelho de Destino</label>
+          <select id="move-device-select" required style="padding: 10px; background: rgba(0, 0, 0, 0.25); border: 1px solid var(--border-color); border-radius: 8px; color: var(--text-primary); width: 100%;">
+            <option value="">Carregando...</option>
+          </select>
+        </div>
+        <div class="input-group" style="margin-top: 8px;">
+          <p style="font-size: 0.72rem; color: var(--text-secondary); margin: 0;">O chip será movido com todos os dados (status, responsável, restrições).</p>
+        </div>
+        <div class="modal-footer" style="margin-top: 15px;">
+          <button type="button" class="btn-secondary" data-close="modal-move-number">Cancelar</button>
+          <button type="submit" class="btn-primary" style="width: auto;">Mover Chip</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- MODAL: SELECIONAR RESPONSÁVEL (LUPA) -->
+  <div class="modal" id="modal-select-holder">
+    <div class="modal-content glass" style="max-width: 400px; width: 90%;">
+      <div class="modal-header">
+        <h3>🔍 Selecionar Responsável</h3>
+        <button class="modal-close" data-close="modal-select-holder">&times;</button>
+      </div>
+      <div class="input-group">
+        <label for="search-holder-input">Pesquisar Usuário</label>
+        <input type="text" id="search-holder-input" placeholder="Digite o nome..." autocomplete="off" style="padding: 10px; background: rgba(0, 0, 0, 0.25); border: 1px solid var(--border-color); border-radius: 8px; color: var(--text-primary);">
+      </div>
+      <div class="holder-list-wrapper" style="max-height: 250px; overflow-y: auto; margin-top: 15px; background: rgba(0, 0, 0, 0.15); border-radius: 8px; border: 1px solid var(--border-color);">
+        <ul id="select-holder-list" style="list-style: none; padding: 0; margin: 0;">
+          <!-- Injetado dinamicamente -->
+        </ul>
+      </div>
+      <div class="modal-footer" style="margin-top: 15px;">
+        <button type="button" class="btn-secondary" data-close="modal-select-holder">Cancelar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL: DASHBOARD EM TEMPO REAL -->
+  <div class="modal" id="modal-dashboard">
+    <div class="modal-content glass" style="max-width: 1250px; width: 95%; height: 92vh; display: flex; flex-direction: column;">
+      <div class="modal-header" style="justify-content: space-between; align-items: center; border-bottom: 1px solid rgba(255,255,255,0.08); padding-bottom: 14px; margin-bottom: 14px; gap: 12px; flex-wrap: wrap;">
+        <div class="brand">
+          <div class="dash-brand-title">
+            <span style="font-size: 1.4rem;">📈</span>
+            <span>Esfera Core — Business Intelligence</span>
+            <span class="dash-brand-badge">Enterprise BI v3.0</span>
+          </div>
+          <p style="color: var(--text-secondary); font-size: 0.78rem; margin-top: 3px;">Telemetria em tempo real, auditoria de atrito de rede e governança de hardware</p>
+        </div>
+        <div class="dash-tabs-wrapper">
+          <button class="tab-btn active" id="btn-dash-tab-analytics">
+            <span>📈</span> Visão Analítica
+          </button>
+          <button class="tab-btn" id="btn-dash-tab-diagnostics">
+            <span>🛡️</span> Diagnósticos do Core (<span id="dash-diagnostics-count">3</span>)
+          </button>
+        </div>
+        <button class="btn-close-dash" data-close="modal-dashboard" title="Fechar Dashboard">&times;</button>
+      </div>
+
+      <!-- Filtro de Setores -->
+      <div class="log-filters-container" style="display: flex; gap: 14px; margin-bottom: 16px; align-items: center; flex-wrap: wrap;">
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <span style="font-size: 0.72rem; color: var(--text-secondary); font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px;">🏢 Setor:</span>
+          <select id="dashboard-filter-sector" class="dash-select-filter">
+            <option value="all">Todos os Setores</option>
+            <option value="Junior">Junior</option>
+            <option value="Senior">Senior</option>
+            <option value="PA FIXA 1">PA FIXA 1</option>
+            <option value="PA FIXA 2">PA FIXA 2</option>
+            <option value="Juridico">Juridico</option>
+            <option value="Comercial">Comercial</option>
+            <option value="Pesquisa">Pesquisa</option>
+          </select>
+        </div>
+
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <span style="font-size: 0.72rem; color: var(--text-secondary); font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px;">📅 Período:</span>
+          <select id="dashboard-filter-period" class="dash-select-filter">
+            <option value="all">Todo o Período</option>
+            <option value="24h">Hoje (Últimas 24h)</option>
+            <option value="7d">Últimos 7 Dias</option>
+            <option value="30d">Últimos 30 Dias</option>
+          </select>
+        </div>
+
+        <div style="margin-left: auto; display: flex; align-items: center; gap: 12px;">
+          <button id="btn-export-dashboard-pdf" title="Baixar relatório executivo completo em PDF">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>
+            Baixar Relatório PDF
+          </button>
+          <div id="agent-indicator" class="agent-indicator offline">
+            <span style="width: 7px; height: 7px; border-radius: 50%; background: currentColor; display: inline-block;"></span>
+            Agente Local: Desconectado
+          </div>
+          <div id="ws-latency" style="font-size: 0.74rem; font-weight: 700; color: var(--text-secondary); font-family: monospace; background: rgba(0,0,0,0.3); padding: 4px 10px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.06);">Latência: -- ms</div>
+        </div>
+      </div>
+
+      <div class="modal-body" style="flex: 1; overflow-y: auto; padding-right: 5px; display: flex; flex-direction: column;">
+        
+        <!-- CONTEÚDO 1: VISÃO ANALÍTICA -->
+        <div id="dash-tab-content-analytics" class="tab-content active" style="display: block; width: 100%;">
+          
+          <!-- Grid de KPIs UIX -->
+          <div class="kpi-container">
+            <div class="kpi-card kpi-bloqueios">
+              <div class="kpi-top-row">
+                <h3>Atrito de Rede / Bloqueios</h3>
+                <span class="kpi-pill-badge">💥 ATRITO</span>
+              </div>
+              <div class="value" id="val-total-bloqueios">--</div>
+              <div class="subtitle">Incidentes de Banimentos ou Restrições</div>
+            </div>
+            <div class="kpi-card kpi-mutacoes">
+              <div class="kpi-top-row">
+                <h3>Mutações de Configuração</h3>
+                <span class="kpi-pill-badge">⚡ MUTAÇÕES</span>
+              </div>
+              <div class="value" id="val-total-mutacoes">--</div>
+              <div class="subtitle">Alterações de infraestrutura via API</div>
+            </div>
+            <div class="kpi-card kpi-contingencia">
+              <div class="kpi-top-row">
+                <h3>Fila de Contingência Ativa</h3>
+                <span class="kpi-pill-badge">🛡️ CONTINGÊNCIA</span>
+              </div>
+              <div class="value" id="val-total-contingencia">--</div>
+              <div class="subtitle">Alocações de chips de reserva disparadas</div>
+            </div>
+            <div class="kpi-card kpi-telemetria">
+              <div class="kpi-top-row">
+                <h3>Vazão do Agente Python</h3>
+                <span class="kpi-pill-badge">🚀 TELEMETRIA</span>
+              </div>
+              <div class="value" id="kpi-messages-total">--</div>
+              <div class="subtitle" id="kpi-messages-rate">Taxa: -- / min</div>
+            </div>
+          </div>
+
+          <!-- Linha 1 de Gráficos UIX -->
+          <div class="charts-grid">
+            <div class="chart-card">
+              <div class="chart-card-header">
+                <h4><span>📊</span> Anatomia dos Bloqueios (Status Relacional)</h4>
+                <span class="chart-header-badge">STATUS LIVE</span>
+              </div>
+              <div style="position: relative; height: 220px; width: 100%">
+                <canvas id="chartStatus"></canvas>
+              </div>
+            </div>
+            <div class="chart-card">
+              <div class="chart-card-header">
+                <h4><span>📈</span> Volumetria Horária de Atrito (Picos de Bloqueio)</h4>
+                <span class="chart-header-badge">24H TIMELINE</span>
+              </div>
+              <div style="position: relative; height: 220px; width: 100%">
+                <canvas id="chartHoras"></canvas>
+              </div>
+            </div>
+          </div>
+
+          <!-- Linha 2 de Gráficos UIX -->
+          <div class="charts-grid">
+            <div class="chart-card">
+              <div class="chart-card-header">
+                <h4><span>⚡</span> Throughput de Mensagens (Tempo Real)</h4>
+                <span class="chart-header-badge">STREAM WSS</span>
+              </div>
+              <div style="position: relative; height: 220px; width: 100%">
+                <canvas id="chart-throughput"></canvas>
+              </div>
+            </div>
+            <div class="chart-card">
+              <div class="chart-card-header">
+                <h4><span>📱</span> Atrito por Aparelho (Top 5 Banimentos)</h4>
+                <span class="chart-header-badge">HARDWARE CRÍTICO</span>
+              </div>
+              <div style="position: relative; height: 220px; width: 100%">
+                <canvas id="chart-atrito"></canvas>
+              </div>
+            </div>
+          </div>
+
+          <!-- ========================================================================= -->
+          <!-- SEÇÃO GAMIFICADA: RADAR DE ATRITO — HALL DA FAMA VS. ESQUADRÃO BLINDADO -->
+          <!-- ========================================================================= -->
+          <div class="duel-section glass" style="margin-bottom: 25px; border-radius: 16px; padding: 22px; position: relative; overflow: hidden; border: 1px solid rgba(255, 255, 255, 0.08);">
+            
+            <!-- Cabeçalho do Duelo & Toggle -->
+            <div class="duel-header" style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 15px; margin-bottom: 18px;">
+              <div>
+                <div style="display: flex; align-items: center; gap: 8px;">
+                  <span style="font-size: 1.3rem;">⚔️</span>
+                  <h3 style="font-size: 1.15rem; font-weight: 800; letter-spacing: -0.3px; margin: 0; color: #fff;">Radar de Atrito & Sobrevivência — Hall da Fama</h3>
+                  <span class="badge" style="background: rgba(88, 101, 242, 0.2); color: #7289da; border: 1px solid rgba(88, 101, 242, 0.3);">INTEL LIVE</span>
+                </div>
+                <p style="color: var(--text-secondary); font-size: 0.78rem; margin: 4px 0 0 0;">Análise de comportamento operacional: quem mais derruba chips vs. quem mais preserva linhas de frente</p>
+              </div>
+
+              <!-- Segmented Control Toggle -->
+              <div class="segmented-control" style="display: inline-flex; background: rgba(0, 0, 0, 0.4); padding: 3px; border-radius: 8px; border: 1px solid var(--border-color);">
+                <button type="button" id="btn-duel-view-ops" class="segmented-btn active" style="border: none; background: transparent; color: #fff; padding: 6px 14px; font-size: 0.75rem; font-weight: 700; border-radius: 6px; cursor: pointer; transition: all 0.2s;">
+                  👥 Operadores da Linha
+                </button>
+                <button type="button" id="btn-duel-view-audit" class="segmented-btn" style="border: none; background: transparent; color: var(--text-secondary); padding: 6px 14px; font-size: 0.75rem; font-weight: 700; border-radius: 6px; cursor: pointer; transition: all 0.2s;">
+                  👔 Auditores (Quem Aplicou)
+                </button>
+              </div>
+            </div>
+
+            <!-- Banner de Inteligência Tática -->
+            <div id="duel-intel-banner" class="intel-banner" style="background: linear-gradient(90deg, rgba(88, 101, 242, 0.12), rgba(255, 71, 87, 0.08)); border: 1px solid rgba(88, 101, 242, 0.25); border-radius: 10px; padding: 12px 16px; margin-bottom: 20px; font-size: 0.8rem; line-height: 1.45; display: flex; align-items: center; gap: 12px;">
+              <span style="font-size: 1.4rem; flex-shrink: 0;">⚡</span>
+              <div id="duel-intel-text" style="color: var(--text-primary); flex: 1;">
+                Carregando análise operacional...
+              </div>
+            </div>
+
+            <!-- Termômetro de Balanço de Forças (Duelo Visual) -->
+            <div class="duel-balance-box" style="background: rgba(0, 0, 0, 0.25); border-radius: 10px; padding: 12px 16px; margin-bottom: 22px; border: 1px solid rgba(255, 255, 255, 0.05);">
+              <div style="display: flex; justify-content: space-between; align-items: center; font-size: 0.72rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 8px;">
+                <span style="color: #ff4757; display: flex; align-items: center; gap: 5px;">🔥 Atrito & Quedas: <strong id="val-atrito-pct">--%</strong></span>
+                <span style="color: var(--text-secondary); font-size: 0.68rem;">Equilíbrio de Operação</span>
+                <span style="color: #2ed573; display: flex; align-items: center; gap: 5px;">🛡️ Preservação & Blindagem: <strong id="val-preservacao-pct">--%</strong></span>
+              </div>
+              <div class="duel-bar-track" style="height: 8px; width: 100%; background: rgba(255, 255, 255, 0.05); border-radius: 99px; overflow: hidden; display: flex;">
+                <div id="duel-bar-atrito" style="width: 50%; background: linear-gradient(90deg, #ff4757, #ffa502); transition: width 0.6s ease;"></div>
+                <div id="duel-bar-preservacao" style="width: 50%; background: linear-gradient(90deg, #00d2d3, #2ed573); transition: width 0.6s ease;"></div>
+              </div>
+            </div>
+
+            <!-- VISÃO 1: OPERADORES DE LINHA (DUELO SIDE-BY-SIDE) -->
+            <div id="duel-container-operators" class="duel-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(420px, 1fr)); gap: 20px;">
+              
+              <!-- Coluna da Esquerda: 🔥 Destruidores de Chips (Mais Banem) -->
+              <div class="duel-card ban-masters-card" style="background: rgba(255, 71, 87, 0.03); border: 1px solid rgba(255, 71, 87, 0.2); border-radius: 14px; padding: 18px; display: flex; flex-direction: column;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; padding-bottom: 10px; border-bottom: 1px solid rgba(255, 71, 87, 0.15);">
+                  <div>
+                    <h4 style="margin: 0; font-size: 0.95rem; font-weight: 800; color: #ff4757; display: flex; align-items: center; gap: 6px;">
+                      🔥 Destruidores de Chips <span style="font-size: 0.72rem; color: var(--text-secondary); font-weight: normal;">(Mais Banem)</span>
+                    </h4>
+                    <span style="font-size: 0.7rem; color: var(--text-secondary);">Operadores com maior incidência de bloqueios</span>
+                  </div>
+                  <span class="badge" style="background: rgba(255, 71, 87, 0.15); color: #ff4757; border: 1px solid rgba(255, 71, 87, 0.3);">ALERTA MÁXIMO</span>
+                </div>
+
+                <div id="list-top-banidores" class="operator-rank-list" style="display: flex; flex-direction: column; gap: 10px; flex: 1;">
+                  <!-- Injetado dinamicamente via JS -->
+                </div>
+              </div>
+
+              <!-- Coluna da Direita: 🛡️ Esquadrão Blindado (Menos Banem) -->
+              <div class="duel-card shield-squad-card" style="background: rgba(46, 213, 115, 0.03); border: 1px solid rgba(46, 213, 115, 0.2); border-radius: 14px; padding: 18px; display: flex; flex-direction: column;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; padding-bottom: 10px; border-bottom: 1px solid rgba(46, 213, 115, 0.15);">
+                  <div>
+                    <h4 style="margin: 0; font-size: 0.95rem; font-weight: 800; color: #2ed573; display: flex; align-items: center; gap: 6px;">
+                      🛡️ Esquadrão Blindado <span style="font-size: 0.72rem; color: var(--text-secondary); font-weight: normal;">(Menos Banem)</span>
+                    </h4>
+                    <span style="font-size: 0.7rem; color: var(--text-secondary);">Mãos de seda: preservação e zero/baixo atrito</span>
+                  </div>
+                  <span class="badge" style="background: rgba(46, 213, 115, 0.15); color: #2ed573; border: 1px solid rgba(46, 213, 115, 0.3);">PRESERVAÇÃO</span>
+                </div>
+
+                <div id="list-top-guardioes" class="operator-rank-list" style="display: flex; flex-direction: column; gap: 10px; flex: 1;">
+                  <!-- Injetado dinamicamente via JS -->
+                </div>
+              </div>
+
+            </div>
+
+            <!-- VISÃO 2: AUDITORES DO SISTEMA (QUEM REGISTROU AS TRAVAS) -->
+            <div id="duel-container-auditors" style="display: none; width: 100%;">
+              <div style="background: rgba(0, 0, 0, 0.2); border: 1px solid rgba(255, 255, 255, 0.07); border-radius: 14px; padding: 18px;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px;">
+                  <div>
+                    <h4 style="margin: 0; font-size: 0.95rem; font-weight: 800; color: #7289da; display: flex; align-items: center; gap: 6px;">
+                      👔 Trilha de Auditoria Técnica — Quem Mais Registrou Travas
+                    </h4>
+                    <span style="font-size: 0.7rem; color: var(--text-secondary);">Usuários gestores que aplicaram restrições ou banimentos no sistema no período</span>
+                  </div>
+                </div>
+                <table class="rank-table">
+                  <thead>
+                    <tr>
+                      <th>Posição</th>
+                      <th>Gestor / Auditor</th>
+                      <th>Travas Aplicadas</th>
+                      <th>Papel de Sistema</th>
+                      <th>Status de Operação</th>
+                    </tr>
+                  </thead>
+                  <tbody id="list-top-auditores-tbody">
+                    <!-- Injetado dinamicamente -->
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+          </div>
+
+          <!-- Grid de Ranks e Informações Structs UIX -->
+          <div class="ranks-grid">
+            <!-- Rank 1: Volumetria por Operador -->
+            <div class="rank-card">
+              <div class="rank-card-header">
+                <h4><span>👥</span> Volumetria por Operador</h4>
+                <span class="chart-header-badge">RBAC AUDIT</span>
+              </div>
+              <table class="rank-table">
+                <thead>
+                  <tr>
+                    <th>Operador</th>
+                    <th style="text-align: center;">Ações</th>
+                    <th style="text-align: right;">Nível RBAC</th>
+                  </tr>
+                </thead>
+                <tbody id="rank-operadores-tbody">
+                  <!-- Injetado dinamicamente via JS -->
+                </tbody>
+              </table>
+            </div>
+
+            <!-- Rank 2: Top Chips Afetados -->
+            <div class="rank-card">
+              <div class="rank-card-header">
+                <h4><span>📱</span> Top Chips Afetados</h4>
+                <span class="chart-header-badge">MÁRTIRES DA LINHA</span>
+              </div>
+              <table class="rank-table">
+                <thead>
+                  <tr>
+                    <th>Número Identificador</th>
+                    <th style="text-align: center;">Quedas</th>
+                    <th style="text-align: right;">Diagnóstico</th>
+                  </tr>
+                </thead>
+                <tbody id="rank-chips-tbody">
+                  <!-- Injetado dinamicamente via JS -->
+                </tbody>
+              </table>
+            </div>
+
+            <!-- Card 3: TI & Governança / Telemetria do Agente -->
+            <div class="rank-card" style="display: flex; flex-direction: column;">
+              <div class="rank-card-header">
+                <h4><span>⚙️</span> Governança de Automação & Infra</h4>
+                <span class="chart-header-badge">SYSTEM PULSE</span>
+              </div>
+              <div class="agent-details-list" style="flex: 1; justify-content: center;">
+                <div class="detail-tile-row"><span>Status Daemon Python:</span> <strong id="agent-status-daemon" class="badge-status inativo">Desconectado</strong></div>
+                <div class="detail-tile-row"><span>Conexão WebSocket:</span> <strong id="agent-status-ws" class="badge-status inativo">Inativa</strong></div>
+                <div class="detail-tile-row"><span>Último Heartbeat:</span> <span id="agent-last-heartbeat" style="font-family: monospace; font-weight: 700; color: #7dd3fc;">--</span></div>
+                <div class="detail-tile-row"><span>Token Autenticado:</span> <span id="agent-token-status" style="color: var(--text-secondary);">Não detectado</span></div>
+                <div class="detail-tile-row"><span>Lifespan Médio do Chip:</span> <strong id="kpi-lifespan" style="color: var(--status-free); font-weight: 800;">--</strong></div>
+                <div class="detail-tile-row"><span>Tempo de Troca (MTTR):</span> <strong id="kpi-mttr" style="color: var(--status-inuse); font-weight: 800;">--</strong></div>
+                <div class="detail-tile-row"><span>Burn Rate do Estoque:</span> <strong id="kpi-burn-rate" style="color: var(--status-restricted); font-weight: 800;">--</strong></div>
+              </div>
+            </div>
+          </div>
+
+        </div>
+
+        <!-- CONTEÚDO 2: DIAGNÓSTICOS DO CORE -->
+        <div id="dash-tab-content-diagnostics" class="tab-content" style="display: none; width: 100%;">
+          <div class="alerts-container" id="dash-alerts-container" style="display: flex; flex-direction: column; gap: 15px;">
+            <!-- Injetado dinamicamente via JS -->
+          </div>
+        </div>
+
+      <div class="modal-footer" style="border-top: 1px solid rgba(255,255,255,0.08); padding-top: 12px; margin-top: auto; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
+        <div style="font-size: 0.74rem; color: var(--text-secondary); display: flex; align-items: center; gap: 8px;">
+          <span style="width: 7px; height: 7px; border-radius: 50%; background: #2ed573; box-shadow: 0 0 8px #2ed573; display: inline-block;"></span>
+          <span>Esfera Core Analytics v3.0 • Sistema 100% Operacional</span>
+        </div>
+        <button type="button" class="btn-secondary" data-close="modal-dashboard" style="border-radius: 8px; padding: 6px 18px; font-weight: 700; font-size: 0.8rem; background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.1); color: #f8fafc; cursor: pointer; transition: all 0.2s;">Fechar Dashboard</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast Notificação -->
+  <div id="toast-container" class="toast-container"></div>
+
+  <!-- Painel Lateral de Restritos Flutuante na Raiz do Body -->
+  <aside class="restricted-sidebar" id="restricted-sidebar" style="display: none;">
+    <!-- Injetado dinamicamente via JS -->
+  </aside>
+
+  <!-- CHAT FLUTUANTE DA EQUIPE -->
+  <button id="chat-fab" class="chat-fab" title="Chat da equipe" type="button">💬<span id="chat-fab-badge" class="chat-fab-badge" style="display: none;">0</span></button>
+  <div id="chat-panel" class="chat-panel" style="display: none;">
+    <div class="chat-panel-header">
+      <span class="chat-title">💬 Chat da Equipe</span>
+      <select id="chat-sector-select" class="chat-sector-select" title="Setor do chat"></select>
+      <button id="chat-close-btn" class="chat-close-btn" title="Fechar chat" type="button">&times;</button>
+    </div>
+    <div id="chat-messages" class="chat-messages">
+      <div class="chat-empty">Carregando mensagens...</div>
+    </div>
+    <div class="chat-composer">
+      <select id="chat-sender-select" class="chat-sender-select" title="Enviar como"></select>
+      <div class="chat-composer-row">
+        <input type="text" id="chat-input" class="chat-input" placeholder="Escreva uma mensagem..." maxlength="2000" autocomplete="off">
+        <button id="chat-send-btn" class="chat-send-btn" type="button">Enviar</button>
+      </div>
+    </div>
+  </div>
+  </div>
+
+  <!-- PERF: scripts com defer no final do body. chart.js (CDN) não é mais
+     bloqueante; app.js só roda após o HTML estar pronto (usa DOMContentLoaded). -->
+  <script defer src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script defer src="/html2pdf.bundle.min.js"></script>
+  <script defer src="app.js?v=20260915_3"></script>
+  </body>

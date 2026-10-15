@@ -64,7 +64,7 @@ const WhatsappControl = () => {
     <div className={classes.root}>
       <iframe
         src={iframeSrc}
-        title="Whatsapp Control"
+        title="Whatsapp Control CRM (Gestão de Celulares)"
         className={classes.iframe}
         allow="camera; microphone; clipboard-read; clipboard-write"
       />

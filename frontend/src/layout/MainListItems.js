@@ -7,7 +7,7 @@ import ListItemIcon from "@material-ui/core/ListItemIcon";
 import ListItemText from "@material-ui/core/ListItemText";
 import ListSubheader from "@material-ui/core/ListSubheader";
 import Divider from "@material-ui/core/Divider";
-import { Badge } from "@material-ui/core";
+import { Badge, Tooltip } from "@material-ui/core";
 import DashboardOutlinedIcon from "@material-ui/icons/DashboardOutlined";
 import WhatsAppIcon from "@material-ui/icons/WhatsApp";
 import PhoneAndroidIcon from "@material-ui/icons/PhoneAndroid";
@@ -104,7 +104,7 @@ const useStyles = makeStyles((theme) => ({
 }));
 
 function ListItemLink(props) {
-  const { icon, primary, to, className, isWhatsappControl, active, collapsed } = props;
+  const { icon, primary, to, className, isWhatsappControl, active, collapsed, tooltip } = props;
 
   const renderLink = React.useMemo(
     () =>
@@ -114,7 +114,7 @@ function ListItemLink(props) {
     [to]
   );
 
-  return (
+  const content = (
     <li style={collapsed ? { width: "68px", maxWidth: "68px", overflow: "hidden", listStyle: "none" } : { listStyle: "none" }}>
       <ListItem
         button
@@ -208,6 +208,16 @@ function ListItemLink(props) {
       </ListItem>
     </li>
   );
+
+  if (tooltip) {
+    return (
+      <Tooltip title={tooltip} arrow placement="right">
+        {content}
+      </Tooltip>
+    );
+  }
+
+  return content;
 }
 
 const MainListItems = (props) => {
@@ -259,7 +269,8 @@ const MainListItems = (props) => {
       <div onClick={drawerClose} className={classes.crmMenuContainer}>
         <ListItemLink
           to="/whatsapp-control"
-          primary="Whatsapp Control"
+          primary="Whatsapp Control CRM"
+          tooltip="Gestão de celulares = Whatsapp control = CRM = Whatsapp Control CRM"
           icon={<PhoneAndroidIcon />}
           className={getItemClass("/whatsapp-control")}
           isWhatsappControl={true}
@@ -352,10 +363,11 @@ const MainListItems = (props) => {
 
   return (
     <div onClick={drawerClose} className={isWhatsappControl ? classes.crmMenuContainer : undefined}>
-      {/* 1. Whatsapp Control EM PRIMEIRO */}
+      {/* 1. Whatsapp Control CRM EM PRIMEIRO */}
       <ListItemLink
         to="/whatsapp-control"
-        primary="Whatsapp Control"
+        primary="Whatsapp Control CRM"
+        tooltip="Gestão de celulares = Whatsapp control = CRM = Whatsapp Control CRM"
         icon={<PhoneAndroidIcon />}
         className={getItemClass("/whatsapp-control")}
         isWhatsappControl={isWhatsappControl}

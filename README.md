@@ -23,6 +23,11 @@ Modern end-to-end encrypted messaging ecosystems (such as WhatsApp, built upon t
 
 **VERITAS** is a high-throughput, low-latency distributed platform engineered to solve these challenges. Originating as an advanced architectural evolution and extensive re-engineering (*remanejamento*) of the open-source **Whaticket** codebase, VERITAS decouples message capture from resource-intensive headless browser renders through native WebSocket stream interception and session key caching. The system orchestrates dozens of concurrent WhatsApp endpoints, enforces immutable anti-delete compliance, provides real-time per-channel disk and database telemetry, features seamless SSO with **WhatsApp Control** (hardware chip & device lifecycle), and applies session-level proxy virtualization alongside human behavior simulation (*Human Flow*) to prevent heuristic traffic anomalies.
 
+> [!NOTE]
+> **EQUIVALÊNCIA TERMINOLÓGICA / NOMENCLATURA UNIFICADA:**
+> `Gestão de celulares = Whatsapp control = CRM = Whatsapp Control CRM`
+> No ecossistema VERITAS, essas quatro terminologias são rigorosamente sinônimas e referem-se à plataforma de governança do parque de aparelhos, inventário de chips, ciclo de vida e concorrência distribuída.
+
 ---
 
 ## 🏛️ Project Lineage & Architectural Evolution (Whaticket Architectural Remodeling)

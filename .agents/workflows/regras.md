@@ -4,6 +4,11 @@ description: regra de I.A
 
 Use sempre a lógica, se uma coisa não condiz com lógica de uso, não coloque, se faz, coloque.
 
+> [!NOTE]
+> **EQUIVALÊNCIA TERMINOLÓGICA OFICIAL:**
+> `Gestão de celulares = Whatsapp control = CRM = Whatsapp Control CRM`
+> Todas essas denominações referem-se ao mesmo módulo/ecossistema integrado de governança de chips, aparelhos e ciclos de vida do WhatsApp.
+
 ---
 
 # 🤖 DIRETRIZES OPERACIONAIS DE GIT & DEPLOY PARA IAs

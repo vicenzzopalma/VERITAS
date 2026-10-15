@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>WhatsApp Control CRM (Gestão de Celulares) - Login</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+  <script>
+    if (window.self !== window.top) {
+      window.location.replace(window.location.pathname.startsWith('/crm') ? '/crm/' : './');
+    }
+  </script>
+  <style>
+    /* Estilo específico para centralizar o login */
+    body {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+      margin: 0;
+      background: radial-gradient(circle at top right, #1a1c29, #0e1017);
+    }
+  </style>
+</head>
+<body>
+  <div class="login-container glass">
+    <div class="login-header">
+      <div class="logo-icon">📱</div>
+      <h1 style="font-size: 1.5rem; margin-bottom: 4px;">WhatsApp Control CRM</h1>
+      <p style="font-size: 0.72rem; color: #94a3b8; font-weight: 600; margin: 0 0 12px 0;">Gestão de celulares = Whatsapp control = CRM = Whatsapp Control CRM</p>
+      <p style="font-size: 0.85rem; color: #cbd5e1; margin: 0;">Acesse o painel do parque de chips</p>
+    </div>
+
+    <form id="login-form">
+      <div class="input-group">
+        <label for="username">Usuário</label>
+        <input type="text" id="username" required autocomplete="username" placeholder="Seu nome de usuário">
+      </div>
+
+      <div class="input-group">
+        <label for="password">Senha</label>
+        <input type="password" id="password" required autocomplete="current-password" placeholder="Sua senha secreta">
+      </div>
+
+      <div class="error-message" id="error-msg"></div>
+
+      <button type="submit" class="btn-primary">Entrar no Painel</button>
+    </form>
+    
+    <div class="login-footer">
+      <p>Desenvolvido para Realess &copy; 2026</p>
+    </div>
+  </div>
+
+  <script src="login.js"></script>
+</body>
+</html>

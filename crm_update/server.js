@@ -1342,6 +1342,29 @@ app.get('/api/users/list', async (req, res) => {
   }
 });
 
+// API de Reordenação dos Aparelhos (Estilo Android)
+app.post('/api/devices/reorder', async (req, res) => {
+  try {
+    const sessionUser = await buildSessionUserFromDb(req);
+    if (!sessionUser) {
+      return res.status(401).json({ error: 'Não autenticado' });
+    }
+    const { orderedIds } = req.body;
+    if (!Array.isArray(orderedIds) || orderedIds.length === 0) {
+      return res.status(400).json({ error: 'orderedIds deve ser um array com IDs dos aparelhos' });
+    }
+    const currentUser = req.session.userName || sessionUser.name || 'Gestor';
+    const result = await crmService.reorderDevices(orderedIds, currentUser);
+    if (socketService) {
+      await socketService.broadcastDelta('DEVICES_REORDERED', { orderedIds });
+    }
+    return res.json(result);
+  } catch (err) {
+    console.error('Erro ao reordenar aparelhos:', err);
+    return res.status(500).json({ error: 'Erro ao reordenar aparelhos' });
+  }
+});
+
 // APIs de Gerenciamento de Colaboradores (Exclusivo para Gestores)
 app.get('/api/collaborators', requireManagerAccess, async (req, res) => {
   try {

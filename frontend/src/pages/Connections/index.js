@@ -916,7 +916,7 @@ const Connections = () => {
 
 			if (chip.alarm_active === 1) {
 				return (
-					<Tooltip title={`WhatsApp Control: Chip liberado da restrição (${chip.status || "Liberado"})`} arrow>
+					<Tooltip title={`WhatsApp Control CRM (Gestão de celulares): Chip liberado da restrição (${chip.status || "Liberado"})`} arrow>
 						<span
 							style={{
 								display: "inline-flex",
@@ -961,7 +961,7 @@ const Connections = () => {
 
 				if (diff <= 0) {
 					return (
-						<Tooltip title={`WhatsApp Control: Chip liberado da restrição (${chip.status || "Liberado"})`} arrow>
+						<Tooltip title={`WhatsApp Control CRM (Gestão de celulares): Chip liberado da restrição (${chip.status || "Liberado"})`} arrow>
 							<span
 								style={{
 									display: "inline-flex",
@@ -1009,7 +1009,7 @@ const Connections = () => {
 
 				return (
 					<Tooltip
-						title={`WhatsApp Control: ${chip.status || "Restrito"}${formattedTarget ? ` • Até ${formattedTarget}` : ""}`}
+						title={`WhatsApp Control CRM (Gestão de celulares): ${chip.status || "Restrito"}${formattedTarget ? ` • Até ${formattedTarget}` : ""}`}
 						arrow
 					>
 						<span
@@ -1467,7 +1467,11 @@ const Connections = () => {
 									{i18n.t("connections.table.status")}
 								</TableCell>
 								<TableCell align="center">
-									Timer
+									<Tooltip title="Gestão de celulares = Whatsapp control = CRM = Whatsapp Control CRM" arrow>
+										<span style={{ cursor: "help", display: "inline-flex", alignItems: "center", gap: 3 }}>
+											Timer CRM <span style={{ fontSize: "0.72rem" }}>ℹ️</span>
+										</span>
+									</Tooltip>
 								</TableCell>
 								<TableCell align="center">
 									{i18n.t("connections.table.session")}
