@@ -36,9 +36,9 @@ class SocketService {
       username,
       is_readonly: 0,
       allow_manage_users: 0,
-      role: username === 'vicenzzo' ? 'MASTER' : undefined
+      role: undefined
     };
-    if (PolicyEngine.canManageUsers(userMock)) return null; // Master vê tudo (null = sem filtro)
+    if (PolicyEngine.determineRole(userMock) === 'MASTER') return null; // Master vê tudo (null = sem filtro)
 
     const uName = (userMock.username || username || '').toLowerCase();
     const displayName = (userMock.name || '').toLowerCase();
@@ -689,6 +689,15 @@ class SocketService {
               if (Array.isArray(orderedIds) && orderedIds.length > 0) {
                 await this.crmService.reorderDevices(orderedIds, currentUser);
                 await this.broadcastDelta('DEVICES_REORDERED', { orderedIds });
+              }
+              break;
+            }
+
+            case 'REORDER_NUMBERS': {
+              const { deviceId, orderedNumberIds } = message.payload;
+              if (Array.isArray(orderedNumberIds) && orderedNumberIds.length > 0) {
+                await this.crmService.reorderNumbers(deviceId, orderedNumberIds, currentUser);
+                await this.broadcastDelta('NUMBERS_REORDERED', { deviceId, orderedNumberIds });
               }
               break;
             }

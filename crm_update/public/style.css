@@ -4662,6 +4662,37 @@ button.filter-pill-btn {
   transition: all 0.15s ease-out;
 }
 
+/* Reordenação dos WhatsApps / Chips DENTRO do Aparelho (Estilo Android) */
+.number-row.reorder-active {
+  animation: android-jiggle 0.28s infinite alternate ease-in-out !important;
+  cursor: grab !important;
+  user-select: none !important;
+  -webkit-user-select: none !important;
+  box-shadow: 0 4px 14px rgba(88, 101, 242, 0.35) !important;
+  border: 1.5px dashed rgba(88, 101, 242, 0.9) !important;
+  background: rgba(88, 101, 242, 0.12) !important;
+  border-radius: 8px !important;
+  touch-action: none;
+  position: relative;
+}
+
+.number-row.reorder-dragging {
+  opacity: 0.35 !important;
+  transform: scale(1.02) rotate(0deg) !important;
+  animation: none !important;
+  cursor: grabbing !important;
+  border: 2px dashed #818cf8 !important;
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.6) !important;
+}
+
+.number-row.reorder-drag-over {
+  border-top: 3px solid #5865f2 !important;
+  border-bottom: 3px solid #5865f2 !important;
+  box-shadow: 0 0 16px rgba(88, 101, 242, 0.6) !important;
+  transform: scale(1.01) !important;
+  transition: all 0.12s ease-out;
+}
+
 .reorder-floating-bar {
   position: fixed;
   bottom: 24px;

@@ -200,6 +200,14 @@ class CrmService {
     return { success: true, count: orderedIds.length };
   }
 
+  async reorderNumbers(deviceId, orderedNumberIds, currentUser) {
+    if (!Array.isArray(orderedNumberIds) || orderedNumberIds.length === 0) {
+      return { success: false, error: 'Lista de IDs inválida' };
+    }
+    await this.numberRepo.reorderNumbers(deviceId, orderedNumberIds);
+    return { success: true, deviceId, count: orderedNumberIds.length };
+  }
+
   // --- CHIPS / NÚMEROS ---
 
   async addNumber({ deviceId, phoneNumber, name, holder }, currentUser) {

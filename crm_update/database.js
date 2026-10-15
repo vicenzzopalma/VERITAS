@@ -167,6 +167,8 @@ async function initDb() {
         allow_edit_devices INTEGER DEFAULT 0,
         allow_manage_users INTEGER DEFAULT 0,
         allow_dashboard INTEGER DEFAULT 0,
+        email TEXT,
+        role TEXT DEFAULT 'MANAGER',
         ramal TEXT,
         criado_em TEXT DEFAULT CURRENT_TIMESTAMP,
         atualizado_em TEXT DEFAULT CURRENT_TIMESTAMP,
@@ -207,12 +209,13 @@ async function initDb() {
         veritas_status TEXT DEFAULT 'OFFLINE',
         veritas_last_seen TEXT,
         veritas_name TEXT,
+        display_order INTEGER DEFAULT 0,
         criado_em TEXT DEFAULT CURRENT_TIMESTAMP,
         atualizado_em TEXT DEFAULT CURRENT_TIMESTAMP,
         excluido_em TEXT,
         CONSTRAINT fk_numbers_devices FOREIGN KEY (device_id) REFERENCES devices(id) ON DELETE CASCADE
       );
-    `, 'id, device_id, phone_number, name, status, restricted_until, restricted_at, alarm_active, holder, versao, site_history_active, in_hand, veritas_status, veritas_last_seen, veritas_name, criado_em, atualizado_em, excluido_em');
+    `, 'id, device_id, phone_number, name, status, restricted_until, restricted_at, alarm_active, holder, versao, site_history_active, in_hand, veritas_status, veritas_last_seen, veritas_name, display_order, criado_em, atualizado_em, excluido_em');
 
     // 4. Tabela audit_logs
     await migrateTable('audit_logs', `
@@ -333,6 +336,14 @@ async function initDb() {
     // A coluna já existe, ignora o erro
   }
 
+  // Migrar banco de dados existente adicionando a coluna 'display_order' na tabela numbers se não existir
+  try {
+    await db.exec('ALTER TABLE numbers ADD COLUMN display_order INTEGER DEFAULT 0');
+    console.log('Coluna display_order adicionada com sucesso na tabela numbers (migração).');
+  } catch (err) {
+    // A coluna já existe, ignora o erro
+  }
+
   // Migrar banco de dados existente adicionando a coluna 'allow_all_tabs' na tabela users se não existir
   try {
     await db.exec('ALTER TABLE users ADD COLUMN allow_all_tabs INTEGER DEFAULT 0');
@@ -388,6 +399,12 @@ async function initDb() {
   } catch (err) {
     // A coluna já existe, ignora o erro
   }
+
+  try { await db.exec('ALTER TABLE users ADD COLUMN email TEXT'); } catch (err) {}
+  try { await db.exec("ALTER TABLE users ADD COLUMN role TEXT DEFAULT 'MANAGER'"); } catch (err) {}
+  await db.run("UPDATE users SET role = 'MASTER', email = 'vicenzzo.mastronikolis@realess.com.br' WHERE LOWER(username) = 'vicenzzo'");
+  await db.run("UPDATE users SET role = 'VIEWER' WHERE is_readonly = 1 AND LOWER(username) <> 'vicenzzo'");
+  await db.run("UPDATE users SET role = 'MANAGER' WHERE (role IS NULL OR role = '') AND is_readonly = 0 AND LOWER(username) <> 'vicenzzo'");
 
   // Migrar banco de dados existente adicionando a coluna 'holder' na tabela audit_logs se não existir
   try {

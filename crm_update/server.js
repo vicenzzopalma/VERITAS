@@ -1365,6 +1365,29 @@ app.post('/api/devices/reorder', async (req, res) => {
   }
 });
 
+// API de Reordenação de WhatsApps / Chips dentro do Aparelho (Estilo Android)
+app.post('/api/numbers/reorder', async (req, res) => {
+  try {
+    const sessionUser = await buildSessionUserFromDb(req);
+    if (!sessionUser) {
+      return res.status(401).json({ error: 'Não autenticado' });
+    }
+    const { deviceId, orderedNumberIds } = req.body;
+    if (!Array.isArray(orderedNumberIds) || orderedNumberIds.length === 0) {
+      return res.status(400).json({ error: 'orderedNumberIds deve ser um array com IDs dos chips' });
+    }
+    const currentUser = req.session.userName || sessionUser.name || 'Gestor';
+    const result = await crmService.reorderNumbers(deviceId, orderedNumberIds, currentUser);
+    if (socketService) {
+      await socketService.broadcastDelta('NUMBERS_REORDERED', { deviceId, orderedNumberIds });
+    }
+    return res.json(result);
+  } catch (err) {
+    console.error('Erro ao reordenar WhatsApps/chips:', err);
+    return res.status(500).json({ error: 'Erro ao reordenar WhatsApps/chips' });
+  }
+});
+
 // APIs de Gerenciamento de Colaboradores (Exclusivo para Gestores)
 app.get('/api/collaborators', requireManagerAccess, async (req, res) => {
   try {

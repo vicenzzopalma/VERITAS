@@ -1254,6 +1254,20 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         break;
       }
+      case 'NUMBERS_REORDERED': {
+        const { deviceId, orderedNumberIds } = payload;
+        const dev = devicesData.find(d => d.id === deviceId);
+        if (dev && dev.numbers && Array.isArray(orderedNumberIds)) {
+          orderedNumberIds.forEach((numId, idx) => {
+            const n = dev.numbers.find(x => x.id === numId);
+            if (n) n.display_order = idx;
+          });
+          if (!isNumberReorderMode) {
+            renderDevices();
+          }
+        }
+        break;
+      }
       case 'LOG_ADDED': {
         const { type, log } = payload;
         if (logsData && logsData[type]) {
@@ -1808,6 +1822,247 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
+  // =========================================================================
+  // REORDENAÇÃO DE WHATSAPPS / CHIPS DENTRO DO DISPOSITIVO (ESTILO ANDROID)
+  // =========================================================================
+  let isNumberReorderMode = false;
+  let numberReorderDeviceId = null;
+  let numberReorderLongPressTimer = null;
+  let draggedNumberRow = null;
+  let numberTouchStartPos = { x: 0, y: 0 };
+  let initialNumbersOrderSnapshot = [];
+
+  function enterNumberReorderMode(deviceId, targetRow) {
+    if (isNumberReorderMode) return;
+    if (!canReorderDevices()) return;
+
+    isNumberReorderMode = true;
+    numberReorderDeviceId = deviceId;
+
+    // Feedback háptico (vibração estilo Android)
+    if (navigator.vibrate) {
+      try { navigator.vibrate([40, 60, 40]); } catch (e) {}
+    }
+
+    const listContainer = document.getElementById(`numbers-list-${deviceId}`);
+    if (!listContainer) return;
+
+    const rows = Array.from(listContainer.querySelectorAll('.number-row'));
+    initialNumbersOrderSnapshot = rows.map(r => parseInt(r.dataset.numberId, 10)).filter(Boolean);
+
+    rows.forEach(r => {
+      r.classList.add('reorder-active');
+      r.setAttribute('draggable', 'true');
+    });
+
+    renderNumberReorderFloatingBar(deviceId);
+  }
+
+  function exitNumberReorderMode() {
+    isNumberReorderMode = false;
+    numberReorderDeviceId = null;
+    draggedNumberRow = null;
+
+    document.querySelectorAll('.number-row').forEach(r => {
+      r.classList.remove('reorder-active', 'reorder-dragging', 'reorder-drag-over');
+      r.removeAttribute('draggable');
+    });
+
+    const floatingBar = document.getElementById('number-reorder-floating-bar');
+    if (floatingBar) {
+      floatingBar.remove();
+    }
+  }
+
+  function renderNumberReorderFloatingBar(deviceId) {
+    let bar = document.getElementById('number-reorder-floating-bar');
+    if (!bar) {
+      bar = document.createElement('div');
+      bar.id = 'number-reorder-floating-bar';
+      bar.className = 'reorder-floating-bar';
+      bar.innerHTML = `
+        <div class="bar-title">
+          <span>🔀</span>
+          <span>Organizando WhatsApps — Arraste os chips para reposicionar no aparelho</span>
+        </div>
+        <button type="button" class="bar-btn-save" id="btn-save-number-reorder">✓ Concluir</button>
+        <button type="button" class="bar-btn-cancel" id="btn-cancel-number-reorder">Cancelar</button>
+      `;
+      document.body.appendChild(bar);
+
+      document.getElementById('btn-save-number-reorder').addEventListener('click', () => saveReorderedNumbers(deviceId));
+      document.getElementById('btn-cancel-number-reorder').addEventListener('click', cancelReorderedNumbers);
+    }
+  }
+
+  async function saveReorderedNumbers(deviceId) {
+    const listContainer = document.getElementById(`numbers-list-${deviceId}`);
+    if (!listContainer) {
+      exitNumberReorderMode();
+      return;
+    }
+
+    const rows = Array.from(listContainer.querySelectorAll('.number-row'));
+    const orderedNumberIds = rows.map(r => parseInt(r.dataset.numberId, 10)).filter(Boolean);
+
+    if (orderedNumberIds.length === 0) {
+      exitNumberReorderMode();
+      return;
+    }
+
+    // Atualiza imediatamente display_order em memória para aquele aparelho
+    const dev = devicesData.find(d => d.id === deviceId);
+    if (dev && dev.numbers) {
+      orderedNumberIds.forEach((numId, index) => {
+        const n = dev.numbers.find(x => x.id === numId);
+        if (n) n.display_order = index;
+      });
+    }
+
+    // Enviar via WebSocket
+    sendWSMessage('REORDER_NUMBERS', { deviceId, orderedNumberIds });
+
+    // Fallback via HTTP POST
+    try {
+      await fetch('/api/numbers/reorder', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ deviceId, orderedNumberIds })
+      });
+    } catch (e) {
+      console.warn('Fallback HTTP de reordenação de números falhou, WS já emitido:', e);
+    }
+
+    exitNumberReorderMode();
+    showToast('Ordem dos WhatsApps atualizada com sucesso!');
+  }
+
+  function cancelReorderedNumbers() {
+    exitNumberReorderMode();
+    renderDevices();
+  }
+
+  function attachNumberRowReorderEvents(row, num, device) {
+    row.dataset.numberId = String(num.id);
+    row.dataset.deviceId = String(device.id);
+
+    // Detecção de clique contínuo (Long-press 1.8s) no WhatsApp/chip
+    const startLongPress = (clientX, clientY, target) => {
+      if (isNumberReorderMode) return;
+      if (!canReorderDevices()) return;
+      // Não acionar se estiver clicando em selects, inputs ou botões
+      if (target.closest('button, select, input, a, .status-select, .icon-btn, .number-action-btn')) {
+        return;
+      }
+
+      numberTouchStartPos = { x: clientX, y: clientY };
+      clearTimeout(numberReorderLongPressTimer);
+      numberReorderLongPressTimer = setTimeout(() => {
+        enterNumberReorderMode(device.id, row);
+      }, 1800);
+    };
+
+    const cancelLongPress = () => {
+      clearTimeout(numberReorderLongPressTimer);
+    };
+
+    row.addEventListener('mousedown', (e) => {
+      if (e.button !== 0) return;
+      startLongPress(e.clientX, e.clientY, e.target);
+    });
+
+    window.addEventListener('mouseup', cancelLongPress);
+
+    row.addEventListener('mousemove', (e) => {
+      if (!isNumberReorderMode && numberReorderLongPressTimer) {
+        const dist = Math.hypot(e.clientX - numberTouchStartPos.x, e.clientY - numberTouchStartPos.y);
+        if (dist > 10) {
+          cancelLongPress();
+        }
+      }
+    });
+
+    // Touch support para mobile/tablets
+    row.addEventListener('touchstart', (e) => {
+      if (e.touches.length === 1) {
+        startLongPress(e.touches[0].clientX, e.touches[0].clientY, e.target);
+      }
+    }, { passive: true });
+
+    row.addEventListener('touchmove', (e) => {
+      if (!isNumberReorderMode && numberReorderLongPressTimer && e.touches.length === 1) {
+        const dist = Math.hypot(e.touches[0].clientX - numberTouchStartPos.x, e.touches[0].clientY - numberTouchStartPos.y);
+        if (dist > 10) {
+          cancelLongPress();
+        }
+      } else if (isNumberReorderMode && draggedNumberRow && e.touches.length === 1) {
+        const touch = e.touches[0];
+        const targetEl = document.elementFromPoint(touch.clientX, touch.clientY);
+        const overRow = targetEl ? targetEl.closest('.number-row') : null;
+        const parentList = row.parentNode;
+        if (overRow && overRow !== draggedNumberRow && overRow.parentNode === parentList) {
+          const rect = overRow.getBoundingClientRect();
+          const next = touch.clientY > rect.top + rect.height / 2;
+          if (next) {
+            parentList.insertBefore(draggedNumberRow, overRow.nextSibling);
+          } else {
+            parentList.insertBefore(draggedNumberRow, overRow);
+          }
+        }
+      }
+    }, { passive: true });
+
+    row.addEventListener('touchend', cancelLongPress);
+    row.addEventListener('touchcancel', cancelLongPress);
+
+    // Eventos de Drag & Drop (HTML5)
+    row.addEventListener('dragstart', (e) => {
+      if (!isNumberReorderMode || numberReorderDeviceId !== device.id) {
+        e.preventDefault();
+        return;
+      }
+      draggedNumberRow = row;
+      row.classList.add('reorder-dragging');
+      e.dataTransfer.effectAllowed = 'move';
+      e.dataTransfer.setData('text/plain', row.dataset.numberId);
+    });
+
+    row.addEventListener('dragover', (e) => {
+      if (!isNumberReorderMode || !draggedNumberRow || numberReorderDeviceId !== device.id) return;
+      e.preventDefault();
+      e.dataTransfer.dropEffect = 'move';
+
+      const parentList = row.parentNode;
+      if (row !== draggedNumberRow && parentList && row.parentNode === draggedNumberRow.parentNode) {
+        row.classList.add('reorder-drag-over');
+        const rect = row.getBoundingClientRect();
+        const isAfter = e.clientY > rect.top + rect.height / 2;
+        if (isAfter) {
+          parentList.insertBefore(draggedNumberRow, row.nextSibling);
+        } else {
+          parentList.insertBefore(draggedNumberRow, row);
+        }
+      }
+    });
+
+    row.addEventListener('dragleave', () => {
+      row.classList.remove('reorder-drag-over');
+    });
+
+    row.addEventListener('drop', (e) => {
+      e.preventDefault();
+      row.classList.remove('reorder-drag-over');
+    });
+
+    row.addEventListener('dragend', () => {
+      if (draggedNumberRow) {
+        draggedNumberRow.classList.remove('reorder-dragging');
+      }
+      document.querySelectorAll('.number-row').forEach(r => r.classList.remove('reorder-drag-over'));
+      draggedNumberRow = null;
+    });
+  }
+
   // --- Renderização de Dispositivos e Números ---
   function renderDevices() {
     // Build holder chip count map and holder chips map
@@ -2182,12 +2437,18 @@ document.addEventListener('DOMContentLoaded', () => {
       // Lista de Números
       const listContainer = document.createElement('div');
       listContainer.className = 'numbers-list';
+      listContainer.id = `numbers-list-${device.id}`;
 
       if (!device.numbers || device.numbers.length === 0) {
         listContainer.innerHTML = '<div style="font-size: 0.75rem; color: var(--text-secondary); text-align: center; padding: 4px;">Sem chips.</div>';
       } else {
         const numbersToRender = device.numbers.filter(num => {
           return isNumberMatchSector(device, num, currentSector, currentSubSector);
+        }).sort((a, b) => {
+          const oA = (a.display_order !== undefined && a.display_order !== null) ? a.display_order : 0;
+          const oB = (b.display_order !== undefined && b.display_order !== null) ? b.display_order : 0;
+          if (oA !== oB) return oA - oB;
+          return a.id - b.id;
         });
 
         if (numbersToRender.length === 0) {
@@ -2195,8 +2456,13 @@ document.addEventListener('DOMContentLoaded', () => {
         } else {
           numbersToRender.forEach(num => {
             const row = document.createElement('div');
-          row.className = 'number-row';
-          row.id = `number-row-${num.id}`;
+            row.className = 'number-row';
+            row.id = `number-row-${num.id}`;
+            attachNumberRowReorderEvents(row, num, device);
+            if (isNumberReorderMode && numberReorderDeviceId === device.id) {
+              row.classList.add('reorder-active');
+              row.setAttribute('draggable', 'true');
+            }
 
           // Formatando o status para classe CSS
           const statusClass = num.status.replace(/\s+/g, '-');
