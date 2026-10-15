@@ -2071,14 +2071,18 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  // Tecla ESC para sair imediatamente do modo de reordenação
+  // Tecla ESC para confirmar e salvar a nova ordem imediatamente
   window.addEventListener('keydown', (e) => {
     if (e.key === 'Escape' || e.key === 'Esc') {
       if (isNumberReorderMode) {
-        cancelReorderedNumbers();
+        if (numberReorderDeviceId) {
+          saveReorderedNumbers(numberReorderDeviceId);
+        } else {
+          exitNumberReorderMode();
+        }
       }
       if (isReorderMode) {
-        cancelReorderedDevices();
+        saveReorderedDevices();
       }
     }
   });
