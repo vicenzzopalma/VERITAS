@@ -2063,6 +2063,18 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
+  // Tecla ESC para sair imediatamente do modo de reordenação
+  window.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' || e.key === 'Esc') {
+      if (isNumberReorderMode) {
+        cancelReorderedNumbers();
+      }
+      if (isReorderMode) {
+        cancelReorderedDevices();
+      }
+    }
+  });
+
   // --- Renderização de Dispositivos e Números ---
   function renderDevices() {
     // Build holder chip count map and holder chips map

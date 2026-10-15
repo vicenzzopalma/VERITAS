@@ -269,7 +269,7 @@ const MainListItems = (props) => {
       <div onClick={drawerClose} className={classes.crmMenuContainer}>
         <ListItemLink
           to="/whatsapp-control"
-          primary="Whatsapp Control CRM"
+          primary="CRM"
           tooltip="Gestão de celulares = Whatsapp control = CRM = Whatsapp Control CRM"
           icon={<PhoneAndroidIcon />}
           className={getItemClass("/whatsapp-control")}
@@ -363,10 +363,10 @@ const MainListItems = (props) => {
 
   return (
     <div onClick={drawerClose} className={isWhatsappControl ? classes.crmMenuContainer : undefined}>
-      {/* 1. Whatsapp Control CRM EM PRIMEIRO */}
+      {/* 1. CRM EM PRIMEIRO */}
       <ListItemLink
         to="/whatsapp-control"
-        primary="Whatsapp Control CRM"
+        primary="CRM"
         tooltip="Gestão de celulares = Whatsapp control = CRM = Whatsapp Control CRM"
         icon={<PhoneAndroidIcon />}
         className={getItemClass("/whatsapp-control")}
