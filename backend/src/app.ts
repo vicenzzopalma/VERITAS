@@ -104,7 +104,11 @@ app.use(routes);
 app.use(Sentry.Handlers.errorHandler());
 
 // 7. Tratamento Centralizado de Erros com Sanitização Rigorosa
-app.use(async (err: any, req: Request, res: Response, _: NextFunction) => {
+app.use(async (err: any, req: Request, res: Response, next: NextFunction) => {
+  if (res.headersSent) {
+    return next(err);
+  }
+
   if (err instanceof AppError || (err && typeof err.statusCode === "number" && err.statusCode < 500)) {
     const statusCode = err.statusCode || 400;
     logger.warn(`[AppError ${statusCode}]: ${err.message}`);

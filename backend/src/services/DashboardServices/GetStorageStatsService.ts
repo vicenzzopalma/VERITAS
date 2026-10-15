@@ -41,6 +41,9 @@ interface StorageStatsResponse {
     totalTickets: number;
     totalContacts: number;
     totalWhatsapps: number;
+    openTickets: number;
+    pendingTickets: number;
+    closedTickets: number;
   };
   usageByNumber: WhatsAppStorageStat[];
 }
@@ -54,19 +57,28 @@ function formatBytes(bytes: number, decimals = 2): string {
   return `${parseFloat((bytes / Math.pow(k, i)).toFixed(dm))} ${sizes[i]}`;
 }
 
-export const GetStorageStatsService = async (): Promise<StorageStatsResponse> => {
+let cachedStats: StorageStatsResponse | null = null;
+let lastCacheTimestamp = 0;
+const CACHE_TTL_MS = 3 * 60 * 1000; // 3 minutos de cache
+
+export const GetStorageStatsService = async (forceRefresh = false): Promise<StorageStatsResponse> => {
+  const now = Date.now();
+  if (!forceRefresh && cachedStats && (now - lastCacheTimestamp < CACHE_TTL_MS)) {
+    return cachedStats;
+  }
+
   // 1. Obter informações físicas do arquivo SQLite
   const dbPath = process.env.DB_STORAGE || path.resolve(__dirname, "..", "..", "..", "whaticket.sqlite");
   let dbFileSize = 0;
   if (fs.existsSync(dbPath)) {
     try {
       dbFileSize = fs.statSync(dbPath).size;
-    } catch (err) {
+    } catch {
       dbFileSize = 0;
     }
   }
 
-  // 2. Obter informações da pasta public de mídias
+  // 2. Obter informações da pasta public de mídias de forma rápida
   const pubDir = path.resolve(__dirname, "..", "..", "..", "public");
   let mediaDirSize = 0;
   let mediaFilesCount = 0;
@@ -74,31 +86,50 @@ export const GetStorageStatsService = async (): Promise<StorageStatsResponse> =>
     try {
       const files = fs.readdirSync(pubDir);
       mediaFilesCount = files.length;
-      for (const file of files) {
-        const filePath = path.join(pubDir, file);
+      // Estima/calcula o tamanho amostrando os primeiros ou somando sem travar
+      let sampleSize = 0;
+      let sampleCount = 0;
+      const sampleLimit = Math.min(files.length, 500);
+      for (let i = 0; i < sampleLimit; i++) {
         try {
-          const st = fs.statSync(filePath);
+          const st = fs.statSync(path.join(pubDir, files[i]));
           if (st.isFile()) {
-            mediaDirSize += st.size;
+            sampleSize += st.size;
+            sampleCount++;
           }
         } catch {
-          // ignore individual file errors
+          // ignore
         }
       }
+      mediaDirSize = sampleCount > 0 ? Math.round((sampleSize / sampleCount) * mediaFilesCount) : 0;
     } catch {
       mediaDirSize = 0;
     }
   }
 
-  // 3. Contadores Globais
-  const [totalMessages, totalTickets, totalContacts, totalWhatsapps] = await Promise.all([
+  // 3. Contadores Globais e por Status de Tickets em paralelo
+  const [totalMessages, totalTickets, totalContacts, totalWhatsapps, ticketStatusRows] = await Promise.all([
     Message.count(),
     Ticket.count(),
     Contact.count(),
-    Whatsapp.count()
+    Whatsapp.count(),
+    sequelize.query("SELECT status, COUNT(*) as count FROM Tickets GROUP BY status;").catch(() => [[]])
   ]);
 
-  // 4. Detalhamento por WhatsApp / Número
+  let openTickets = 0;
+  let pendingTickets = 0;
+  let closedTickets = 0;
+
+  const statusRows = Array.isArray(ticketStatusRows) && Array.isArray(ticketStatusRows[0]) ? ticketStatusRows[0] : [];
+  for (const row of statusRows as any[]) {
+    const s = String(row.status || "").toLowerCase();
+    const c = Number(row.count) || 0;
+    if (s === "open") openTickets = c;
+    else if (s === "pending") pendingTickets = c;
+    else if (s === "closed") closedTickets = c;
+  }
+
+  // 4. Detalhamento por WhatsApp / Número via Agregação SQL Direta
   const whatsapps = await Whatsapp.findAll({
     attributes: ["id", "name", "status", "session"]
   });
@@ -128,7 +159,7 @@ export const GetStorageStatsService = async (): Promise<StorageStatsResponse> =>
   // Consultar contagem de tickets por whatsapp
   const [ticketCounts] = await sequelize.query(`
     SELECT whatsappId, COUNT(*) as count FROM Tickets WHERE whatsappId IS NOT NULL GROUP BY whatsappId;
-  `);
+  `).catch(() => [[]]);
 
   if (Array.isArray(ticketCounts)) {
     for (const t of ticketCounts as any[]) {
@@ -140,16 +171,26 @@ export const GetStorageStatsService = async (): Promise<StorageStatsResponse> =>
     }
   }
 
-  // Consultar mensagens e mídias vinculadas a cada whatsappId
-  const [msgMediaRows] = await sequelize.query(`
-    SELECT t.whatsappId, m.mediaUrl, LENGTH(m.body) as body_len 
+  // Agregação de mensagens por WhatsApp via SQL Direta (sub-segundo em vez de table scan e readdirSync)
+  const [msgAggRows] = await sequelize.query(`
+    SELECT 
+      t.whatsappId, 
+      COUNT(m.id) as msg_count, 
+      SUM(COALESCE(LENGTH(m.body), 0)) as body_bytes,
+      SUM(CASE WHEN m.mediaUrl IS NOT NULL AND m.mediaUrl != '' THEN 1 ELSE 0 END) as media_count
     FROM Messages m 
     JOIN Tickets t ON m.ticketId = t.id
-    WHERE t.whatsappId IS NOT NULL;
-  `);
+    WHERE t.whatsappId IS NOT NULL
+    GROUP BY t.whatsappId;
+  `).catch(() => [[]]);
 
-  if (Array.isArray(msgMediaRows)) {
-    for (const row of msgMediaRows as any[]) {
+  let totalMediaReferences = 0;
+  if (Array.isArray(msgAggRows)) {
+    for (const row of msgAggRows as any[]) {
+      totalMediaReferences += Number(row.media_count) || 0;
+    }
+
+    for (const row of msgAggRows as any[]) {
       const wId = Number(row.whatsappId);
       if (!statsMap[wId]) {
         statsMap[wId] = {
@@ -163,19 +204,15 @@ export const GetStorageStatsService = async (): Promise<StorageStatsResponse> =>
         };
       }
 
-      statsMap[wId].messagesCount++;
-      statsMap[wId].dbBytes += (Number(row.body_len) || 0) + 180;
+      const msgCount = Number(row.msg_count) || 0;
+      const bodyBytes = Number(row.body_bytes) || 0;
+      const mediaCount = Number(row.media_count) || 0;
 
-      if (row.mediaUrl) {
-        const fn = path.basename(row.mediaUrl);
-        const fp = path.join(pubDir, fn);
-        try {
-          if (fs.existsSync(fp)) {
-            statsMap[wId].mediaBytes += fs.statSync(fp).size;
-          }
-        } catch {
-          // ignore
-        }
+      statsMap[wId].messagesCount = msgCount;
+      statsMap[wId].dbBytes += bodyBytes + (msgCount * 180);
+
+      if (totalMediaReferences > 0 && mediaCount > 0 && mediaDirSize > 0) {
+        statsMap[wId].mediaBytes = Math.round((mediaCount / totalMediaReferences) * mediaDirSize);
       }
     }
   }
@@ -207,7 +244,7 @@ export const GetStorageStatsService = async (): Promise<StorageStatsResponse> =>
   // Ordenar decrescente por consumo total
   usageByNumber.sort((a, b) => b.totalBytes - a.totalBytes);
 
-  return {
+  const response: StorageStatsResponse = {
     database: {
       dialect: "SQLite",
       filePath: dbPath,
@@ -226,8 +263,16 @@ export const GetStorageStatsService = async (): Promise<StorageStatsResponse> =>
       totalMessages,
       totalTickets,
       totalContacts,
-      totalWhatsapps
+      totalWhatsapps,
+      openTickets,
+      pendingTickets,
+      closedTickets
     },
     usageByNumber
   };
+
+  cachedStats = response;
+  lastCacheTimestamp = Date.now();
+
+  return response;
 };

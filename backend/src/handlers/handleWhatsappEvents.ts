@@ -386,20 +386,23 @@ export const handleMessage = async (
 
 export const handleMessageAck = async (
   messageId: string,
-  ack: MessageAck
+  ack: MessageAck,
+  whatsappId?: number
 ): Promise<void> => {
   await new Promise(r => setTimeout(r, 500));
 
   const io = getIO();
 
   try {
+    const candidateIds = [messageId];
+    if (whatsappId) {
+      candidateIds.push(`${whatsappId}_${messageId}`);
+    }
+
     const messagesToUpdate = await Message.findAll({
       where: {
         id: {
-          [Op.or]: [
-            messageId,
-            { [Op.like]: `%_${messageId}` }
-          ]
+          [Op.in]: candidateIds
         }
       },
       include: [

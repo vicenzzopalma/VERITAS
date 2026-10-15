@@ -1337,30 +1337,31 @@ const initializeSession = async (whatsapp: Whatsapp): Promise<void> => {
 
         let lastMsgText = "";
 
+        // Pré-carrega de uma vez só todos os IDs já existentes desta conversa usando o índice primário (sub-milissegundo)
+        const candidateIds: string[] = [];
+        for (const m of chatMsgs) {
+          if (m.key?.id) {
+            candidateIds.push(m.key.id);
+            candidateIds.push(`${sessionId}_${m.key.id}`);
+          }
+        }
+
+        const existingDbMessages = candidateIds.length > 0
+          ? await Message.findAll({
+              where: { id: { [Op.in]: candidateIds } },
+              attributes: ["id"]
+            })
+          : [];
+        const existingSet = new Set(existingDbMessages.map(m => m.id));
+
         for (const msg of chatMsgs) {
           try {
             if (!msg.key.id) continue;
 
-            // Checar se a mensagem já existe no banco de dados para esta sessão/whatsapp
-            const existing = await Message.findOne({
-              where: {
-                id: {
-                  [Op.or]: [
-                    msg.key.id,
-                    { [Op.like]: `%_${msg.key.id}` }
-                  ]
-                }
-              },
-              include: [
-                {
-                  model: Ticket,
-                  as: "ticket",
-                  where: { whatsappId: sessionId },
-                  attributes: ["id", "whatsappId"]
-                }
-              ]
-            });
-            if (existing) continue;
+            // Checagem instantânea em memória O(1)
+            if (existingSet.has(msg.key.id) || existingSet.has(`${sessionId}_${msg.key.id}`)) {
+              continue;
+            }
 
             const msgTs = new Date(parseMessageTimestamp(msg.messageTimestamp));
 
@@ -2026,7 +2027,7 @@ const initializeSession = async (whatsapp: Whatsapp): Promise<void> => {
           if (!event.update.status || !event.key.id) return;
 
           const ack = (event.update.status as MessageAck) || 0;
-          await handleMessageAck(event.key.id, ack);
+          await handleMessageAck(event.key.id, ack, sessionId);
         } catch (err) {
           logger.error({
             info: "Error handling message update",
@@ -2053,7 +2054,7 @@ const initializeSession = async (whatsapp: Whatsapp): Promise<void> => {
             ack = 2;
           }
 
-          await handleMessageAck(key.id, ack);
+          await handleMessageAck(key.id, ack, sessionId);
 
           logger.debug({
             info: "Message receipt update processed",
@@ -2548,20 +2549,13 @@ const reconcileStoredChatMessages = async (
           const existing = await Message.findOne({
             where: {
               id: {
-                [Op.or]: [
+                [Op.in]: [
                   msg.key.id,
-                  { [Op.like]: `%_${msg.key.id}` }
+                  `${sessionId}_${msg.key.id}`
                 ]
               }
             },
-            include: [
-              {
-                model: Ticket,
-                as: "ticket",
-                where: { whatsappId: sessionId },
-                attributes: ["id", "whatsappId"]
-              }
-            ]
+            attributes: ["id"]
           });
           if (existing) continue;
 

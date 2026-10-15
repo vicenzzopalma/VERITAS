@@ -126,21 +126,6 @@ const Dashboard = () => {
 	const [storageData, setStorageData] = useState(null);
 	const [loadingStorage, setLoadingStorage] = useState(false);
 
-	let userQueueIds = [];
-	if (user.queues && user.queues.length > 0) {
-		userQueueIds = user.queues.map(q => q.id);
-	}
-
-	const GetTickets = (status, showAll, withUnreadMessages) => {
-		const { count } = useTickets({
-			status,
-			showAll,
-			withUnreadMessages,
-			queueIds: JSON.stringify(userQueueIds),
-		});
-		return count;
-	};
-
 	const fetchStorageStats = useCallback(async () => {
 		setLoadingStorage(true);
 		try {
@@ -157,6 +142,10 @@ const Dashboard = () => {
 		fetchStorageStats();
 	}, [fetchStorageStats]);
 
+	const openCount = storageData?.overview?.openTickets ?? 0;
+	const pendingCount = storageData?.overview?.pendingTickets ?? 0;
+	const closedCount = storageData?.overview?.closedTickets ?? 0;
+
 	return (
 		<div>
 			<Container maxWidth="lg" className={classes.container}>
@@ -168,7 +157,7 @@ const Dashboard = () => {
 								{i18n.t("dashboard.messages.inAttendance.title")}
 							</Typography>
 							<Typography component="h1" variant="h4" style={{ fontWeight: 700, marginTop: 4 }}>
-								{GetTickets("open", "true", "false")}
+								{loadingStorage && !storageData ? <CircularProgress size={24} /> : openCount}
 							</Typography>
 						</Paper>
 					</Grid>
@@ -178,7 +167,7 @@ const Dashboard = () => {
 								{i18n.t("dashboard.messages.waiting.title")}
 							</Typography>
 							<Typography component="h1" variant="h4" style={{ fontWeight: 700, marginTop: 4 }}>
-								{GetTickets("pending", "true", "false")}
+								{loadingStorage && !storageData ? <CircularProgress size={24} /> : pendingCount}
 							</Typography>
 						</Paper>
 					</Grid>
@@ -188,7 +177,7 @@ const Dashboard = () => {
 								{i18n.t("dashboard.messages.closed.title")}
 							</Typography>
 							<Typography component="h1" variant="h4" style={{ fontWeight: 700, marginTop: 4 }}>
-								{GetTickets("closed", "true", "false")}
+								{loadingStorage && !storageData ? <CircularProgress size={24} /> : closedCount}
 							</Typography>
 						</Paper>
 					</Grid>

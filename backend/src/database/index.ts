@@ -1,4 +1,4 @@
-﻿import { Sequelize } from "sequelize-typescript";
+import { Sequelize } from "sequelize-typescript";
 import User from "../models/User";
 import Setting from "../models/Setting";
 import Contact from "../models/Contact";
@@ -43,8 +43,16 @@ sequelize.addModels(models);
 if (dbConfig.dialect === "sqlite") {
   sequelize.query("PRAGMA journal_mode = WAL;").catch(() => {});
   sequelize.query("PRAGMA synchronous = NORMAL;").catch(() => {});
-  sequelize.query("PRAGMA cache_size = -64000;").catch(() => {});
+  sequelize.query("PRAGMA busy_timeout = 15000;").catch(() => {});
+  sequelize.query("PRAGMA cache_size = -128000;").catch(() => {});
+  sequelize.query("PRAGMA mmap_size = 268435456;").catch(() => {});
   sequelize.query("PRAGMA temp_store = MEMORY;").catch(() => {});
+
+  // Índices críticos para performance ultra-rápida de abas e navegação
+  sequelize.query("CREATE INDEX IF NOT EXISTS idx_contacts_name ON Contacts(name);").catch(() => {});
+  sequelize.query("CREATE INDEX IF NOT EXISTS idx_tickets_status_updatedAt ON Tickets(status, updatedAt DESC);").catch(() => {});
+  sequelize.query("CREATE INDEX IF NOT EXISTS idx_tickets_userId_status ON Tickets(userId, status);").catch(() => {});
+  sequelize.query("CREATE INDEX IF NOT EXISTS idx_tickets_queueId ON Tickets(queueId);").catch(() => {});
 
   // Resiliência de colunas legadas no SQLite local
   sequelize.query("ALTER TABLE Users ADD COLUMN canAccessConnections BOOLEAN DEFAULT 0;").catch(() => {});
