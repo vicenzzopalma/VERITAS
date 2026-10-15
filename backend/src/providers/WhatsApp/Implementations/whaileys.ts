@@ -1071,9 +1071,37 @@ const removeSession = async (whatsappId: number): Promise<void> => {
   stores.delete(whatsappId);
 };
 
-let cachedWaVersion: WAVersion | undefined;
+const DEFAULT_WA_VERSION: WAVersion = [2, 3000, 1017500000];
+let cachedWaVersion: WAVersion = DEFAULT_WA_VERSION;
 let cachedWaVersionTime = 0;
+let isFetchingWaVersion = false;
 const WA_VERSION_CACHE_TTL = 24 * 60 * 60 * 1000;
+
+const updateWaVersionInBackground = async (): Promise<void> => {
+  if (isFetchingWaVersion) return;
+  isFetchingWaVersion = true;
+  try {
+    const versionPromise = fetchLatestWaWebVersion({});
+    const timeoutPromise = new Promise<{ version?: WAVersion }>((_, reject) =>
+      setTimeout(() => reject(new Error("Timeout")), 2500)
+    );
+    const result = (await Promise.race([versionPromise, timeoutPromise])) as {
+      version?: WAVersion;
+    };
+    if (result?.version && Array.isArray(result.version)) {
+      cachedWaVersion = result.version;
+      cachedWaVersionTime = Date.now();
+      logger.info({
+        info: "Latest WA Web version updated in background",
+        version: cachedWaVersion.join(".")
+      });
+    }
+  } catch (err) {
+    logger.debug({ info: "Could not fetch newer WA version in background, retaining current", err });
+  } finally {
+    isFetchingWaVersion = false;
+  }
+};
 
 const initializeSession = async (whatsapp: Whatsapp): Promise<void> => {
   const sessionId = whatsapp.id;
@@ -1100,29 +1128,16 @@ const initializeSession = async (whatsapp: Whatsapp): Promise<void> => {
       }
     } catch {
       logger.warn({
-        info: "Failed to parse WA_SOCKET_VERSION, fetching latest"
+        info: "Failed to parse WA_SOCKET_VERSION, using default"
       });
     }
   }
 
   if (!waVersionToUse) {
-    if (cachedWaVersion && Date.now() - cachedWaVersionTime < WA_VERSION_CACHE_TTL) {
-      waVersionToUse = cachedWaVersion;
-    } else {
-      try {
-        const fetchedVersionData = await fetchLatestWaWebVersion({});
-        if (fetchedVersionData?.version) {
-          waVersionToUse = fetchedVersionData.version;
-          cachedWaVersion = waVersionToUse;
-          cachedWaVersionTime = Date.now();
-          logger.info({
-            info: "Using latest WA Web version",
-            version: waVersionToUse.join(".")
-          });
-        }
-      } catch (e) {
-        logger.warn({ info: "Failed to fetch latest WA version, using default" });
-      }
+    // Zero delay de rede: usa imediatamente a versão em cache/padrão
+    waVersionToUse = cachedWaVersion;
+    if (Date.now() - cachedWaVersionTime > WA_VERSION_CACHE_TTL) {
+      updateWaVersionInBackground().catch(() => {});
     }
   }
 
@@ -1183,11 +1198,10 @@ const initializeSession = async (whatsapp: Whatsapp): Promise<void> => {
     fireInitQueries: true,
     generateHighQualityLinkPreview: true,
     linkPreviewImageThumbnailWidth: 192,
-    defaultQueryTimeoutMs: 60_000,
-    connectTimeoutMs: 60_000,
-    keepAliveIntervalMs: 25_000,
+    defaultQueryTimeoutMs: 30_000,
+    connectTimeoutMs: 25_000,
+    keepAliveIntervalMs: 20_000,
     retryRequestDelayMs: 500,
-    maxMsgRetryCount: 5,
     transactionOpts: { maxCommitRetries: 10, delayBetweenTriesMs: 3000 },
     sentMessagesCache,
     getMessage: async (key: WAMessageKey) => {
@@ -1501,7 +1515,7 @@ const initializeSession = async (whatsapp: Whatsapp): Promise<void> => {
             name: name || pn || "",
             number: pn || "",
             lid: lid ? (lid.endsWith("@lid") ? lid : `${lid}@lid`) : undefined,
-            isGroup: isJidGroup(jid)
+            isGroup: Boolean(isJidGroup(jid))
           });
         }
       } catch {
@@ -1530,7 +1544,7 @@ const initializeSession = async (whatsapp: Whatsapp): Promise<void> => {
             name: name || pn || "",
             number: pn || "",
             lid: lid ? (lid.endsWith("@lid") ? lid : `${lid}@lid`) : undefined,
-            isGroup: isJidGroup(jid)
+            isGroup: Boolean(isJidGroup(jid))
           });
         }
       } catch {
@@ -1836,7 +1850,8 @@ const initializeSession = async (whatsapp: Whatsapp): Promise<void> => {
 
       logger.info({ info: "Session connected", sessionId });
 
-      // Auto-sync de todos os grupos do WhatsApp para garantir nomes reais
+      // Auto-sync suave de grupos e resolução de LIDs com escalonamento por sessão (não-bloqueante)
+      const postConnectDelay = 5000 + (sessionId % 8) * 1500;
       setTimeout(async () => {
         try {
           const groups = await wbot.groupFetchAllParticipating();
@@ -1856,46 +1871,45 @@ const initializeSession = async (whatsapp: Whatsapp): Promise<void> => {
           logger.debug({ info: "Could not fetch participating groups on open", sessionId, err });
         }
 
-        // Varredura AGRESSIVA de resolução de LIDs contra o store.contacts
+        // Varredura de resolução de LIDs contra o store.contacts de forma suave
         try {
           const allStoreContacts = Object.entries(wbot.store?.contacts || {});
-          
+          if (allStoreContacts.length === 0) return;
+
           // 1. Construir mapa reverso LID → número real a partir do store
           const lidToPhoneMap = new Map<string, { pn: string; name: string }>();
-          
+          let processed = 0;
+
           for (const [key, c] of allStoreContacts) {
             const contact = c as any;
             if (!contact) continue;
-            
+
             const jid = contact.id || key || "";
             const lid = contact.lid || (jid.endsWith("@lid") ? jid : undefined);
             const pn = jid.endsWith("@s.whatsapp.net") ? jid.split("@")[0] : undefined;
             const name = contact.name || contact.notify || contact.verifiedName || "";
-            
-            // Se tem PN real (telefone@s.whatsapp.net) e LID, mapear
+
             if (pn && lid) {
               const baseLid = lid.split("@")[0].split(":")[0].replace(/\D/g, "");
               if (baseLid) {
                 lidToPhoneMap.set(baseLid, { pn, name });
               }
-              
-              // Atualizar contato no banco com o número real
-              await CreateOrUpdateContactService({
-                name: name || pn,
-                number: pn,
-                lid,
-                isGroup: false
-              });
+              // Salva no mapeamento rápido em memória e SQLite
+              await saveLidMapping(lid, pn, sessionId, name);
+            }
+
+            if (++processed % 25 === 0) {
+              await new Promise(r => setTimeout(r, 15));
             }
           }
-          
+
           logger.info({
             info: "Store contacts LID→PN map built",
             totalStoreContacts: allStoreContacts.length,
             lidMappingsFound: lidToPhoneMap.size,
             sessionId
           });
-          
+
           // 2. Buscar contatos no banco que TEM LID como número (>13 dígitos) e resolver
           if (lidToPhoneMap.size > 0) {
             const { Op } = require("sequelize");
@@ -1906,17 +1920,15 @@ const initializeSession = async (whatsapp: Whatsapp): Promise<void> => {
               },
               attributes: ["id", "name", "number", "lid"]
             });
-            
+
             let resolved = 0;
             for (const dbContact of dbLidContacts) {
               const currentNumber = (dbContact.number || "").replace(/\D/g, "");
-              // Se o número atual é real (<=13 dígitos), pular
               if (currentNumber.length >= 10 && currentNumber.length <= 13) continue;
-              
-              // Extrair baseLid
+
               const baseLid = (dbContact.lid || "").split("@")[0].split(":")[0].replace(/\D/g, "");
               if (!baseLid) continue;
-              
+
               const mapping = lidToPhoneMap.get(baseLid);
               if (mapping && mapping.pn) {
                 await dbContact.update({
@@ -1926,7 +1938,7 @@ const initializeSession = async (whatsapp: Whatsapp): Promise<void> => {
                 resolved++;
               }
             }
-            
+
             logger.info({
               info: "LID→PN resolution pass completed",
               totalLidContacts: dbLidContacts.length,
@@ -1939,7 +1951,7 @@ const initializeSession = async (whatsapp: Whatsapp): Promise<void> => {
         } catch (err) {
           logger.debug({ info: "Error in store contacts resolution pass", sessionId, err });
         }
-      }, 5000);
+      }, postConnectDelay);
     }
 
     if (qr !== undefined) {

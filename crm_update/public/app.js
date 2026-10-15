@@ -3226,7 +3226,7 @@ document.addEventListener('DOMContentLoaded', () => {
         } else if (statusType === 'Restrito 7 dias') {
           calculatedStart = untilTime - (7 * 24 * 60 * 60 * 1000);
         } else if (statusType === 'Banido') {
-          calculatedStart = untilTime - (6 * 60 * 60 * 1000);
+          calculatedStart = untilTime - (8 * 60 * 60 * 1000);
         }
         startTimeVal = getLocalDateTimeString(new Date(calculatedStart));
       }
@@ -3296,7 +3296,7 @@ document.addEventListener('DOMContentLoaded', () => {
         durationGroup.style.display = 'block';
         document.getElementById('restriction-custom-time').required = true;
       } else if (statusType === 'Banido') {
-        title.textContent = 'Ajustar Banimento (6 Horas)';
+        title.textContent = 'Ajustar Banimento (8 Horas)';
         durationGroup.style.display = 'none';
         document.getElementById('restriction-custom-time').required = false;
       } else if (statusType === 'Banido Definitivo') {
@@ -3316,7 +3316,7 @@ document.addEventListener('DOMContentLoaded', () => {
         durationGroup.style.display = 'block';
         document.getElementById('restriction-custom-time').required = true;
       } else if (statusType === 'Banido') {
-        title.textContent = 'Confirmar Banimento (6 Horas)';
+        title.textContent = 'Confirmar Banimento (8 Horas)';
         durationGroup.style.display = 'none';
         document.getElementById('restriction-custom-time').required = false;
       } else if (statusType === 'Banido Definitivo') {

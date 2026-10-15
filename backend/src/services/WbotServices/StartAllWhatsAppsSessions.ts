@@ -31,6 +31,14 @@ export const StartAllWhatsAppsSessions = async (): Promise<{
     const toReconnect: Whatsapp[] = [];
     let qrCount = 0;
 
+    // Busca agrupada de uma vez só quais conexões possuem chaves no SQLite (1 query O(1))
+    const distinctKeys = (await WppKey.findAll({
+      attributes: ["connectionId"],
+      group: ["connectionId"],
+      raw: true
+    })) as Array<{ connectionId: number }>;
+    const keyConnectionIds = new Set(distinctKeys.map(k => Number(k.connectionId)));
+
     for (const whatsapp of allWhatsapps) {
       // Aparelhos já conectados ou arquivados/históricos são preservados intactos
       if (
@@ -41,14 +49,12 @@ export const StartAllWhatsAppsSessions = async (): Promise<{
         continue;
       }
 
-      // Verifica se possui chaves de sessão salvas
-      const keyCount = await WppKey.count({
-        where: { connectionId: whatsapp.id }
-      });
+      // Verifica se possui chaves de sessão salvas instantaneamente em memória
+      const hasKeys = keyConnectionIds.has(Number(whatsapp.id));
       const hasSessionString = Boolean(
         whatsapp.session && whatsapp.session.trim().length > 10
       );
-      const hasCredentials = keyCount > 0 || hasSessionString;
+      const hasCredentials = hasKeys || hasSessionString;
 
       if (!hasCredentials) {
         // Dispositivo sem credenciais (slot vazio ou não pareado):
@@ -60,17 +66,14 @@ export const StartAllWhatsAppsSessions = async (): Promise<{
         });
         qrCount++;
 
-        const updated = await Whatsapp.findByPk(whatsapp.id);
-        if (updated) {
-          io.emit("whatsappSession", {
-            action: "update",
-            session: updated
-          });
-          io.emit("whatsapp", {
-            action: "update",
-            whatsapp: updated
-          });
-        }
+        io.emit("whatsappSession", {
+          action: "update",
+          session: whatsapp
+        });
+        io.emit("whatsapp", {
+          action: "update",
+          whatsapp
+        });
       } else {
         toReconnect.push(whatsapp);
       }
@@ -83,12 +86,11 @@ export const StartAllWhatsAppsSessions = async (): Promise<{
       setQrCode: qrCount
     });
 
-    // Fila de processamento em segundo plano (Non-blocking worker):
-    // Processa em lotes de 3 a 4 com pausa de 1200ms entre lotes.
-    // Isso garante uso suave da CPU (~5%), memória estável e ZERO lock no SQLite.
+    // Fila de processamento ágil em segundo plano (Non-blocking worker):
+    // Concorrência de 10 por lote com pausa de 150ms: inicia 60-100 sessões em ~1s
     (async () => {
-      const concurrency = 3;
-      const batchDelayMs = 1200;
+      const concurrency = 10;
+      const batchDelayMs = 150;
 
       try {
         for (let offset = 0; offset < toReconnect.length; offset += concurrency) {
@@ -109,17 +111,14 @@ export const StartAllWhatsAppsSessions = async (): Promise<{
                 // Se houver falha de autenticação/chaves inválidas, mostra botão de QR Code
                 try {
                   await w.update({ status: "qrcode", retries: 0 });
-                  const fresh = await Whatsapp.findByPk(w.id);
-                  if (fresh) {
-                    io.emit("whatsappSession", {
-                      action: "update",
-                      session: fresh
-                    });
-                    io.emit("whatsapp", {
-                      action: "update",
-                      whatsapp: fresh
-                    });
-                  }
+                  io.emit("whatsappSession", {
+                    action: "update",
+                    session: w
+                  });
+                  io.emit("whatsapp", {
+                    action: "update",
+                    whatsapp: w
+                  });
                 } catch {}
               }
             })
