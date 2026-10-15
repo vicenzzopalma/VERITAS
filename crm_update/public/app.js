@@ -1606,10 +1606,12 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   function enterReorderMode(initialTargetCard) {
+    // DESATIVADO: Reordenação entre aparelhos desativada a pedido do usuário (mantido apenas entre Whatsapps dentro do aparelho)
+    const ENABLE_DEVICE_REORDER = false;
+    if (!ENABLE_DEVICE_REORDER) return;
+
     if (isReorderMode) return;
     if (!canReorderDevices()) return;
-
-    isReorderMode = true;
 
     // Feedback háptico (vibração estilo Android)
     if (navigator.vibrate) {
@@ -1706,6 +1708,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
   function attachCardReorderEvents(card, device) {
     card.dataset.deviceId = String(device.id);
+
+    // DESATIVADO: Reordenação entre aparelhos desativada a pedido do usuário (mantido apenas entre Whatsapps dentro do aparelho)
+    const ENABLE_DEVICE_REORDER = false;
+    if (!ENABLE_DEVICE_REORDER) return;
 
     // Detecção de clique contínuo (Long-press 1.8s) para ativar o modo de vibração
     const startLongPress = (clientX, clientY, target) => {
@@ -1968,6 +1974,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     row.addEventListener('mousedown', (e) => {
       if (e.button !== 0) return;
+      e.stopPropagation();
       startLongPress(e.clientX, e.clientY, e.target);
     });
 
@@ -1985,6 +1992,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // Touch support para mobile/tablets
     row.addEventListener('touchstart', (e) => {
       if (e.touches.length === 1) {
+        e.stopPropagation();
         startLongPress(e.touches[0].clientX, e.touches[0].clientY, e.target);
       }
     }, { passive: true });
@@ -2400,10 +2408,11 @@ document.addEventListener('DOMContentLoaded', () => {
       const card = document.createElement('div');
       card.className = 'device-card glass';
       attachCardReorderEvents(card, device);
-      if (isReorderMode) {
-        card.classList.add('reorder-active');
-        card.setAttribute('draggable', 'true');
-      }
+      // Reordenação entre aparelhos desativada temporariamente (mantida para caso precise reativar)
+      // if (isReorderMode) {
+      //   card.classList.add('reorder-active');
+      //   card.setAttribute('draggable', 'true');
+      // }
 
       const showActions = currentUser && currentUser.isReadonly !== 1 && currentUser.isReadonly !== true && (currentUser.username === 'vicenzzo' || currentUser.allowEditDevices === true || currentUser.allowEditDevices === 1);
 
