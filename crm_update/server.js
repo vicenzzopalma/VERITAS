@@ -1,15 +1,23 @@
 
 async function getAvailableSectorCatalog(role) {
-  const defaultSectors = ['Junior', 'Senior', 'PA FIXA 1', 'PA FIXA 2', 'Pesquisa', 'Juridico', 'Comercial'];
+  const defaultSectors = ['Junior', 'Senior', 'PA FIXA 1', 'PA FIXA 2', 'Pesquisa', 'Juridico', 'Comercial', 'RH', 'ADM', 'Financeiro'];
   const allSectors = new Set(defaultSectors);
 
-  // 1. Setores existentes em aparelhos (devices) do CRM
+  // 1. Setores existentes em aparelhos (devices), colaboradores e permissões do CRM
   try {
     const db = getDb();
     if (db) {
       const devSectors = await db.all("SELECT DISTINCT sector FROM devices WHERE sector IS NOT NULL AND TRIM(sector) != ''");
       (devSectors || []).forEach(d => {
         if (d.sector && d.sector.trim()) allSectors.add(d.sector.trim());
+      });
+      const colabSectors = await db.all("SELECT DISTINCT sector FROM collaborators WHERE sector IS NOT NULL AND TRIM(sector) != ''");
+      (colabSectors || []).forEach(c => {
+        if (c.sector && c.sector.trim()) allSectors.add(c.sector.trim());
+      });
+      const permSectors = await db.all("SELECT DISTINCT sector FROM user_sector_permissions WHERE sector IS NOT NULL AND TRIM(sector) != ''");
+      (permSectors || []).forEach(p => {
+        if (p.sector && p.sector.trim()) allSectors.add(p.sector.trim());
       });
     }
   } catch (e) {}

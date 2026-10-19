@@ -462,7 +462,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const chatSendBtn = document.getElementById('chat-send-btn');
   const chatCloseBtn = document.getElementById('chat-close-btn');
 
-  let availableSectors = ['Junior', 'Senior', 'PA FIXA 1', 'PA FIXA 2', 'Pesquisa', 'Juridico', 'Comercial'];
+  let availableSectors = ['Junior', 'Senior', 'PA FIXA 1', 'PA FIXA 2', 'Pesquisa', 'Juridico', 'Comercial', 'RH', 'ADM', 'Financeiro'];
 
   function canConfigureSector(sector) {
     if (!currentUser) return false;
@@ -593,7 +593,7 @@ document.addEventListener('DOMContentLoaded', () => {
       const existingOpts = Array.from(select.options).map(o => o.value);
       
       sectorsToCreate.forEach(sec => {
-        if (sec && !existingOpts.includes(sec)) {
+        if (sec && sec !== 'PA FIXA' && !existingOpts.includes(sec)) {
           const opt = document.createElement('option');
           opt.value = sec;
           opt.textContent = sec;
@@ -603,6 +603,40 @@ document.addEventListener('DOMContentLoaded', () => {
     };
     updateSelectOptions('device-sector-select');
     updateSelectOptions('edit-device-sector-select');
+    updateSelectOptions('new-colab-sector');
+    updateSelectOptions('edit-colab-sector');
+    updateSelectOptions('dashboard-filter-sector');
+
+    // Atualizar pílulas de filtro de colaboradores
+    const collabFiltersBar = document.getElementById('collab-sector-filters-bar');
+    if (collabFiltersBar) {
+      const existingFilterBtns = Array.from(collabFiltersBar.querySelectorAll('.collab-sector-pill')).map(b => b.getAttribute('data-sector-filter'));
+      sectorsToCreate.forEach(sec => {
+        if (sec && sec !== 'PA FIXA' && !existingFilterBtns.includes(sec)) {
+          const btn = document.createElement('button');
+          btn.type = 'button';
+          btn.className = 'collab-sector-pill';
+          btn.setAttribute('data-sector-filter', sec);
+          btn.textContent = sec;
+          collabFiltersBar.appendChild(btn);
+        }
+      });
+    }
+
+    // Atualizar abas de inventário
+    const invTabsContainer = document.getElementById('inventory-sector-tabs');
+    if (invTabsContainer) {
+      const existingInvBtns = Array.from(invTabsContainer.querySelectorAll('.tab-btn')).map(b => b.getAttribute('data-inv-sector'));
+      sectorsToCreate.forEach(sec => {
+        if (sec && sec !== 'PA FIXA' && !existingInvBtns.includes(sec)) {
+          const btn = document.createElement('button');
+          btn.className = 'tab-btn';
+          btn.setAttribute('data-inv-sector', sec);
+          btn.textContent = sec;
+          invTabsContainer.appendChild(btn);
+        }
+      });
+    }
 
     // Controlar a visibilidade das choices do split button PA FIXA
     const p1Choice = document.querySelector('.split-choice[data-subsector="PA FIXA 1"]');
@@ -691,7 +725,9 @@ document.addEventListener('DOMContentLoaded', () => {
       if (!currentUser) {
         currentUser = serverUser;
         if (Array.isArray(currentUser.availableSectors) && currentUser.availableSectors.length) {
-          availableSectors = currentUser.availableSectors;
+          const sSet = new Set(availableSectors);
+          currentUser.availableSectors.forEach(s => { if (s && String(s).trim()) sSet.add(String(s).trim()); });
+          availableSectors = Array.from(sSet);
         }
         return;
       }
@@ -703,12 +739,18 @@ document.addEventListener('DOMContentLoaded', () => {
         (serverUser.allowDashboard ? 1 : 0) !== (currentUser.allowDashboard ? 1 : 0) ||
         !!serverUser.allowAllTabs !== !!currentUser.allowAllTabs ||
         serverUser.name !== currentUser.name ||
+        JSON.stringify(serverUser.availableSectors || []) !== JSON.stringify(currentUser.availableSectors || []) ||
         JSON.stringify(serverUser.sectorPermissions || []) !== JSON.stringify(currentUser.sectorPermissions || []);
 
       if (!changed) return;
 
       const wasAbleToManageUsers = currentUser.username === 'vicenzzo' || currentUser.allowManageUsers === 1 || currentUser.allowManageUsers === true;
       currentUser = serverUser;
+      if (Array.isArray(serverUser.availableSectors) && serverUser.availableSectors.length) {
+        const sSet = new Set(availableSectors);
+        serverUser.availableSectors.forEach(s => { if (s && String(s).trim()) sSet.add(String(s).trim()); });
+        availableSectors = Array.from(sSet);
+      }
 
       updateAllTabsVisibility();
       setupReadonlyMode();
@@ -749,6 +791,11 @@ document.addEventListener('DOMContentLoaded', () => {
       }
       currentUser = data.user;
       userDisplayName.textContent = currentUser.name;
+      if (Array.isArray(currentUser.availableSectors) && currentUser.availableSectors.length) {
+        const sSet = new Set(availableSectors);
+        currentUser.availableSectors.forEach(s => { if (s && String(s).trim()) sSet.add(String(s).trim()); });
+        availableSectors = Array.from(sSet);
+      }
 
       if (isRestrictedPaFixaUser(currentUser)) {
         currentUser.allowAllTabs = 0;
@@ -4608,7 +4655,78 @@ document.addEventListener('DOMContentLoaded', () => {
     if (countEl) countEl.textContent = visibleCount;
   }
 
+  function syncCollaboratorSectorsUI() {
+    const allSectors = new Set(availableSectors);
+    if (currentUser && Array.isArray(currentUser.availableSectors)) {
+      currentUser.availableSectors.forEach(s => { if (s && String(s).trim()) allSectors.add(String(s).trim()); });
+    }
+    if (Array.isArray(devicesData)) {
+      devicesData.forEach(d => {
+        const dSec = (d.origin_sector || d.sector || '').trim();
+        if (dSec) allSectors.add(dSec);
+      });
+    }
+    if (currentUser && Array.isArray(currentUser.sectorPermissions)) {
+      currentUser.sectorPermissions.forEach(p => {
+        if (p && p.sector && p.sector.trim()) allSectors.add(p.sector.trim());
+      });
+    }
+
+    // 1. Atualizar selects nos modais e formulários
+    ['new-colab-sector', 'edit-colab-sector', 'device-sector-select', 'edit-device-sector-select', 'dashboard-filter-sector'].forEach(selectId => {
+      const select = document.getElementById(selectId);
+      if (!select) return;
+      const currentVal = select.value;
+      const existingOpts = Array.from(select.options).map(o => o.value);
+
+      allSectors.forEach(sec => {
+        if (sec && sec !== 'PA FIXA' && !existingOpts.includes(sec)) {
+          const opt = document.createElement('option');
+          opt.value = sec;
+          opt.textContent = sec;
+          select.appendChild(opt);
+        }
+      });
+      if (currentVal) {
+        select.value = currentVal;
+      }
+    });
+
+    // 2. Atualizar pílulas de filtro de colaboradores
+    const collabFiltersBar = document.getElementById('collab-sector-filters-bar');
+    if (collabFiltersBar) {
+      const existingFilterBtns = Array.from(collabFiltersBar.querySelectorAll('.collab-sector-pill')).map(b => b.getAttribute('data-sector-filter'));
+      allSectors.forEach(sec => {
+        if (sec && sec !== 'PA FIXA' && !existingFilterBtns.includes(sec)) {
+          const btn = document.createElement('button');
+          btn.type = 'button';
+          btn.className = 'collab-sector-pill';
+          btn.setAttribute('data-sector-filter', sec);
+          btn.textContent = sec;
+          collabFiltersBar.appendChild(btn);
+        }
+      });
+    }
+
+    // 3. Atualizar abas de inventário
+    const invTabsContainer = document.getElementById('inventory-sector-tabs');
+    if (invTabsContainer) {
+      const existingInvBtns = Array.from(invTabsContainer.querySelectorAll('.tab-btn')).map(b => b.getAttribute('data-inv-sector'));
+      allSectors.forEach(sec => {
+        if (sec && sec !== 'PA FIXA' && !existingInvBtns.includes(sec)) {
+          const btn = document.createElement('button');
+          btn.className = 'tab-btn';
+          btn.setAttribute('data-inv-sector', sec);
+          btn.textContent = sec;
+          invTabsContainer.appendChild(btn);
+        }
+      });
+    }
+  }
+
   function applyCollaboratorSectorScope() {
+    syncCollaboratorSectorsUI();
+
     const permittedSectors = currentUser &&
       currentUser.username !== 'vicenzzo' &&
       currentUser.allowAllTabs !== 1 &&
@@ -4628,7 +4746,11 @@ document.addEventListener('DOMContentLoaded', () => {
       const select = document.getElementById(selectId);
       if (!select) return;
       Array.from(select.options).forEach(option => {
-        option.hidden = permittedSectors !== null && !permittedSectors.includes(option.value);
+        if (!option.value) {
+          option.hidden = false;
+        } else {
+          option.hidden = permittedSectors !== null && !permittedSectors.includes(option.value);
+        }
       });
     });
 
@@ -4644,10 +4766,24 @@ document.addEventListener('DOMContentLoaded', () => {
 
   async function loadCollaboratorsList() {
     try {
+      syncCollaboratorSectorsUI();
       applyCollaboratorSectorScope();
       const response = await fetch('/api/collaborators');
       if (!response.ok) throw new Error('Erro ao buscar colaboradores');
       const collaborators = await response.json();
+      
+      let newSectorFound = false;
+      collaborators.forEach(colab => {
+        const s = (colab && colab.sector ? colab.sector : '').trim();
+        if (s && !availableSectors.includes(s)) {
+          availableSectors.push(s);
+          newSectorFound = true;
+        }
+      });
+      if (newSectorFound) {
+        syncCollaboratorSectorsUI();
+        applyCollaboratorSectorScope();
+      }
       
       const tabBadge = document.getElementById('counter-tab-colabs');
       if (tabBadge) tabBadge.textContent = collaborators.length;
@@ -4716,8 +4852,17 @@ document.addEventListener('DOMContentLoaded', () => {
     editingColabId = id;
     editColabName.value = name;
     editColabRamal.value = ramal;
+    syncCollaboratorSectorsUI();
     const sectorEl = document.getElementById('edit-colab-sector');
-    if (sectorEl) sectorEl.value = sector || 'Junior';
+    if (sectorEl) {
+      if (sector && !Array.from(sectorEl.options).some(o => o.value === sector)) {
+        const opt = document.createElement('option');
+        opt.value = sector;
+        opt.textContent = sector;
+        sectorEl.appendChild(opt);
+      }
+      sectorEl.value = sector || 'Junior';
+    }
     if (editColabErrorMsg) editColabErrorMsg.textContent = '';
     openModalEditColaborador();
   }
