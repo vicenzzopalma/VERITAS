@@ -1,4 +1,4 @@
-﻿import { defineConfig } from "vite";
+import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 
 export default defineConfig({
@@ -33,9 +33,6 @@ export default defineConfig({
     include: /src\/.*\.[jt]sx?$/,
     exclude: [],
   },
-  define: {
-    global: "globalThis",
-  },
   optimizeDeps: {
     esbuildOptions: {
       loader: {
@@ -49,10 +46,5 @@ export default defineConfig({
       "@material-ui/lab",
     ],
     exclude: [],
-  },
-  resolve: {
-    alias: {
-      "jss-plugin-globalThis": "jss-plugin-global",
-    },
   },
 });

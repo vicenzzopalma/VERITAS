@@ -1,20 +1,30 @@
 import React from "react";
 
-import { Card, Button } from "@material-ui/core";
+import { IconButton } from "@material-ui/core";
 import { makeStyles } from "@material-ui/core/styles";
 import TicketHeaderSkeleton from "../TicketHeaderSkeleton";
-import ArrowBackIos from "@material-ui/icons/ArrowBackIos";
+import ArrowBack from "@material-ui/icons/ArrowBack";
 import { useHistory } from "react-router-dom";
 
 const useStyles = makeStyles((theme) => ({
   ticketHeader: {
     display: "flex",
-    backgroundColor: "#eee",
+    alignItems: "center",
+    gap: theme.spacing(1),
     flex: "none",
-    borderBottom: "1px solid rgba(0, 0, 0, 0.12)",
+    minHeight: 68,
+    padding: theme.spacing(1, 1.5, 1, 1),
+    backgroundColor: theme.custom.surface,
+    borderBottom: `1px solid ${theme.custom.border}`,
     [theme.breakpoints.down("sm")]: {
       flexWrap: "wrap",
     },
+  },
+  backButton: {
+    flex: "none",
+    width: 36,
+    height: 36,
+    padding: 0,
   },
 }));
 
@@ -30,12 +40,17 @@ const TicketHeader = ({ loading, children }) => {
       {loading ? (
         <TicketHeaderSkeleton />
       ) : (
-        <Card square className={classes.ticketHeader}>
-          <Button color="primary" onClick={handleBack}>
-            <ArrowBackIos />
-          </Button>
+        <div className={classes.ticketHeader}>
+          <IconButton
+            size="small"
+            className={classes.backButton}
+            onClick={handleBack}
+            aria-label="back"
+          >
+            <ArrowBack fontSize="small" />
+          </IconButton>
           {children}
-        </Card>
+        </div>
       )}
     </>
   );

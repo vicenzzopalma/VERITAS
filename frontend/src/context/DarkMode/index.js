@@ -1,24 +1,53 @@
-import React, { createContext, useState, useContext, useMemo } from "react";
+import React, { createContext, useState, useContext, useMemo, useEffect } from "react";
 import PropTypes from "prop-types";
-import { createMuiTheme, ThemeProvider as MUIThemeProvider } from "@material-ui/core/styles";
+import { ThemeProvider as MUIThemeProvider } from "@material-ui/core/styles";
+import { ptBR } from "@material-ui/core/locale";
 import { CssBaseline } from "@material-ui/core";
 
-const ThemeContext = createContext();
+import { buildTheme } from "../../theme";
+
+const STORAGE_KEY = "gisaio:theme";
+const ThemeContext = createContext({ darkMode: false, toggleTheme: () => {} });
+
+const readInitialMode = () => {
+  try {
+    const saved = localStorage.getItem(STORAGE_KEY);
+    if (saved === "dark" || saved === "light") return saved === "dark";
+  } catch (e) {
+    // storage unavailable
+  }
+  return (
+    typeof window !== "undefined" &&
+    window.matchMedia &&
+    window.matchMedia("(prefers-color-scheme: dark)").matches
+  );
+};
+
+const readLocale = () => {
+  try {
+    const lng = localStorage.getItem("i18nextLng") || navigator.language || "";
+    return lng.replace("-", "").replace("_", "").substring(0, 4) === "ptBR" ? ptBR : undefined;
+  } catch (e) {
+    return undefined;
+  }
+};
 
 export const ThemeProvider = ({ children }) => {
-  const [darkMode, setDarkMode] = useState(false);
+  const [darkMode, setDarkMode] = useState(readInitialMode);
 
-  const toggleTheme = () => {
-    setDarkMode((prevMode) => !prevMode);
-  };
+  useEffect(() => {
+    try {
+      localStorage.setItem(STORAGE_KEY, darkMode ? "dark" : "light");
+    } catch (e) {
+      // ignore
+    }
+    document.documentElement.style.colorScheme = darkMode ? "dark" : "light";
+  }, [darkMode]);
+
+  const toggleTheme = () => setDarkMode((prev) => !prev);
 
   const theme = useMemo(
-    () =>
-      createMuiTheme({
-        palette: {
-          type: darkMode ? "dark" : "light",
-        },
-      }),
+    () => buildTheme(darkMode ? "dark" : "light", readLocale()),
     [darkMode]
   );
 
@@ -33,6 +62,7 @@ export const ThemeProvider = ({ children }) => {
     </ThemeContext.Provider>
   );
 };
+
 ThemeProvider.propTypes = {
   children: PropTypes.node.isRequired,
 };

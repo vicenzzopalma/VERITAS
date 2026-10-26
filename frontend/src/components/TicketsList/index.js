@@ -5,6 +5,8 @@ import { makeStyles } from "@material-ui/core/styles";
 import List from "@material-ui/core/List";
 import Paper from "@material-ui/core/Paper";
 
+import InboxOutlinedIcon from "@material-ui/icons/InboxOutlined";
+
 import TicketListItem from "../TicketListItem";
 import TicketsListSkeleton from "../TicketsListSkeleton";
 
@@ -19,52 +21,54 @@ const useStyles = makeStyles(theme => ({
 		height: "100%",
 		flexDirection: "column",
 		overflow: "hidden",
-		borderTopRightRadius: 0,
-		borderBottomRightRadius: 0,
+		border: "none",
+		borderRadius: 0,
+		backgroundColor: "transparent",
 	},
 
 	ticketsList: {
 		flex: 1,
-		overflowY: "scroll",
+		overflowY: "auto",
 		...theme.scrollbarStyles,
-		borderTop: "2px solid rgba(0, 0, 0, 0.12)",
+		border: "none",
+		backgroundColor: "transparent",
 	},
 
-	ticketsListHeader: {
-		color: "rgb(67, 83, 105)",
-		zIndex: 2,
-		backgroundColor: "white",
-		borderBottom: "1px solid rgba(0, 0, 0, 0.12)",
-		display: "flex",
-		alignItems: "center",
-		justifyContent: "space-between",
+	list: {
+		padding: theme.spacing(0.75, 0.75, 1.5),
 	},
 
-	ticketsCount: {
-		fontWeight: "normal",
-		color: "rgb(104, 121, 146)",
-		marginLeft: "8px",
-		fontSize: "14px",
+	noTicketsIcon: {
+		width: 48,
+		height: 48,
+		borderRadius: 14,
+		display: "grid",
+		placeItems: "center",
+		marginBottom: theme.spacing(1),
+		color: theme.palette.primary.main,
+		backgroundColor: theme.custom.primarySoft,
 	},
 
 	noTicketsText: {
 		textAlign: "center",
-		color: "rgb(104, 121, 146)",
-		fontSize: "14px",
-		lineHeight: "1.4",
+		color: theme.palette.text.secondary,
+		fontSize: "0.84rem",
+		lineHeight: 1.45,
+		margin: "4px 0 0",
+		maxWidth: 260,
 	},
 
 	noTicketsTitle: {
 		textAlign: "center",
-		fontSize: "16px",
-		fontWeight: "600",
-		margin: "0px",
+		fontSize: "0.95rem",
+		fontWeight: 700,
+		color: theme.palette.text.primary,
+		margin: 0,
 	},
 
 	noTicketsDiv: {
 		display: "flex",
-		height: "100px",
-		margin: 40,
+		margin: theme.spacing(5, 2),
 		flexDirection: "column",
 		alignItems: "center",
 		justifyContent: "center",
@@ -269,7 +273,7 @@ const reducer = (state, action) => {
 	};
 
 	return (
-    <Paper className={classes.ticketsListWrapper} style={style}>
+    <Paper elevation={0} className={classes.ticketsListWrapper} style={style}>
 			<Paper
 				square
 				name="closed"
@@ -277,9 +281,12 @@ const reducer = (state, action) => {
 				className={classes.ticketsList}
 				onScroll={handleScroll}
 			>
-				<List style={{ paddingTop: 0 }}>
+				<List className={classes.list}>
 					{ticketsList.length === 0 && !loading ? (
 						<div className={classes.noTicketsDiv}>
+							<div className={classes.noTicketsIcon}>
+								<InboxOutlinedIcon />
+							</div>
 							<span className={classes.noTicketsTitle}>
 								{i18n.t("ticketsList.noTicketsTitle")}
 							</span>

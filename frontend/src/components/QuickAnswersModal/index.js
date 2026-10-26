@@ -11,10 +11,13 @@ import {
   Dialog,
   DialogActions,
   DialogContent,
-  DialogTitle,
   CircularProgress,
+  IconButton,
+  Typography,
 } from "@material-ui/core";
-import { green } from "@material-ui/core/colors";
+import { alpha } from "@material-ui/core/styles";
+import FlashOnOutlinedIcon from "@material-ui/icons/FlashOnOutlined";
+import CloseIcon from "@material-ui/icons/Close";
 import { i18n } from "../../translate/i18n";
 
 import api from "../../services/api";
@@ -24,9 +27,47 @@ const useStyles = makeStyles((theme) => ({
   root: {
     flexWrap: "wrap",
   },
+  header: {
+    display: "flex",
+    alignItems: "flex-start",
+    gap: theme.spacing(1.5),
+    padding: theme.spacing(2.5, 2, 2, 3),
+    borderBottom: `1px solid ${theme.custom.border}`,
+  },
+  headerIcon: {
+    flex: "none",
+    width: 40,
+    height: 40,
+    borderRadius: 12,
+    display: "grid",
+    placeItems: "center",
+    color: theme.palette.primary.main,
+    backgroundColor: theme.custom.primarySoft,
+    "& svg": { fontSize: 20 },
+  },
+  headerText: { flex: 1, minWidth: 0 },
+  title: { fontWeight: 700, fontSize: "1.08rem", lineHeight: 1.3 },
+  subtitle: {
+    color: theme.palette.text.secondary,
+    fontSize: "0.83rem",
+    marginTop: 2,
+  },
+  content: {
+    padding: theme.spacing(2.5, 3),
+    display: "flex",
+    flexDirection: "column",
+    gap: theme.spacing(2),
+  },
+  hint: {
+    fontSize: "0.78rem",
+    color: theme.palette.text.secondary,
+    padding: theme.spacing(1, 1.5),
+    borderRadius: 10,
+    backgroundColor: alpha(theme.palette.primary.main, 0.06),
+  },
   textField: {
-    marginRight: theme.spacing(1),
     width: "100%",
+    margin: 0,
   },
 
   btnWrapper: {
@@ -34,7 +75,7 @@ const useStyles = makeStyles((theme) => ({
   },
 
   buttonProgress: {
-    color: green[500],
+    color: theme.palette.primary.main,
     position: "absolute",
     top: "50%",
     left: "50%",
@@ -135,11 +176,24 @@ const QuickAnswersModal = ({
         fullWidth
         scroll="paper"
       >
-        <DialogTitle id="form-dialog-title">
-          {quickAnswerId
-            ? `${i18n.t("quickAnswersModal.title.edit")}`
-            : `${i18n.t("quickAnswersModal.title.add")}`}
-        </DialogTitle>
+        <div className={classes.header}>
+          <div className={classes.headerIcon}>
+            <FlashOnOutlinedIcon />
+          </div>
+          <div className={classes.headerText}>
+            <Typography id="form-dialog-title" component="h2" className={classes.title}>
+              {quickAnswerId
+                ? `${i18n.t("quickAnswersModal.title.edit")}`
+                : `${i18n.t("quickAnswersModal.title.add")}`}
+            </Typography>
+            <Typography className={classes.subtitle}>
+              Mensagens prontas que o atendente insere digitando o atalho.
+            </Typography>
+          </div>
+          <IconButton size="small" onClick={handleClose} aria-label="Fechar">
+            <CloseIcon fontSize="small" />
+          </IconButton>
+        </div>
         <Formik
           initialValues={quickAnswer}
           enableReinitialize={true}
@@ -153,7 +207,7 @@ const QuickAnswersModal = ({
         >
           {({ values, errors, touched, isSubmitting }) => (
             <Form>
-              <DialogContent dividers>
+              <DialogContent className={classes.content}>
                 <div className={classes.textQuickAnswerContainer}>
                   <Field
                     as={TextField}
@@ -179,15 +233,17 @@ const QuickAnswersModal = ({
                     margin="dense"
                     className={classes.textField}
                     multiline
-                    rows={5}
+                    rows={6}
                     fullWidth
                   />
+                </div>
+                <div className={classes.hint}>
+                  Dica: no chat, digite <strong>/</strong> seguido do atalho para inserir esta mensagem.
                 </div>
               </DialogContent>
               <DialogActions>
                 <Button
                   onClick={handleClose}
-                  color="secondary"
                   disabled={isSubmitting}
                   variant="outlined"
                 >

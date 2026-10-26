@@ -9,10 +9,9 @@ const useStyles = makeStyles(theme => ({
 		objectFit: "cover",
 		width: 250,
 		height: 200,
-		borderTopLeftRadius: 8,
-		borderTopRightRadius: 8,
-		borderBottomLeftRadius: 8,
-		borderBottomRightRadius: 8,
+		borderRadius: 10,
+		display: "block",
+		cursor: "zoom-in",
 	},
 }));
 

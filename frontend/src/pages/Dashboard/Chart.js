@@ -1,95 +1,89 @@
 import React, { useState, useEffect, useRef } from "react";
 import { useTheme } from "@material-ui/core/styles";
 import {
-	BarChart,
-	CartesianGrid,
-	Bar,
-	XAxis,
-	YAxis,
-	Label,
-	ResponsiveContainer,
+  AreaChart,
+  Area,
+  CartesianGrid,
+  XAxis,
+  YAxis,
+  Tooltip,
+  ResponsiveContainer,
 } from "recharts";
 import { startOfHour, parseISO, format } from "date-fns";
 
-import { i18n } from "../../translate/i18n";
-
-import Title from "./Title";
 import useTickets from "../../hooks/useTickets";
 
+const HOURS = [
+  "08:00", "09:00", "10:00", "11:00", "12:00", "13:00",
+  "14:00", "15:00", "16:00", "17:00", "18:00", "19:00",
+];
+
 const Chart = () => {
-	const theme = useTheme();
+  const theme = useTheme();
+  const c = theme.custom;
+  const date = useRef(new Date().toISOString());
+  const { tickets } = useTickets({ date: date.current });
 
-	const date = useRef(new Date().toISOString());
-	const { tickets } = useTickets({ date: date.current });
+  const [chartData, setChartData] = useState(HOURS.map((time) => ({ time, amount: 0 })));
 
-	const [chartData, setChartData] = useState([
-		{ time: "08:00", amount: 0 },
-		{ time: "09:00", amount: 0 },
-		{ time: "10:00", amount: 0 },
-		{ time: "11:00", amount: 0 },
-		{ time: "12:00", amount: 0 },
-		{ time: "13:00", amount: 0 },
-		{ time: "14:00", amount: 0 },
-		{ time: "15:00", amount: 0 },
-		{ time: "16:00", amount: 0 },
-		{ time: "17:00", amount: 0 },
-		{ time: "18:00", amount: 0 },
-		{ time: "19:00", amount: 0 },
-	]);
+  useEffect(() => {
+    const counts = HOURS.map((time) => ({ time, amount: 0 }));
+    tickets.forEach((ticket) => {
+      const hour = format(startOfHour(parseISO(ticket.createdAt)), "HH:mm");
+      const slot = counts.find((a) => a.time === hour);
+      if (slot) slot.amount++;
+    });
+    setChartData(counts);
+  }, [tickets]);
 
-	useEffect(() => {
-		setChartData(prevState => {
-			let aux = [...prevState];
+  const primary = theme.palette.primary.main;
 
-			aux.forEach(a => {
-				tickets.forEach(ticket => {
-					format(startOfHour(parseISO(ticket.createdAt)), "HH:mm") === a.time &&
-						a.amount++;
-				});
-			});
-
-			return aux;
-		});
-	}, [tickets]);
-
-	return (
-		<React.Fragment>
-			<Title>{`${i18n.t("dashboard.charts.perDay.title")}${
-				tickets.length
-			}`}</Title>
-			<ResponsiveContainer>
-				<BarChart
-					data={chartData}
-					barSize={40}
-					width={730}
-					height={250}
-					margin={{
-						top: 16,
-						right: 16,
-						bottom: 0,
-						left: 24,
-					}}
-				>
-					<CartesianGrid strokeDasharray="3 3" />
-					<XAxis dataKey="time" stroke={theme.palette.text.secondary} />
-					<YAxis
-						type="number"
-						allowDecimals={false}
-						stroke={theme.palette.text.secondary}
-					>
-						<Label
-							angle={270}
-							position="left"
-							style={{ textAnchor: "middle", fill: theme.palette.text.primary }}
-						>
-							Tickets
-						</Label>
-					</YAxis>
-					<Bar dataKey="amount" fill={theme.palette.primary.main} />
-				</BarChart>
-			</ResponsiveContainer>
-		</React.Fragment>
-	);
+  return (
+    <ResponsiveContainer>
+      <AreaChart data={chartData} margin={{ top: 8, right: 8, bottom: 0, left: -16 }}>
+        <defs>
+          <linearGradient id="ticketsFill" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor={primary} stopOpacity={0.28} />
+            <stop offset="100%" stopColor={primary} stopOpacity={0} />
+          </linearGradient>
+        </defs>
+        <CartesianGrid vertical={false} stroke={c.border} />
+        <XAxis
+          dataKey="time"
+          tickLine={false}
+          axisLine={false}
+          tick={{ fill: c.textSubtle, fontSize: 12 }}
+          dy={6}
+        />
+        <YAxis
+          allowDecimals={false}
+          tickLine={false}
+          axisLine={false}
+          tick={{ fill: c.textSubtle, fontSize: 12 }}
+        />
+        <Tooltip
+          cursor={{ stroke: c.borderStrong, strokeDasharray: "4 4" }}
+          contentStyle={{
+            background: c.surface,
+            border: `1px solid ${c.border}`,
+            borderRadius: 10,
+            boxShadow: c.shadowLg,
+            fontSize: 12,
+          }}
+          labelStyle={{ color: c.textMuted, fontWeight: 600 }}
+          formatter={(v) => [v, "Tickets"]}
+        />
+        <Area
+          type="monotone"
+          dataKey="amount"
+          stroke={primary}
+          strokeWidth={2.5}
+          fill="url(#ticketsFill)"
+          activeDot={{ r: 5, strokeWidth: 2, stroke: c.surface }}
+        />
+      </AreaChart>
+    </ResponsiveContainer>
+  );
 };
 
 export default Chart;

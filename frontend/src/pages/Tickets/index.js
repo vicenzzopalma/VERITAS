@@ -1,66 +1,81 @@
 import React from "react";
 import { useParams } from "react-router-dom";
-import Grid from "@material-ui/core/Grid";
 import Paper from "@material-ui/core/Paper";
+import Hidden from "@material-ui/core/Hidden";
 import { makeStyles } from "@material-ui/core/styles";
+import ForumOutlinedIcon from "@material-ui/icons/ForumOutlined";
 
 import TicketsManager from "../../components/TicketsManager/";
 import Ticket from "../../components/Ticket/";
+import { EmptyState } from "../../components/ui";
 
 import { i18n } from "../../translate/i18n";
-import Hidden from "@material-ui/core/Hidden";
 
 const useStyles = makeStyles((theme) => ({
   chatContainer: {
     flex: 1,
-    // // backgroundColor: "#eee",
-    // padding: theme.spacing(4),
     height: `calc(100% - 48px)`,
-    overflowY: "hidden",
-    backgroundColor: theme.palette.background.default,
+    overflow: "hidden",
+    backgroundColor: theme.custom.bg,
+    padding: theme.spacing(2),
+    [theme.breakpoints.down("sm")]: {
+      padding: theme.spacing(1),
+    },
   },
 
   chatPapper: {
-    // backgroundColor: "red",
     display: "flex",
     height: "100%",
-    backgroundColor: theme.palette.background.paper,
+    gap: theme.spacing(2),
+    minHeight: 0,
   },
 
   contactsWrapper: {
     display: "flex",
-    height: "100%",
     flexDirection: "column",
-    overflowY: "hidden",
+    height: "100%",
+    minWidth: 0,
+    overflow: "hidden",
+    flex: "0 0 380px",
+    maxWidth: "36%",
+    [theme.breakpoints.down("sm")]: {
+      flex: "1 1 100%",
+      maxWidth: "100%",
+    },
   },
   contactsWrapperSmall: {
-    display: "flex",
-    height: "100%",
-    flexDirection: "column",
-    overflowY: "hidden",
     [theme.breakpoints.down("sm")]: {
       display: "none",
     },
   },
   messagessWrapper: {
     display: "flex",
-    height: "100%",
     flexDirection: "column",
-  },
-  welcomeMsg: {
-    backgroundColor: theme.palette.background.paper,
-    display: "flex",
-    justifyContent: "space-evenly",
-    alignItems: "center",
+    flex: 1,
+    minWidth: 0,
     height: "100%",
-    textAlign: "center",
-    borderRadius: 0,
   },
-  ticketsManager: {},
-  ticketsManagerClosed: {
+  messagessWrapperHiddenSmall: {
     [theme.breakpoints.down("sm")]: {
       display: "none",
     },
+  },
+  welcomeMsg: {
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    height: "100%",
+    borderRadius: 16,
+    border: `1px solid ${theme.custom.border}`,
+    ...theme.custom.dotGrid,
+  },
+  welcomeInner: {
+    maxWidth: 380,
+    padding: theme.spacing(2),
+    borderRadius: 16,
+    backgroundColor: theme.custom.surface,
+    border: `1px solid ${theme.custom.border}`,
+    boxShadow: theme.custom.shadow,
   },
 }));
 
@@ -71,34 +86,33 @@ const Chat = () => {
   return (
     <div className={classes.chatContainer}>
       <div className={classes.chatPapper}>
-        <Grid container spacing={0}>
-          {/* <Grid item xs={4} className={classes.contactsWrapper}> */}
-          <Grid
-            item
-            xs={12}
-            md={4}
-            className={
-              ticketId ? classes.contactsWrapperSmall : classes.contactsWrapper
-            }
-          >
-            <TicketsManager />
-          </Grid>
-          <Grid item xs={12} md={8} className={classes.messagessWrapper}>
-            {/* <Grid item xs={8} className={classes.messagessWrapper}> */}
-            {ticketId ? (
-              <>
-                <Ticket />
-              </>
-            ) : (
-              <Hidden only={["sm", "xs"]}>
-                <Paper className={classes.welcomeMsg}>
-                  {/* <Paper square variant="outlined" className={classes.welcomeMsg}> */}
-                  <span>{i18n.t("chat.noTicketMessage")}</span>
-                </Paper>
-              </Hidden>
-            )}
-          </Grid>
-        </Grid>
+        <div
+          className={`${classes.contactsWrapper} ${
+            ticketId ? classes.contactsWrapperSmall : ""
+          }`}
+        >
+          <TicketsManager />
+        </div>
+        <div
+          className={`${classes.messagessWrapper} ${
+            ticketId ? "" : classes.messagessWrapperHiddenSmall
+          }`}
+        >
+          {ticketId ? (
+            <Ticket />
+          ) : (
+            <Hidden only={["sm", "xs"]}>
+              <Paper elevation={0} className={classes.welcomeMsg}>
+                <div className={classes.welcomeInner}>
+                  <EmptyState
+                    icon={<ForumOutlinedIcon />}
+                    title={i18n.t("chat.noTicketMessage")}
+                  />
+                </div>
+              </Paper>
+            </Hidden>
+          )}
+        </div>
       </div>
     </div>
   );

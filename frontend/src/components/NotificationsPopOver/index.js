@@ -7,11 +7,11 @@ import useSound from "use-sound";
 import Popover from "@material-ui/core/Popover";
 import IconButton from "@material-ui/core/IconButton";
 import List from "@material-ui/core/List";
-import ListItem from "@material-ui/core/ListItem";
-import ListItemText from "@material-ui/core/ListItemText";
 import { makeStyles } from "@material-ui/core/styles";
 import Badge from "@material-ui/core/Badge";
 import ChatIcon from "@material-ui/icons/Chat";
+import NotificationsNoneIcon from "@material-ui/icons/NotificationsNone";
+import { EmptyState } from "../ui";
 
 import TicketListItem from "../TicketListItem";
 import { i18n } from "../../translate/i18n";
@@ -22,12 +22,17 @@ import { AuthContext } from "../../context/Auth/AuthContext";
 const useStyles = makeStyles(theme => ({
 	tabContainer: {
 		overflowY: "auto",
-		maxHeight: 350,
+		maxHeight: 420,
+		padding: theme.spacing(0.75),
 		...theme.scrollbarStyles,
 	},
 	popoverPaper: {
 		width: "100%",
-		maxWidth: 350,
+		maxWidth: 380,
+		marginTop: theme.spacing(1),
+		borderRadius: 16,
+		border: `1px solid ${theme.custom.border}`,
+		boxShadow: theme.custom.shadowLg,
 		marginLeft: theme.spacing(2),
 		marginRight: theme.spacing(1),
 		[theme.breakpoints.down("sm")]: {
@@ -196,7 +201,7 @@ const NotificationsPopOver = () => {
 				aria-label="Open Notifications"
 				className={classes.iconButton}
 			>
-				<Badge badgeContent={notifications.length} color="secondary">
+				<Badge badgeContent={notifications.length} color="primary">
 					<ChatIcon />
 				</Badge>
 			</IconButton>
@@ -217,9 +222,10 @@ const NotificationsPopOver = () => {
 			>
 				<List dense className={classes.tabContainer}>
 					{notifications.length === 0 ? (
-						<ListItem>
-							<ListItemText>{i18n.t("notifications.noTickets")}</ListItemText>
-						</ListItem>
+						<EmptyState
+							icon={<NotificationsNoneIcon />}
+							title={i18n.t("notifications.noTickets")}
+						/>
 					) : (
 						notifications.map(ticket => (
 							<NotificationTicket key={ticket.id}>

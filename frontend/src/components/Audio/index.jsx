@@ -52,15 +52,24 @@ export default function({url}) {
     };
 
     return (
-        <>
-            <audio ref={audioRef} controls style={{ width: "100%", maxWidth: 280, height: 40 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 6, padding: "2px 0" }}>
+            <audio ref={audioRef} controls style={{ width: "100%", maxWidth: 280, minWidth: 220, height: 40, borderRadius: 999 }}>
                 <source src={url} type="audio/ogg" />
                 <source src={url} type="audio/mp4" />
                 <source src={url} type="audio/mpeg" />
                 <source src={url} type="audio/wav" />
                 Seu navegador não suporta este áudio.
             </audio>
-            {showButtonRate && <Button style={{marginLeft: "5px", marginTop: "-45px"}} onClick={toogleRate}>{audioRate}x</Button>}
-        </>
+            {showButtonRate && (
+                <Button
+                    size="small"
+                    variant="outlined"
+                    style={{ minWidth: 0, padding: "2px 10px", borderRadius: 999, fontSize: "0.72rem", flex: "none" }}
+                    onClick={toogleRate}
+                >
+                    {audioRate}x
+                </Button>
+            )}
+        </div>
     );
 }

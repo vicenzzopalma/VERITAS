@@ -2,6 +2,10 @@ import React, { useContext, useEffect, useRef, useState } from "react";
 
 import MenuItem from "@material-ui/core/MenuItem";
 import Menu from "@material-ui/core/Menu";
+import ListItemIcon from "@material-ui/core/ListItemIcon";
+import { useTheme } from "@material-ui/core/styles";
+import SwapHorizIcon from "@material-ui/icons/SwapHoriz";
+import DeleteOutlineIcon from "@material-ui/icons/DeleteOutline";
 
 import { i18n } from "../../translate/i18n";
 import api from "../../services/api";
@@ -16,6 +20,7 @@ const TicketOptionsMenu = ({ ticket, menuOpen, handleClose, anchorEl }) => {
 	const [transferTicketModalOpen, setTransferTicketModalOpen] = useState(false);
 	const isMounted = useRef(true);
 	const { user } = useContext(AuthContext);
+	const theme = useTheme();
 
 	useEffect(() => {
 		return () => {
@@ -66,13 +71,24 @@ const TicketOptionsMenu = ({ ticket, menuOpen, handleClose, anchorEl }) => {
 				onClose={handleClose}
 			>
 				<MenuItem onClick={handleOpenTransferModal}>
+					<ListItemIcon style={{ minWidth: 32 }}>
+						<SwapHorizIcon fontSize="small" />
+					</ListItemIcon>
 					{i18n.t("ticketOptionsMenu.transfer")}
 				</MenuItem>
 				<Can
 					role={user.profile}
 					perform="ticket-options:deleteTicket"
 					yes={() => (
-						<MenuItem onClick={handleOpenConfirmationModal}>
+						<MenuItem
+							onClick={handleOpenConfirmationModal}
+							style={{ color: theme.palette.error.main }}
+						>
+							<ListItemIcon
+								style={{ minWidth: 32, color: theme.palette.error.main }}
+							>
+								<DeleteOutlineIcon fontSize="small" />
+							</ListItemIcon>
 							{i18n.t("ticketOptionsMenu.delete")}
 						</MenuItem>
 					)}

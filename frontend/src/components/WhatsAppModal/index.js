@@ -4,7 +4,6 @@ import { Formik, Form, Field } from "formik";
 import { toast } from "react-toastify";
 
 import { makeStyles } from "@material-ui/core/styles";
-import { green } from "@material-ui/core/colors";
 
 import {
 	Dialog,
@@ -31,9 +30,32 @@ const useStyles = makeStyles(theme => ({
 
 	multFieldLine: {
 		display: "flex",
-		"& > *:not(:last-child)": {
-			marginRight: theme.spacing(1),
-		},
+		alignItems: "center",
+		flexWrap: "wrap",
+		gap: theme.spacing(2),
+		marginBottom: theme.spacing(1),
+	},
+
+	textField: {
+		flex: "1 1 240px",
+	},
+
+	defaultToggle: {
+		margin: 0,
+		padding: theme.spacing(0.5, 1.5, 0.5, 0.5),
+		borderRadius: 10,
+		border: `1px solid ${theme.custom.border}`,
+		backgroundColor: theme.custom.surfaceAlt,
+		marginTop: 4,
+		"& .MuiFormControlLabel-label": { fontWeight: 600, fontSize: "0.86rem" },
+	},
+
+	content: {
+		display: "flex",
+		flexDirection: "column",
+		gap: theme.spacing(0.5),
+		paddingTop: theme.spacing(2),
+		paddingBottom: theme.spacing(2),
 	},
 
 	btnWrapper: {
@@ -41,7 +63,7 @@ const useStyles = makeStyles(theme => ({
 	},
 
 	buttonProgress: {
-		color: green[500],
+		color: theme.palette.primary.contrastText,
 		position: "absolute",
 		top: "50%",
 		left: "50%",
@@ -133,7 +155,7 @@ const WhatsAppModal = ({ open, onClose, whatsAppId }) => {
 				>
 					{({ values, touched, errors, isSubmitting }) => (
 						<Form>
-							<DialogContent dividers>
+							<DialogContent dividers className={classes.content}>
 								<div className={classes.multFieldLine}>
 									<Field
 										as={TextField}
@@ -156,6 +178,7 @@ const WhatsAppModal = ({ open, onClose, whatsAppId }) => {
 											/>
 										}
 										label={i18n.t("whatsappModal.form.default")}
+										className={classes.defaultToggle}
 									/>
 								</div>
 								<div>
@@ -204,7 +227,6 @@ const WhatsAppModal = ({ open, onClose, whatsAppId }) => {
 							<DialogActions>
 								<Button
 									onClick={handleClose}
-									color="secondary"
 									disabled={isSubmitting}
 									variant="outlined"
 								>

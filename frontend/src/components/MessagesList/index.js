@@ -4,7 +4,7 @@ import { isSameDay, parseISO, format } from "date-fns";
 import openSocket from "../../services/socket-io";
 import clsx from "clsx";
 
-import { green } from "@material-ui/core/colors";
+import { alpha } from "@material-ui/core/styles";
 import {
   Button,
   CircularProgress,
@@ -26,241 +26,242 @@ import VcardPreview from "../VcardPreview";
 import LocationPreview from "../LocationPreview";
 import ModalImageCors from "../ModalImageCors";
 import MessageOptionsMenu from "../MessageOptionsMenu";
-import whatsBackground from "../../assets/wa-background.png";
 
 import api from "../../services/api";
 import toastError from "../../errors/toastError";
 import Audio from "../Audio";
 import { getContactDisplayName, formatPhoneNumber } from "../../helpers/contactHelper";
 
-const useStyles = makeStyles((theme) => ({
-  messagesListWrapper: {
-    overflow: "hidden",
-    position: "relative",
-    display: "flex",
-    flexDirection: "column",
-    flexGrow: 1,
-  },
-
-  messagesList: {
-    backgroundImage: `url(${whatsBackground})`,
-    display: "flex",
-    flexDirection: "column",
-    flexGrow: 1,
-    padding: "20px 20px 20px 20px",
-    overflowY: "scroll",
-    [theme.breakpoints.down("sm")]: {
-      paddingBottom: "90px",
-    },
-    ...theme.scrollbarStyles,
-  },
-
-  circleLoading: {
-    color: green[500],
-    position: "absolute",
-    opacity: "70%",
-    top: 0,
-    left: "50%",
-    marginTop: 12,
-  },
-
-  messageLeft: {
-    marginRight: 20,
-    marginTop: 2,
+const useStyles = makeStyles((theme) => {
+  const c = theme.custom;
+  const isDark = theme.palette.type === "dark";
+  const bubbleBase = {
+    marginTop: 3,
     minWidth: 100,
-    maxWidth: 600,
+    maxWidth: "min(600px, 78%)",
     height: "auto",
     display: "block",
     position: "relative",
     "&:hover #messageActionsButton": {
       display: "flex",
       position: "absolute",
-      top: 0,
-      right: 0,
+      top: 2,
+      right: 2,
     },
-
     whiteSpace: "pre-wrap",
-    backgroundColor: "#ffffff",
-    color: "#303030",
-    alignSelf: "flex-start",
-    borderTopLeftRadius: 0,
-    borderTopRightRadius: 8,
-    borderBottomLeftRadius: 8,
-    borderBottomRightRadius: 8,
-    paddingLeft: 5,
-    paddingRight: 5,
-    paddingTop: 5,
-    paddingBottom: 0,
-    boxShadow: "0 1px 1px #b3b3b3",
-  },
+    color: c.text,
+    fontSize: "0.9rem",
+    lineHeight: 1.45,
+    borderRadius: 14,
+    padding: "6px 6px 0",
+    boxShadow: isDark ? "none" : "0 1px 1px rgba(16,24,40,0.04)",
+  };
 
-  quotedContainerLeft: {
-    margin: "-3px -80px 6px -6px",
-    overflow: "hidden",
-    backgroundColor: "#f0f0f0",
-    borderRadius: "7.5px",
-    display: "flex",
-    position: "relative",
-  },
-
-  quotedMsg: {
-    padding: 10,
-    maxWidth: 300,
-    height: "auto",
-    display: "block",
-    whiteSpace: "pre-wrap",
-    overflow: "hidden",
-  },
-
-  quotedSideColorLeft: {
-    flex: "none",
-    width: "4px",
-    backgroundColor: "#6bcbef",
-  },
-
-  messageRight: {
-    marginLeft: 20,
-    marginTop: 2,
-    minWidth: 100,
-    maxWidth: 600,
-    height: "auto",
-    display: "block",
-    position: "relative",
-    "&:hover #messageActionsButton": {
+  return {
+    messagesListWrapper: {
+      overflow: "hidden",
+      position: "relative",
       display: "flex",
-      position: "absolute",
-      top: 0,
-      right: 0,
+      flexDirection: "column",
+      flexGrow: 1,
+      minHeight: 0,
     },
 
-    whiteSpace: "pre-wrap",
-    backgroundColor: "#dcf8c6",
-    color: "#303030",
-    alignSelf: "flex-end",
-    borderTopLeftRadius: 8,
-    borderTopRightRadius: 8,
-    borderBottomLeftRadius: 8,
-    borderBottomRightRadius: 0,
-    paddingLeft: 5,
-    paddingRight: 5,
-    paddingTop: 5,
-    paddingBottom: 0,
-    boxShadow: "0 1px 1px #b3b3b3",
-  },
+    messagesList: {
+      ...c.dotGrid,
+      display: "flex",
+      flexDirection: "column",
+      flexGrow: 1,
+      padding: "20px 24px",
+      overflowY: "scroll",
+      [theme.breakpoints.down("sm")]: {
+        padding: "16px 12px",
+        paddingBottom: "90px",
+      },
+      ...theme.scrollbarStyles,
+    },
 
-  quotedContainerRight: {
-    margin: "-3px -80px 6px -6px",
-    overflowY: "hidden",
-    backgroundColor: "#cfe9ba",
-    borderRadius: "7.5px",
-    display: "flex",
-    position: "relative",
-  },
+    circleLoading: {
+      color: theme.palette.primary.main,
+      position: "absolute",
+      opacity: "80%",
+      top: 0,
+      left: "50%",
+      marginTop: 12,
+      marginLeft: -16,
+    },
 
-  quotedMsgRight: {
-    padding: 10,
-    maxWidth: 300,
-    height: "auto",
-    whiteSpace: "pre-wrap",
-  },
+    messageLeft: {
+      ...bubbleBase,
+      marginRight: 20,
+      alignSelf: "flex-start",
+      backgroundColor: c.surface,
+      border: `1px solid ${c.border}`,
+      borderTopLeftRadius: 4,
+    },
 
-  quotedSideColorRight: {
-    flex: "none",
-    width: "4px",
-    backgroundColor: "#35cd96",
-  },
+    quotedContainerLeft: {
+      margin: "-2px -72px 6px -4px",
+      overflow: "hidden",
+      backgroundColor: c.surfaceAlt,
+      border: `1px solid ${c.border}`,
+      borderRadius: 10,
+      display: "flex",
+      position: "relative",
+      fontSize: "0.82rem",
+      color: c.textMuted,
+    },
 
-  messageActionsButton: {
-    display: "none",
-    position: "relative",
-    color: "#999",
-    zIndex: 1,
-    backgroundColor: "inherit",
-    opacity: "90%",
-    "&:hover, &.Mui-focusVisible": { backgroundColor: "inherit" },
-  },
+    quotedMsg: {
+      padding: "8px 10px",
+      maxWidth: 300,
+      height: "auto",
+      display: "block",
+      whiteSpace: "pre-wrap",
+      overflow: "hidden",
+    },
 
-  messageContactName: {
-    display: "flex",
-    color: "#6bcbef",
-    fontWeight: 500,
-  },
+    quotedSideColorLeft: {
+      flex: "none",
+      width: "3px",
+      backgroundColor: theme.palette.secondary.main,
+    },
 
-  textContentItem: {
-    overflowWrap: "break-word",
-    padding: "3px 80px 6px 6px",
-  },
+    messageRight: {
+      ...bubbleBase,
+      marginLeft: 20,
+      alignSelf: "flex-end",
+      backgroundColor: c.primarySoft,
+      border: `1px solid ${alpha(theme.palette.primary.main, isDark ? 0.28 : 0.16)}`,
+      borderTopRightRadius: 4,
+    },
 
-  textContentItemDeleted: {
-    fontStyle: "italic",
-    color: "rgba(0, 0, 0, 0.36)",
-    overflowWrap: "break-word",
-    padding: "3px 80px 6px 6px",
-  },
+    quotedContainerRight: {
+      margin: "-2px -72px 6px -4px",
+      overflowY: "hidden",
+      backgroundColor: alpha(theme.palette.primary.main, isDark ? 0.12 : 0.07),
+      borderColor: "transparent",
+      borderRadius: 10,
+      display: "flex",
+      position: "relative",
+    },
 
-  messageMedia: {
-    objectFit: "cover",
-    width: 250,
-    height: 200,
-    borderTopLeftRadius: 8,
-    borderTopRightRadius: 8,
-    borderBottomLeftRadius: 8,
-    borderBottomRightRadius: 8,
-  },
+    quotedMsgRight: {
+      padding: 10,
+      maxWidth: 300,
+      height: "auto",
+      whiteSpace: "pre-wrap",
+    },
 
-  timestamp: {
-    fontSize: 11,
-    position: "absolute",
-    bottom: 0,
-    right: 5,
-    color: "#999",
-  },
+    quotedSideColorRight: {
+      flex: "none",
+      width: "3px",
+      backgroundColor: theme.palette.primary.main,
+    },
 
-  dailyTimestamp: {
-    alignItems: "center",
-    textAlign: "center",
-    alignSelf: "center",
-    width: "110px",
-    backgroundColor: "#e1f3fb",
-    margin: "10px",
-    borderRadius: "10px",
-    boxShadow: "0 1px 1px #b3b3b3",
-  },
+    messageActionsButton: {
+      display: "none",
+      position: "relative",
+      color: c.textSubtle,
+      zIndex: 1,
+      padding: 2,
+      borderRadius: 8,
+      backgroundColor: "inherit",
+      opacity: "95%",
+      "&:hover, &.Mui-focusVisible": {
+        backgroundColor: "inherit",
+        color: c.text,
+      },
+    },
 
-  dailyTimestampText: {
-    color: "#808888",
-    padding: 8,
-    alignSelf: "center",
-    marginLeft: "0px",
-  },
+    messageContactName: {
+      display: "flex",
+      color: theme.palette.secondary.main,
+      fontWeight: 650,
+      fontSize: "0.8rem",
+      paddingLeft: 4,
+    },
 
-  ackIcons: {
-    fontSize: 18,
-    verticalAlign: "middle",
-    marginLeft: 4,
-  },
+    textContentItem: {
+      overflowWrap: "break-word",
+      padding: "2px 72px 8px 4px",
+    },
 
-  deletedIcon: {
-    fontSize: 18,
-    verticalAlign: "middle",
-    marginRight: 4,
-  },
+    textContentItemDeleted: {
+      fontStyle: "italic",
+      color: c.textSubtle,
+      overflowWrap: "break-word",
+      padding: "2px 72px 8px 4px",
+    },
 
-  ackDoneAllIcon: {
-    color: green[500],
-    fontSize: 18,
-    verticalAlign: "middle",
-    marginLeft: 4,
-  },
+    messageMedia: {
+      objectFit: "cover",
+      width: 250,
+      height: 200,
+      borderRadius: 10,
+    },
 
-  downloadMedia: {
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: "inherit",
-    padding: 10,
-  },
-}));
+    timestamp: {
+      fontSize: 11,
+      fontWeight: 500,
+      position: "absolute",
+      bottom: 5,
+      right: 8,
+      display: "inline-flex",
+      alignItems: "center",
+      color: c.textSubtle,
+      letterSpacing: "0.01em",
+    },
+
+    dailyTimestamp: {
+      display: "flex",
+      alignItems: "center",
+      alignSelf: "center",
+      margin: "14px 0 8px",
+      padding: "3px 12px",
+      borderRadius: 999,
+      backgroundColor: c.surface,
+      border: `1px solid ${c.border}`,
+      boxShadow: c.shadow,
+    },
+
+    dailyTimestampText: {
+      color: c.textMuted,
+      fontSize: "0.72rem",
+      fontWeight: 650,
+      letterSpacing: "0.02em",
+    },
+
+    ackIcons: {
+      fontSize: 15,
+      verticalAlign: "middle",
+      marginLeft: 4,
+      color: c.textSubtle,
+    },
+
+    deletedIcon: {
+      fontSize: 16,
+      verticalAlign: "middle",
+      marginRight: 4,
+    },
+
+    ackDoneAllIcon: {
+      // "read" ack keeps the familiar WhatsApp-like green
+      color: theme.palette.success.main,
+      fontSize: 15,
+      verticalAlign: "middle",
+      marginLeft: 4,
+    },
+
+    downloadMedia: {
+      display: "flex",
+      alignItems: "center",
+      justifyContent: "center",
+      backgroundColor: "inherit",
+      padding: 10,
+    },
+  };
+});
 
 const reducer = (state, action) => {
   if (action.type === "LOAD_MESSAGES") {
@@ -561,7 +562,7 @@ const MessagesList = ({ ticketId, isGroup }) => {
 
       if (messageUser !== previousMessageUser) {
         return (
-          <span style={{ marginTop: 16 }} key={`divider-${message.id}`}></span>
+          <span style={{ marginTop: 12 }} key={`divider-${message.id}`}></span>
         );
       }
     }
@@ -694,7 +695,7 @@ const MessagesList = ({ ticketId, isGroup }) => {
       </div>
       {loading && (
         <div>
-          <CircularProgress className={classes.circleLoading} />
+          <CircularProgress size={32} className={classes.circleLoading} />
         </div>
       )}
     </div>

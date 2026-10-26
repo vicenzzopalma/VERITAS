@@ -1,81 +1,187 @@
 import React, { useState } from "react";
+import clsx from "clsx";
 import {
   Dialog,
   DialogTitle,
   DialogContent,
   DialogActions,
   Button,
-  FormControl,
-  FormLabel,
-  RadioGroup,
-  FormControlLabel,
-  Radio,
+  ButtonBase,
   Typography,
   CircularProgress,
   makeStyles,
-  Box,
-  Divider,
+  useTheme,
 } from "@material-ui/core";
+import { alpha } from "@material-ui/core/styles";
 import DescriptionOutlinedIcon from "@material-ui/icons/DescriptionOutlined";
 import GetAppOutlinedIcon from "@material-ui/icons/GetAppOutlined";
-import PrintOutlinedIcon from "@material-ui/icons/PrintOutlined";
 import TableChartOutlinedIcon from "@material-ui/icons/TableChartOutlined";
 import CodeOutlinedIcon from "@material-ui/icons/CodeOutlined";
+import CheckCircleIcon from "@material-ui/icons/CheckCircle";
+import SmartphoneIcon from "@material-ui/icons/Smartphone";
+import PersonOutlineIcon from "@material-ui/icons/PersonOutline";
+import BlockIcon from "@material-ui/icons/Block";
+import GavelIcon from "@material-ui/icons/Gavel";
 import api from "../../services/api";
 import { toast } from "react-toastify";
 
-const useStyles = makeStyles((theme) => ({
-  dialogTitle: {
-    background: "linear-gradient(135deg, #1e293b 0%, #0f172a 100%)",
-    color: "#fff",
-    display: "flex",
-    alignItems: "center",
-    gap: theme.spacing(1.5),
-    padding: theme.spacing(2, 3),
+const FORMAT_OPTIONS = [
+  {
+    value: "csv",
+    title: "Planilha (.CSV / Excel)",
+    description: "Auditoria em massa, planilhas e cruzamento de dados.",
+    Icon: TableChartOutlinedIcon,
+    tone: "info",
+    badge: "Mais usado",
   },
-  dialogTitleIcon: {
-    color: "#38bdf8",
-    fontSize: 28,
+  {
+    value: "txt",
+    title: "Laudo pericial (.TXT)",
+    description: "Cabeçalho pericial com timestamps exatos, remetentes e marcações de auditoria.",
+    Icon: DescriptionOutlinedIcon,
+    tone: "success",
+    badge: "Jurídico",
   },
-  content: {
-    padding: theme.spacing(3),
+  {
+    value: "json",
+    title: "Dados estruturados (.JSON)",
+    description: "Payload completo com metadados técnicos de mensagens e mídias.",
+    Icon: CodeOutlinedIcon,
+    tone: "secondary",
   },
-  formatCard: {
-    border: "1px solid #e2e8f0",
-    borderRadius: 8,
-    padding: theme.spacing(1.5, 2),
-    marginBottom: theme.spacing(1.5),
-    transition: "all 0.2s ease-in-out",
-    cursor: "pointer",
-    display: "flex",
-    alignItems: "center",
-    "&:hover": {
-      borderColor: "#0284c7",
-      backgroundColor: "#f0f9ff",
+];
+
+const useStyles = makeStyles((theme) => {
+  const c = theme.custom;
+  const isDark = theme.palette.type === "dark";
+  return {
+    dialogTitle: {
+      display: "flex",
+      alignItems: "center",
+      gap: theme.spacing(1.5),
+      padding: theme.spacing(2.5, 3, 1.5),
     },
-  },
-  formatCardSelected: {
-    borderColor: "#0284c7",
-    backgroundColor: "#f0f9ff",
-    boxShadow: "0 0 0 1px #0284c7",
-  },
-  badgePill: {
-    backgroundColor: "#e0f2fe",
-    color: "#0369a1",
-    fontSize: "0.75rem",
-    fontWeight: 600,
-    padding: "2px 8px",
-    borderRadius: 12,
-    marginLeft: "auto",
-  },
-  summaryBox: {
-    backgroundColor: "#f8fafc",
-    borderRadius: 8,
-    padding: theme.spacing(1.5),
-    marginBottom: theme.spacing(2),
-    border: "1px dashed #cbd5e1",
-  },
-}));
+    titleIcon: {
+      width: 42,
+      height: 42,
+      borderRadius: 12,
+      display: "grid",
+      placeItems: "center",
+      flex: "none",
+      color: theme.palette.primary.main,
+      backgroundColor: c.primarySoft,
+      "& svg": { fontSize: 22 },
+    },
+    title: { fontWeight: 750, fontSize: "1.08rem", letterSpacing: "-0.01em", lineHeight: 1.25 },
+    subtitle: { color: c.textMuted, fontSize: "0.78rem" },
+    content: {
+      padding: theme.spacing(1, 3, 2.5),
+    },
+    summaryBox: {
+      backgroundColor: c.surfaceAlt,
+      border: `1px solid ${c.border}`,
+      borderRadius: 12,
+      padding: theme.spacing(1.5, 2),
+      marginBottom: theme.spacing(2.5),
+      display: "flex",
+      flexDirection: "column",
+      gap: 6,
+    },
+    summaryRow: {
+      display: "flex",
+      alignItems: "center",
+      gap: 8,
+      fontSize: "0.84rem",
+      color: c.textMuted,
+      "& svg": { fontSize: 17, color: c.textSubtle },
+    },
+    summaryValue: { color: theme.palette.text.primary, fontWeight: 650 },
+    warn: {
+      display: "inline-flex",
+      alignItems: "center",
+      gap: 6,
+      alignSelf: "flex-start",
+      marginTop: 2,
+      padding: "3px 10px",
+      borderRadius: 999,
+      fontSize: "0.74rem",
+      fontWeight: 650,
+      color: theme.palette.error.main,
+      backgroundColor: alpha(theme.palette.error.main, isDark ? 0.16 : 0.1),
+      "& svg": { fontSize: 14 },
+    },
+    legend: {
+      fontSize: "0.72rem",
+      fontWeight: 700,
+      letterSpacing: "0.04em",
+      textTransform: "uppercase",
+      color: `${c.textSubtle} !important`,
+      marginBottom: theme.spacing(1.25),
+    },
+    formatGrid: {
+      display: "grid",
+      gridTemplateColumns: "repeat(3, minmax(0, 1fr))",
+      gap: theme.spacing(1.5),
+      [theme.breakpoints.down("xs")]: { gridTemplateColumns: "1fr" },
+    },
+    formatCard: {
+      position: "relative",
+      display: "flex",
+      flexDirection: "column",
+      alignItems: "flex-start",
+      textAlign: "left",
+      gap: 6,
+      padding: theme.spacing(1.75),
+      borderRadius: 14,
+      border: `1px solid ${c.border}`,
+      backgroundColor: c.surface,
+      transition: "border-color .15s, background-color .15s, box-shadow .15s",
+      "&:hover": { borderColor: c.borderStrong, backgroundColor: c.surfaceHover },
+      "&.Mui-focusVisible": { boxShadow: `0 0 0 3px ${c.primarySoft}` },
+    },
+    formatCardSelected: {
+      borderColor: `${theme.palette.primary.main} !important`,
+      backgroundColor: `${c.primarySoft} !important`,
+      boxShadow: `0 0 0 1px ${theme.palette.primary.main}`,
+    },
+    formatIcon: {
+      width: 36,
+      height: 36,
+      borderRadius: 10,
+      display: "grid",
+      placeItems: "center",
+      marginBottom: 4,
+      "& svg": { fontSize: 20 },
+    },
+    formatTitle: { fontWeight: 700, fontSize: "0.86rem", lineHeight: 1.3 },
+    formatDesc: { fontSize: "0.74rem", color: c.textMuted, lineHeight: 1.4 },
+    check: {
+      position: "absolute",
+      top: 10,
+      right: 10,
+      fontSize: 20,
+      color: theme.palette.primary.main,
+    },
+    badgePill: {
+      position: "absolute",
+      top: 12,
+      right: 12,
+      fontSize: "0.66rem",
+      fontWeight: 700,
+      padding: "1px 8px",
+      borderRadius: 999,
+    },
+    actions: {
+      padding: theme.spacing(1.5, 3, 2.5),
+      borderTop: `1px solid ${c.border}`,
+    },
+  };
+});
+
+const toneStyle = (theme, tone) => {
+  const col = theme.palette[tone].main;
+  return { color: col, backgroundColor: alpha(col, theme.palette.type === "dark" ? 0.16 : 0.1) };
+};
 
 const ExportAuditModal = ({
   open,
@@ -89,6 +195,7 @@ const ExportAuditModal = ({
   mediaType,
 }) => {
   const classes = useStyles();
+  const theme = useTheme();
   const [format, setFormat] = useState("csv");
   const [loading, setLoading] = useState(false);
 
@@ -168,109 +275,79 @@ const ExportAuditModal = ({
   };
 
   return (
-    <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
+    <Dialog open={open} onClose={onClose} maxWidth="md" fullWidth>
       <DialogTitle disableTypography className={classes.dialogTitle}>
-        <DescriptionOutlinedIcon className={classes.dialogTitleIcon} />
+        <div className={classes.titleIcon}>
+          <GavelIcon />
+        </div>
         <div>
-          <Typography variant="h6" style={{ fontWeight: 600 }}>
-            Exportar Laudo de Auditoria & Conversa
-          </Typography>
-          <Typography variant="caption" style={{ color: "#94a3b8" }}>
-            Cofre Autônomo WhatsApp • Conformidade Jurídica & Compliance
+          <Typography className={classes.title}>Exportar laudo de auditoria</Typography>
+          <Typography className={classes.subtitle}>
+            Cofre WhatsApp · conformidade jurídica & compliance
           </Typography>
         </div>
       </DialogTitle>
 
       <DialogContent className={classes.content}>
         <div className={classes.summaryBox}>
-          <Typography variant="body2" style={{ fontWeight: 600, color: "#334155" }}>
-            📱 Aparelho:{" "}
-            <span style={{ color: "#0284c7" }}>
-              {selectedDevice?.name || "Todos os Aparelhos"}
-            </span>
-          </Typography>
+          <div className={classes.summaryRow}>
+            <SmartphoneIcon />
+            <span>Aparelho:</span>
+            <span className={classes.summaryValue}>{selectedDevice?.name || "Todos os Aparelhos"}</span>
+          </div>
           {selectedChat && (
-            <Typography variant="body2" style={{ fontWeight: 600, color: "#334155" }}>
-              👤 Conversa:{" "}
-              <span style={{ color: "#0f766e" }}>
+            <div className={classes.summaryRow}>
+              <PersonOutlineIcon />
+              <span>Conversa:</span>
+              <span className={classes.summaryValue}>
                 {selectedChat.contact?.name || "Sem Nome"} ({selectedChat.contact?.number})
               </span>
-            </Typography>
+            </div>
           )}
           {onlyDeleted && (
-            <Typography
-              variant="caption"
-              style={{ color: "#dc2626", fontWeight: "bold", display: "block", marginTop: 4 }}
-            >
-              ⚠️ Filtro ativo: Apenas mensagens apagadas no WhatsApp (Anti-Delete)
-            </Typography>
+            <span className={classes.warn}>
+              <BlockIcon />
+              Filtro ativo: apenas mensagens apagadas no WhatsApp (anti-delete)
+            </span>
           )}
         </div>
 
-        <FormControl component="fieldset" style={{ width: "100%" }}>
-          <FormLabel component="legend" style={{ marginBottom: 12, fontWeight: 600, color: "#1e293b" }}>
-            Selecione o Formato do Laudo / Arquivo:
-          </FormLabel>
-          <RadioGroup value={format} onChange={(e) => setFormat(e.target.value)}>
-            {/* Opção CSV */}
-            <div
-              className={`${classes.formatCard} ${format === "csv" ? classes.formatCardSelected : ""}`}
-              onClick={() => setFormat("csv")}
-            >
-              <TableChartOutlinedIcon style={{ color: "#0284c7", marginRight: 12 }} />
-              <div style={{ flexGrow: 1 }}>
-                <Typography variant="subtitle2" style={{ fontWeight: 600 }}>
-                  Planilha Tabular (.CSV / Excel)
-                </Typography>
-                <Typography variant="caption" color="textSecondary">
-                  Ideal para auditoria em massa, planilhas e cruzamento de dados
-                </Typography>
-              </div>
-              <span className={classes.badgePill}>Mais Usado</span>
-            </div>
-
-            {/* Opção TXT */}
-            <div
-              className={`${classes.formatCard} ${format === "txt" ? classes.formatCardSelected : ""}`}
-              onClick={() => setFormat("txt")}
-            >
-              <DescriptionOutlinedIcon style={{ color: "#059669", marginRight: 12 }} />
-              <div style={{ flexGrow: 1 }}>
-                <Typography variant="subtitle2" style={{ fontWeight: 600 }}>
-                  Laudo Pericial em Texto (.TXT)
-                </Typography>
-                <Typography variant="caption" color="textSecondary">
-                  Cabeçalho pericial com timestamps exatos, remetentes e badges de auditoria
-                </Typography>
-              </div>
-              <span className={classes.badgePill} style={{ backgroundColor: "#d1fae5", color: "#065f46" }}>
-                Jurídico
-              </span>
-            </div>
-
-            {/* Opção JSON */}
-            <div
-              className={`${classes.formatCard} ${format === "json" ? classes.formatCardSelected : ""}`}
-              onClick={() => setFormat("json")}
-            >
-              <CodeOutlinedIcon style={{ color: "#7c3aed", marginRight: 12 }} />
-              <div style={{ flexGrow: 1 }}>
-                <Typography variant="subtitle2" style={{ fontWeight: 600 }}>
-                  Dados Estruturados (.JSON)
-                </Typography>
-                <Typography variant="caption" color="textSecondary">
-                  Payload completo com metadados técnicos de mensagens e mídias
-                </Typography>
-              </div>
-            </div>
-          </RadioGroup>
-        </FormControl>
+        <Typography component="div" className={classes.legend} id="export-format-label">
+          Formato do laudo
+        </Typography>
+        <div className={classes.formatGrid} role="radiogroup" aria-labelledby="export-format-label">
+          {FORMAT_OPTIONS.map(({ value, title, description, Icon, tone, badge }) => {
+            const selected = format === value;
+            return (
+              <ButtonBase
+                key={value}
+                role="radio"
+                aria-checked={selected}
+                className={clsx(classes.formatCard, selected && classes.formatCardSelected)}
+                onClick={() => setFormat(value)}
+              >
+                <div className={classes.formatIcon} style={toneStyle(theme, tone)}>
+                  <Icon />
+                </div>
+                {selected ? (
+                  <CheckCircleIcon className={classes.check} />
+                ) : (
+                  badge && (
+                    <span className={classes.badgePill} style={toneStyle(theme, tone)}>
+                      {badge}
+                    </span>
+                  )
+                )}
+                <span className={classes.formatTitle}>{title}</span>
+                <span className={classes.formatDesc}>{description}</span>
+              </ButtonBase>
+            );
+          })}
+        </div>
       </DialogContent>
 
-      <Divider />
-
-      <DialogActions style={{ padding: "16px 24px" }}>
-        <Button onClick={onClose} disabled={loading} style={{ color: "#64748b" }}>
+      <DialogActions className={classes.actions}>
+        <Button onClick={onClose} disabled={loading}>
           Cancelar
         </Button>
         <Button
@@ -279,15 +356,8 @@ const ExportAuditModal = ({
           onClick={handleExport}
           disabled={loading}
           startIcon={loading ? <CircularProgress size={18} color="inherit" /> : <GetAppOutlinedIcon />}
-          style={{
-            backgroundColor: "#0284c7",
-            color: "#fff",
-            fontWeight: 600,
-            textTransform: "none",
-            padding: "8px 20px",
-          }}
         >
-          {loading ? "Gerando Laudo..." : "Baixar Laudo de Auditoria"}
+          {loading ? "Gerando laudo..." : "Baixar laudo"}
         </Button>
       </DialogActions>
     </Dialog>

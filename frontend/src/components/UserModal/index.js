@@ -9,8 +9,8 @@ import {
 	Dialog,
 	DialogActions,
 	DialogContent,
-	DialogTitle,
 	CircularProgress,
+	Typography,
 	Select,
 	InputLabel,
 	MenuItem,
@@ -20,10 +20,9 @@ import {
 	IconButton
   } from '@material-ui/core';
 
-import { Visibility, VisibilityOff } from '@material-ui/icons';
+import { Visibility, VisibilityOff, Close, PersonAddOutlined, PersonOutline } from '@material-ui/icons';
 
 import { makeStyles } from "@material-ui/core/styles";
-import { green } from "@material-ui/core/colors";
 
 import { i18n } from "../../translate/i18n";
 
@@ -39,11 +38,54 @@ const useStyles = makeStyles(theme => ({
 		display: "flex",
 		flexWrap: "wrap",
 	},
+	header: {
+		display: "flex",
+		alignItems: "flex-start",
+		gap: theme.spacing(1.5),
+		padding: theme.spacing(2.5, 2, 2, 3),
+		borderBottom: `1px solid ${theme.custom.border}`,
+	},
+	headerIcon: {
+		flex: "none",
+		width: 40,
+		height: 40,
+		borderRadius: 12,
+		display: "grid",
+		placeItems: "center",
+		color: theme.palette.primary.main,
+		backgroundColor: theme.custom.primarySoft,
+		"& svg": { fontSize: 20 },
+	},
+	headerText: { flex: 1, minWidth: 0 },
+	title: { fontWeight: 700, fontSize: "1.08rem", lineHeight: 1.3 },
+	subtitle: {
+		color: theme.palette.text.secondary,
+		fontSize: "0.83rem",
+		marginTop: 2,
+	},
+	content: {
+		padding: theme.spacing(2.5, 3),
+		display: "flex",
+		flexDirection: "column",
+		gap: theme.spacing(1.5),
+		"& .MuiFormControl-marginDense": { marginTop: 0, marginBottom: 0 },
+	},
+	sectionLabel: {
+		fontSize: "0.7rem",
+		fontWeight: 700,
+		textTransform: "uppercase",
+		letterSpacing: "0.08em",
+		color: theme.palette.text.secondary,
+	},
+	sectionSpacer: {
+		marginTop: theme.spacing(1.5),
+		paddingTop: theme.spacing(2),
+		borderTop: `1px dashed ${theme.custom.border}`,
+	},
 	multFieldLine: {
 		display: "flex",
-		"& > *:not(:last-child)": {
-			marginRight: theme.spacing(1),
-		},
+		gap: theme.spacing(1.5),
+		[theme.breakpoints.down("xs")]: { flexDirection: "column" },
 	},
 
 	btnWrapper: {
@@ -51,7 +93,7 @@ const useStyles = makeStyles(theme => ({
 	},
 
 	buttonProgress: {
-		color: green[500],
+		color: theme.palette.primary.main,
 		position: "absolute",
 		top: "50%",
 		left: "50%",
@@ -59,8 +101,9 @@ const useStyles = makeStyles(theme => ({
 		marginLeft: -12,
 	},
 	formControl: {
-		margin: theme.spacing(1),
-		minWidth: 120,
+		margin: 0,
+		minWidth: 160,
+		[theme.breakpoints.down("xs")]: { width: "100%" },
 	},
 }));
 
@@ -135,15 +178,28 @@ const UserModal = ({ open, onClose, userId }) => {
 			<Dialog
 				open={open}
 				onClose={handleClose}
-				maxWidth="xs"
+				maxWidth="sm"
 				fullWidth
 				scroll="paper"
 			>
-				<DialogTitle id="form-dialog-title">
-					{userId
-						? `${i18n.t("userModal.title.edit")}`
-						: `${i18n.t("userModal.title.add")}`}
-				</DialogTitle>
+				<div className={classes.header}>
+					<div className={classes.headerIcon}>
+						{userId ? <PersonOutline /> : <PersonAddOutlined />}
+					</div>
+					<div className={classes.headerText}>
+						<Typography id="form-dialog-title" component="h2" className={classes.title}>
+							{userId
+								? `${i18n.t("userModal.title.edit")}`
+								: `${i18n.t("userModal.title.add")}`}
+						</Typography>
+						<Typography className={classes.subtitle}>
+							Dados de acesso, perfil e filas de atendimento do usuário.
+						</Typography>
+					</div>
+					<IconButton size="small" onClick={handleClose} aria-label="Fechar">
+						<Close fontSize="small" />
+					</IconButton>
+				</div>
 				<Formik
 					initialValues={user}
 					enableReinitialize={true}
@@ -156,8 +212,11 @@ const UserModal = ({ open, onClose, userId }) => {
 					}}
 				>
 					{({ touched, errors, isSubmitting }) => (
-						<Form>
-							<DialogContent dividers>
+						<Form style={{ display: "flex", flexDirection: "column", minHeight: 0 }}>
+							<DialogContent className={classes.content}>
+								<Typography className={classes.sectionLabel}>
+									Dados de acesso
+								</Typography>
 								<div className={classes.multFieldLine}>
 									<Field
 										as={TextField}
@@ -183,6 +242,7 @@ const UserModal = ({ open, onClose, userId }) => {
 										endAdornment: (
 											<InputAdornment position="end">
 											<IconButton
+												size="small"
 												aria-label="toggle password visibility"
 												onClick={() => setShowPassword((e) => !e)}
 											>
@@ -228,6 +288,7 @@ const UserModal = ({ open, onClose, userId }) => {
 														required
 													>
 														<MenuItem value="admin">Admin</MenuItem>
+														<MenuItem value="master">Master</MenuItem>
 														<MenuItem value="user">User</MenuItem>
 													</Field>
 												</>
@@ -235,6 +296,17 @@ const UserModal = ({ open, onClose, userId }) => {
 										/>
 									</FormControl>
 								</div>
+								<Can
+									role={loggedInUser.profile}
+									perform="user-modal:editQueues"
+									yes={() => (
+										<Typography
+											className={`${classes.sectionLabel} ${classes.sectionSpacer}`}
+										>
+											Atendimento
+										</Typography>
+									)}
+								/>
 								<Can
 									role={loggedInUser.profile}
 									perform="user-modal:editQueues"
@@ -269,7 +341,6 @@ const UserModal = ({ open, onClose, userId }) => {
 							<DialogActions>
 								<Button
 									onClick={handleClose}
-									color="secondary"
 									disabled={isSubmitting}
 									variant="outlined"
 								>

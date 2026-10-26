@@ -1,67 +1,30 @@
 import React, { useState, useContext } from "react";
 import { Link as RouterLink } from "react-router-dom";
-
 import {
-  Avatar,
   Button,
-  CssBaseline,
   TextField,
-  Grid,
-  Box,
-  Typography,
-  Container,
   InputAdornment,
   IconButton,
-  Link
-} from '@material-ui/core';
-
-import { LockOutlined, Visibility, VisibilityOff } from '@material-ui/icons';
-
-import { makeStyles } from "@material-ui/core/styles";
+  Link,
+  makeStyles,
+} from "@material-ui/core";
+import { Visibility, VisibilityOff, MailOutline, LockOutlined } from "@material-ui/icons";
 
 import { i18n } from "../../translate/i18n";
-
 import { AuthContext } from "../../context/Auth/AuthContext";
-
-// const Copyright = () => {
-// 	return (
-// 		<Typography variant="body2" color="textSecondary" align="center">
-// 			{"Copyleft "}
-// 			<Link color="inherit" href="https://github.com/canove">
-// 				Canove
-// 			</Link>{" "}
-// 			{new Date().getFullYear()}
-// 			{"."}
-// 		</Typography>
-// 	);
-// };
+import AuthShell from "../../components/AuthShell";
 
 const useStyles = makeStyles((theme) => ({
-  paper: {
-    marginTop: theme.spacing(8),
-    display: "flex",
-    flexDirection: "column",
-    alignItems: "center",
-  },
-  avatar: {
-    margin: theme.spacing(1),
-    backgroundColor: theme.palette.secondary.main,
-  },
-  form: {
-    width: "100%", // Fix IE 11 issue.
-    marginTop: theme.spacing(1),
-  },
-  submit: {
-    margin: theme.spacing(3, 0, 2),
-  },
+  form: { display: "flex", flexDirection: "column", gap: theme.spacing(2) },
+  adornIcon: { color: theme.custom.textSubtle, fontSize: 20 },
+  submit: { height: 46, fontSize: "0.95rem", marginTop: theme.spacing(1) },
+  alt: { textAlign: "center", fontSize: "0.86rem", color: theme.custom.textMuted, marginTop: theme.spacing(1) },
 }));
 
 const Login = () => {
   const classes = useStyles();
-
   const [user, setUser] = useState({ email: "", password: "" });
   const [showPassword, setShowPassword] = useState(false);
-
   const { handleLogin } = useContext(AuthContext);
 
   const handleChangeInput = (e) => {
@@ -74,79 +37,68 @@ const Login = () => {
   };
 
   return (
-    <Container component="main" maxWidth="xs">
-      <CssBaseline />
-      <div className={classes.paper}>
-        <Avatar className={classes.avatar}>
-          <LockOutlined />
-        </Avatar>
-        <Typography component="h1" variant="h5">
-          {i18n.t("login.title")}
-        </Typography>
-        <form className={classes.form} noValidate onSubmit={handlSubmit}>
-          <TextField
-            variant="outlined"
-            margin="normal"
-            required
-            fullWidth
-            id="email"
-            label={i18n.t("login.form.email")}
-            name="email"
-            value={user.email}
-            onChange={handleChangeInput}
-            autoComplete="email"
-            autoFocus
-          />
-          <TextField
-            variant="outlined"
-            margin="normal"
-            required
-            fullWidth
-            name="password"
-            label={i18n.t("login.form.password")}
-            id="password"
-            value={user.password}
-            onChange={handleChangeInput}
-            autoComplete="current-password"
-            type={showPassword ? 'text' : 'password'}
-            InputProps={{
-              endAdornment: (
-                <InputAdornment position="end">
-                  <IconButton
-                    aria-label="toggle password visibility"
-                    onClick={() => setShowPassword((e) => !e)}
-                  >
-                    {showPassword ? <VisibilityOff /> : <Visibility />}
-                  </IconButton>
-                </InputAdornment>
-              )
-            }}
-          />
-          <Button
-            type="submit"
-            fullWidth
-            variant="contained"
-            color="primary"
-            className={classes.submit}
-          >
-            {i18n.t("login.buttons.submit")}
-          </Button>
-          <Grid container>
-            <Grid item>
-              <Link
-                href="#"
-                variant="body2"
-                component={RouterLink}
-                to="/signup"
-              >
-                {i18n.t("login.buttons.register")}
-              </Link>
-            </Grid>
-          </Grid>
-        </form>
-      </div>
-      <Box mt={8}>{/* <Copyright /> */}</Box>
-    </Container>
+    <AuthShell title="Bem-vindo de volta" subtitle="Entre com sua conta para acessar o painel.">
+      <form className={classes.form} noValidate onSubmit={handlSubmit}>
+        <TextField
+          variant="outlined"
+          required
+          fullWidth
+          id="email"
+          label={i18n.t("login.form.email")}
+          name="email"
+          value={user.email}
+          onChange={handleChangeInput}
+          autoComplete="email"
+          autoFocus
+          InputProps={{
+            startAdornment: (
+              <InputAdornment position="start">
+                <MailOutline className={classes.adornIcon} />
+              </InputAdornment>
+            ),
+          }}
+        />
+        <TextField
+          variant="outlined"
+          required
+          fullWidth
+          name="password"
+          label={i18n.t("login.form.password")}
+          id="password"
+          value={user.password}
+          onChange={handleChangeInput}
+          autoComplete="current-password"
+          type={showPassword ? "text" : "password"}
+          InputProps={{
+            startAdornment: (
+              <InputAdornment position="start">
+                <LockOutlined className={classes.adornIcon} />
+              </InputAdornment>
+            ),
+            endAdornment: (
+              <InputAdornment position="end">
+                <IconButton
+                  aria-label="Mostrar ou ocultar senha"
+                  onClick={() => setShowPassword((e) => !e)}
+                  edge="end"
+                  size="small"
+                >
+                  {showPassword ? <VisibilityOff fontSize="small" /> : <Visibility fontSize="small" />}
+                </IconButton>
+              </InputAdornment>
+            ),
+          }}
+        />
+        <Button type="submit" fullWidth variant="contained" color="primary" className={classes.submit}>
+          {i18n.t("login.buttons.submit")}
+        </Button>
+        <div className={classes.alt}>
+          <Link component={RouterLink} to="/signup" style={{ fontWeight: 600 }}>
+            {i18n.t("login.buttons.register")}
+          </Link>
+        </div>
+      </form>
+    </AuthShell>
   );
 };
 

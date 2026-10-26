@@ -16,6 +16,25 @@ const useStyles = makeStyles(theme => ({
 	},
 	chip: {
 		margin: 2,
+		height: 24,
+		fontSize: "0.74rem",
+		color: theme.palette.text.primary,
+		borderColor: theme.custom.border,
+		backgroundColor: theme.custom.surfaceAlt,
+	},
+	chipDot: {
+		width: 8,
+		height: 8,
+		borderRadius: "50%",
+		marginLeft: 8,
+		flex: "none",
+	},
+	menuDot: {
+		width: 8,
+		height: 8,
+		borderRadius: "50%",
+		marginRight: 10,
+		flex: "none",
 	},
 }));
 
@@ -66,7 +85,12 @@ const QueueSelect = ({ selectedQueueIds, onChange }) => {
 									return queue ? (
 										<Chip
 											key={id}
-											style={{ backgroundColor: queue.color }}
+											icon={
+												<span
+													className={classes.chipDot}
+													style={{ backgroundColor: queue.color }}
+												/>
+											}
 											variant="outlined"
 											label={queue.name}
 											className={classes.chip}
@@ -78,6 +102,10 @@ const QueueSelect = ({ selectedQueueIds, onChange }) => {
 				>
 					{queues.map(queue => (
 						<MenuItem key={queue.id} value={queue.id}>
+							<span
+								className={classes.menuDot}
+								style={{ backgroundColor: queue.color }}
+							/>
 							{queue.name}
 						</MenuItem>
 					))}

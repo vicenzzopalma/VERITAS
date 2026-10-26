@@ -13,13 +13,14 @@ import Paper from "@material-ui/core/Paper";
 import Button from "@material-ui/core/Button";
 import Avatar from "@material-ui/core/Avatar";
 import WhatsAppIcon from "@material-ui/icons/WhatsApp";
-import SearchIcon from "@material-ui/icons/Search";
-import TextField from "@material-ui/core/TextField";
-import InputAdornment from "@material-ui/core/InputAdornment";
+import Tooltip from "@material-ui/core/Tooltip";
 
 import IconButton from "@material-ui/core/IconButton";
 import DeleteOutlineIcon from "@material-ui/icons/DeleteOutline";
-import EditIcon from "@material-ui/icons/Edit";
+import EditOutlinedIcon from "@material-ui/icons/EditOutlined";
+import PersonAddOutlinedIcon from "@material-ui/icons/PersonAddOutlined";
+import ContactsOutlinedIcon from "@material-ui/icons/ContactsOutlined";
+import CloudDownloadOutlinedIcon from "@material-ui/icons/CloudDownloadOutlined";
 
 import api from "../../services/api";
 import TableRowSkeleton from "../../components/TableRowSkeleton";
@@ -27,10 +28,8 @@ import ContactModal from "../../components/ContactModal";
 import ConfirmationModal from "../../components/ConfirmationModal/";
 
 import { i18n } from "../../translate/i18n";
-import MainHeader from "../../components/MainHeader";
-import Title from "../../components/Title";
-import MainHeaderButtonsWrapper from "../../components/MainHeaderButtonsWrapper";
 import MainContainer from "../../components/MainContainer";
+import { PageHeader, SearchField, EmptyState } from "../../components/ui";
 import toastError from "../../errors/toastError";
 import { AuthContext } from "../../context/Auth/AuthContext";
 import { Can } from "../../components/Can";
@@ -81,11 +80,37 @@ const reducer = (state, action) => {
 };
 
 const useStyles = makeStyles((theme) => ({
-  mainPaper: {
+  tableCard: {
     flex: 1,
-    padding: theme.spacing(1),
-    overflowY: "scroll",
+    minHeight: 0,
+    borderRadius: 16,
+    overflowY: "auto",
     ...theme.scrollbarStyles,
+  },
+  person: {
+    display: "flex",
+    alignItems: "center",
+    gap: theme.spacing(1.5),
+    minWidth: 0,
+  },
+  avatar: { width: 34, height: 34, fontSize: "0.85rem" },
+  name: { fontWeight: 600, color: theme.palette.text.primary },
+  number: {
+    fontVariantNumeric: "tabular-nums",
+    whiteSpace: "nowrap",
+    color: theme.palette.text.primary,
+  },
+  muted: { color: theme.palette.text.secondary },
+  subtle: { color: theme.custom.textSubtle },
+  whatsBtn: {
+    "&:hover": { color: theme.palette.success.main },
+  },
+  actions: {
+    whiteSpace: "nowrap",
+    "& > *:not(:first-child)": { marginLeft: 4 },
+  },
+  deleteBtn: {
+    "&:hover": { color: theme.palette.error.main },
   },
 }));
 
@@ -217,7 +242,7 @@ const Contacts = () => {
   };
 
   return (
-    <MainContainer className={classes.mainContainer}>
+    <MainContainer>
       <ContactModal
         open={contactModalOpen}
         onClose={handleCloseContactModal}
@@ -244,55 +269,44 @@ const Contacts = () => {
           ? `${i18n.t("contacts.confirmationModal.deleteMessage")}`
           : `${i18n.t("contacts.confirmationModal.importMessage")}`}
       </ConfirmationModal>
-      <MainHeader>
-        <Title>{i18n.t("contacts.title")}</Title>
-        <MainHeaderButtonsWrapper>
-          <TextField
-            placeholder={i18n.t("contacts.searchPlaceholder")}
-            type="search"
-            value={searchParam}
-            onChange={handleSearch}
-            InputProps={{
-              startAdornment: (
-                <InputAdornment position="start">
-                  <SearchIcon style={{ color: "gray" }} />
-                </InputAdornment>
-              ),
-            }}
-          />
-          <Button
-            variant="contained"
-            color="primary"
-            onClick={(e) => setConfirmOpen(true)}
-          >
-            {i18n.t("contacts.buttons.import")}
-          </Button>
-          <Button
-            variant="contained"
-            color="primary"
-            onClick={handleOpenContactModal}
-          >
-            {i18n.t("contacts.buttons.add")}
-          </Button>
-        </MainHeaderButtonsWrapper>
-      </MainHeader>
-      <Paper
-        className={classes.mainPaper}
-        variant="outlined"
-        onScroll={handleScroll}
-      >
-        <Table size="small">
+      <PageHeader
+        icon={<ContactsOutlinedIcon />}
+        title={i18n.t("contacts.title")}
+        subtitle="Sua base de clientes. Inicie conversas ou edite dados em um clique."
+        actions={
+          <>
+            <SearchField
+              placeholder={i18n.t("contacts.searchPlaceholder")}
+              type="search"
+              value={searchParam}
+              onChange={handleSearch}
+            />
+            <Button
+              variant="outlined"
+              startIcon={<CloudDownloadOutlinedIcon />}
+              onClick={(e) => setConfirmOpen(true)}
+            >
+              {i18n.t("contacts.buttons.import")}
+            </Button>
+            <Button
+              variant="contained"
+              color="primary"
+              startIcon={<PersonAddOutlinedIcon />}
+              onClick={handleOpenContactModal}
+            >
+              {i18n.t("contacts.buttons.add")}
+            </Button>
+          </>
+        }
+      />
+      <Paper className={classes.tableCard} onScroll={handleScroll}>
+        <Table size="small" stickyHeader>
           <TableHead>
             <TableRow>
-              <TableCell padding="checkbox" />
               <TableCell>{i18n.t("contacts.table.name")}</TableCell>
-              <TableCell align="center">
-                {i18n.t("contacts.table.whatsapp")}
-              </TableCell>
-              <TableCell align="center">
-                {i18n.t("contacts.table.email")}
-              </TableCell>
-              <TableCell align="center">
+              <TableCell>{i18n.t("contacts.table.whatsapp")}</TableCell>
+              <TableCell>{i18n.t("contacts.table.email")}</TableCell>
+              <TableCell align="right">
                 {i18n.t("contacts.table.actions")}
               </TableCell>
             </TableRow>
@@ -300,50 +314,104 @@ const Contacts = () => {
           <TableBody>
             <>
               {contacts.map((contact) => (
-                <TableRow key={contact.id}>
-                  <TableCell style={{ paddingRight: 0 }}>
-                    {<Avatar src={contact.profilePicUrl}>{getContactDisplayName(contact).charAt(0).toUpperCase()}</Avatar>}
+                <TableRow key={contact.id} hover>
+                  <TableCell>
+                    <div className={classes.person}>
+                      <Avatar
+                        className={classes.avatar}
+                        src={contact.profilePicUrl}
+                      >
+                        {getContactDisplayName(contact).charAt(0).toUpperCase()}
+                      </Avatar>
+                      <span className={classes.name}>
+                        {getContactDisplayName(contact)}
+                      </span>
+                    </div>
                   </TableCell>
-                  <TableCell style={{ fontWeight: 600 }}>{getContactDisplayName(contact)}</TableCell>
-                  <TableCell align="center">
-                    {formatPhoneNumber(contact.number) || "-"}
+                  <TableCell className={classes.number}>
+                    {formatPhoneNumber(contact.number) || (
+                      <span className={classes.subtle}>—</span>
+                    )}
                   </TableCell>
-                  <TableCell align="center">{contact.email}</TableCell>
-                  <TableCell align="center">
-                    <IconButton
-                      size="small"
-                      onClick={() => handleSaveTicket(contact.id)}
-                    >
-                      <WhatsAppIcon />
-                    </IconButton>
-                    <IconButton
-                      size="small"
-                      onClick={() => hadleEditContact(contact.id)}
-                    >
-                      <EditIcon />
-                    </IconButton>
+                  <TableCell className={classes.muted}>
+                    {contact.email || <span className={classes.subtle}>—</span>}
+                  </TableCell>
+                  <TableCell align="right" className={classes.actions}>
+                    <Tooltip title="Iniciar conversa">
+                      <IconButton
+                        size="small"
+                        className={classes.whatsBtn}
+                        onClick={() => handleSaveTicket(contact.id)}
+                      >
+                        <WhatsAppIcon fontSize="small" />
+                      </IconButton>
+                    </Tooltip>
+                    <Tooltip title="Editar">
+                      <IconButton
+                        size="small"
+                        onClick={() => hadleEditContact(contact.id)}
+                      >
+                        <EditOutlinedIcon fontSize="small" />
+                      </IconButton>
+                    </Tooltip>
                     <Can
                       role={user.profile}
                       perform="contacts-page:deleteContact"
                       yes={() => (
-                        <IconButton
-                          size="small"
-                          onClick={(e) => {
-                            setConfirmOpen(true);
-                            setDeletingContact(contact);
-                          }}
-                        >
-                          <DeleteOutlineIcon />
-                        </IconButton>
+                        <Tooltip title="Excluir">
+                          <IconButton
+                            size="small"
+                            className={classes.deleteBtn}
+                            onClick={(e) => {
+                              setConfirmOpen(true);
+                              setDeletingContact(contact);
+                            }}
+                          >
+                            <DeleteOutlineIcon fontSize="small" />
+                          </IconButton>
+                        </Tooltip>
                       )}
                     />
                   </TableCell>
                 </TableRow>
               ))}
-              {loading && <TableRowSkeleton avatar columns={3} />}
+              {loading && (
+                <TableRowSkeleton
+                  avatar
+                  columns={3}
+                  rows={contacts.length ? 1 : 6}
+                />
+              )}
             </>
           </TableBody>
         </Table>
+        {!loading && contacts.length === 0 && (
+          <EmptyState
+            icon={<ContactsOutlinedIcon />}
+            title={
+              searchParam
+                ? "Nenhum contato encontrado"
+                : "Nenhum contato por aqui"
+            }
+            description={
+              searchParam
+                ? "Tente buscar por outro nome, número ou e-mail."
+                : "Adicione contatos manualmente ou importe-os do WhatsApp conectado."
+            }
+            action={
+              !searchParam && (
+                <Button
+                  variant="contained"
+                  color="primary"
+                  startIcon={<PersonAddOutlinedIcon />}
+                  onClick={handleOpenContactModal}
+                >
+                  {i18n.t("contacts.buttons.add")}
+                </Button>
+              )
+            }
+          />
+        )}
       </Paper>
     </MainContainer>
   );

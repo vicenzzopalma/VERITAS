@@ -28,33 +28,31 @@ const useStyles = makeStyles((theme) => ({
   },
 
   ticketInfo: {
-    maxWidth: "50%",
-    flexBasis: "50%",
+    flex: 1,
+    minWidth: 0,
     [theme.breakpoints.down("sm")]: {
-      maxWidth: "80%",
-      flexBasis: "80%",
+      flexBasis: "calc(100% - 56px)",
     },
   },
   ticketActionButtons: {
-    maxWidth: "50%",
-    flexBasis: "50%",
+    flex: "none",
     display: "flex",
+    marginLeft: "auto",
     [theme.breakpoints.down("sm")]: {
-      maxWidth: "100%",
       flexBasis: "100%",
-      marginBottom: "5px",
+      justifyContent: "flex-end",
     },
   },
 
   mainWrapper: {
     flex: 1,
+    minWidth: 0,
     height: "100%",
     display: "flex",
     flexDirection: "column",
     overflow: "hidden",
-    borderTopLeftRadius: 0,
-    borderBottomLeftRadius: 0,
-    borderLeft: "0",
+    borderRadius: 16,
+    backgroundColor: theme.custom.surface,
     marginRight: -drawerWidth,
     transition: theme.transitions.create("margin", {
       easing: theme.transitions.easing.sharp,
@@ -63,13 +61,11 @@ const useStyles = makeStyles((theme) => ({
   },
 
   mainWrapperShift: {
-    borderTopRightRadius: 0,
-    borderBottomRightRadius: 0,
     transition: theme.transitions.create("margin", {
       easing: theme.transitions.easing.easeOut,
       duration: theme.transitions.duration.enteringScreen,
     }),
-    marginRight: 0,
+    marginRight: theme.spacing(2),
   },
 }));
 
@@ -146,7 +142,6 @@ const Ticket = () => {
   return (
     <div className={classes.root} id="drawer-container">
       <Paper
-        variant="outlined"
         elevation={0}
         className={clsx(classes.mainWrapper, {
           [classes.mainWrapperShift]: drawerOpen,

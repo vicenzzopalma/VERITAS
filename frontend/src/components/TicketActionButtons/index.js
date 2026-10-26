@@ -3,7 +3,7 @@ import { useHistory } from "react-router-dom";
 
 import { makeStyles } from "@material-ui/core/styles";
 import { IconButton } from "@material-ui/core";
-import { MoreVert, Replay } from "@material-ui/icons";
+import { MoreVert, Replay, Check, Undo } from "@material-ui/icons";
 
 import { i18n } from "../../translate/i18n";
 import api from "../../services/api";
@@ -14,13 +14,17 @@ import { AuthContext } from "../../context/Auth/AuthContext";
 
 const useStyles = makeStyles(theme => ({
 	actionButtons: {
-		marginRight: 6,
 		flex: "none",
-		alignSelf: "center",
+		display: "flex",
+		alignItems: "center",
+		gap: theme.spacing(1),
 		marginLeft: "auto",
-		"& > *": {
-			margin: theme.spacing(1),
-		},
+	},
+	moreButton: {
+		width: 34,
+		height: 34,
+		padding: 0,
+		border: `1px solid ${theme.custom.border}`,
 	},
 }));
 
@@ -67,6 +71,7 @@ const TicketActionButtons = ({ ticket }) => {
 					loading={loading}
 					startIcon={<Replay />}
 					size="small"
+					variant="outlined"
 					onClick={e => handleUpdateTicketStatus(e, "open", user?.id)}
 				>
 					{i18n.t("messagesList.header.buttons.reopen")}
@@ -76,8 +81,9 @@ const TicketActionButtons = ({ ticket }) => {
 				<>
 					<ButtonWithSpinner
 						loading={loading}
-						startIcon={<Replay />}
+						startIcon={<Undo />}
 						size="small"
+						variant="outlined"
 						onClick={e => handleUpdateTicketStatus(e, "pending", null)}
 					>
 						{i18n.t("messagesList.header.buttons.return")}
@@ -87,12 +93,16 @@ const TicketActionButtons = ({ ticket }) => {
 						size="small"
 						variant="contained"
 						color="primary"
+						startIcon={<Check />}
 						onClick={e => handleUpdateTicketStatus(e, "closed", user?.id)}
 					>
 						{i18n.t("messagesList.header.buttons.resolve")}
 					</ButtonWithSpinner>
-					<IconButton onClick={handleOpenTicketOptionsMenu}>
-						<MoreVert />
+					<IconButton
+						className={classes.moreButton}
+						onClick={handleOpenTicketOptionsMenu}
+					>
+						<MoreVert fontSize="small" />
 					</IconButton>
 					<TicketOptionsMenu
 						ticket={ticket}
