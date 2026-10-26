@@ -1774,7 +1774,7 @@ const Audit = () => {
         >
           {showDeviceBar
             ? "Ocultar aparelhos"
-            : `${selectedDevice?.name || "Aparelhos"} · ${selectedSector === "TODOS" ? "Todos" : selectedSector}`}
+            : selectedDevice?.name || "Aparelhos"}
         </Button>
         {!isMobile && (
           <Button
@@ -1966,8 +1966,6 @@ const Audit = () => {
           </div>
         </ClickAwayListener>
 
-        {(showDeviceBar || !selectedDevice) && (
-        <>
         {/* Barra de Filtro de Setor Sincronizada (Audit <-> Conexões <-> CRM) */}
         <div className={classes.ribbonRow}>
           <span className={classes.ribbonLabel}>Setor</span>
@@ -2012,6 +2010,7 @@ const Audit = () => {
         </div>
 
         {/* Seletor Visual dos Celulares */}
+        {(showDeviceBar || !selectedDevice) && (
         <div className={classes.ribbonRow}>
           <span className={classes.ribbonLabel}>Aparelhos</span>
           <div className={classes.deviceRibbon}>
@@ -2085,7 +2084,6 @@ const Audit = () => {
             )}
           </div>
         </div>
-        </>
         )}
       </Paper>
 
