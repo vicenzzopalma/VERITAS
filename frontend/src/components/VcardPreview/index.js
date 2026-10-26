@@ -5,15 +5,49 @@ import api from "../../services/api";
 
 import Avatar from "@material-ui/core/Avatar";
 import Typography from "@material-ui/core/Typography";
-import Grid from "@material-ui/core/Grid";
+import { makeStyles } from "@material-ui/core/styles";
+import ChatBubbleOutlineIcon from "@material-ui/icons/ChatBubbleOutline";
 
 import { AuthContext } from "../../context/Auth/AuthContext";
 
 import { Button, Divider, } from "@material-ui/core";
 
+const useStyles = makeStyles(theme => ({
+    card: {
+        minWidth: 250,
+        maxWidth: 320,
+        marginBottom: 6,
+        borderRadius: 12,
+        overflow: "hidden",
+        border: `1px solid ${theme.custom.border}`,
+        backgroundColor: theme.custom.surface,
+    },
+    body: {
+        display: "flex",
+        alignItems: "center",
+        gap: 12,
+        padding: 12,
+    },
+    avatar: {
+        width: 40,
+        height: 40,
+        flex: "none",
+    },
+    name: {
+        fontWeight: 650,
+        fontSize: "0.9rem",
+        color: theme.palette.text.primary,
+        minWidth: 0,
+    },
+    action: {
+        borderRadius: 0,
+    },
+}));
+
 const VcardPreview = ({ contact, numbers }) => {
     const history = useHistory();
     const { user } = useContext(AuthContext);
+    const classes = useStyles();
 
     const [selectedContact, setContact] = useState({
         name: "",
@@ -58,31 +92,23 @@ const VcardPreview = ({ contact, numbers }) => {
     }
 
     return (
-        <>
-            <div style={{
-                minWidth: "250px",
-            }}>
-                <Grid container spacing={1}>
-                    <Grid item xs={2}>
-                        <Avatar src={selectedContact.profilePicUrl} />
-                    </Grid>
-                    <Grid item xs={9}>
-                        <Typography style={{ marginTop: "12px", marginLeft: "10px" }} variant="subtitle1" color="primary" gutterBottom>
-                            {selectedContact.name}
-                        </Typography>
-                    </Grid>
-                    <Grid item xs={12}>
-                        <Divider />
-                        <Button
-                            fullWidth
-                            color="primary"
-                            onClick={handleNewChat}
-                            disabled={!selectedContact.number}
-                        >Conversar</Button>
-                    </Grid>
-                </Grid>
+        <div className={classes.card}>
+            <div className={classes.body}>
+                <Avatar className={classes.avatar} src={selectedContact.profilePicUrl} />
+                <Typography className={classes.name} noWrap>
+                    {selectedContact.name}
+                </Typography>
             </div>
-        </>
+            <Divider />
+            <Button
+                fullWidth
+                color="primary"
+                startIcon={<ChatBubbleOutlineIcon fontSize="small" />}
+                className={classes.action}
+                onClick={handleNewChat}
+                disabled={!selectedContact.number}
+            >Conversar</Button>
+        </div>
     );
 
 };

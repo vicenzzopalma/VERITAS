@@ -11,16 +11,18 @@ import {
   TableCell,
   TableHead,
   TableRow,
-  InputAdornment,
-  TextField,
+  Tooltip,
+  Typography,
 } from "@material-ui/core";
-import { Edit, DeleteOutline } from "@material-ui/icons";
-import SearchIcon from "@material-ui/icons/Search";
+import {
+  EditOutlined,
+  DeleteOutline,
+  Add,
+  FlashOnOutlined,
+} from "@material-ui/icons";
 
 import MainContainer from "../../components/MainContainer";
-import MainHeader from "../../components/MainHeader";
-import MainHeaderButtonsWrapper from "../../components/MainHeaderButtonsWrapper";
-import Title from "../../components/Title";
+import { PageHeader, SearchField, EmptyState } from "../../components/ui";
 
 import api from "../../services/api";
 import { i18n } from "../../translate/i18n";
@@ -75,11 +77,41 @@ const reducer = (state, action) => {
 };
 
 const useStyles = makeStyles((theme) => ({
-  mainPaper: {
+  tableCard: {
     flex: 1,
-    padding: theme.spacing(1),
-    overflowY: "scroll",
+    minHeight: 0,
+    borderRadius: 16,
+    overflowY: "auto",
     ...theme.scrollbarStyles,
+  },
+  shortcut: {
+    display: "inline-flex",
+    alignItems: "center",
+    padding: "3px 10px",
+    borderRadius: 8,
+    fontFamily: "monospace",
+    fontSize: "0.8rem",
+    fontWeight: 600,
+    whiteSpace: "nowrap",
+    color: theme.palette.primary.main,
+    backgroundColor: theme.custom.primarySoft,
+  },
+  message: {
+    color: theme.palette.text.secondary,
+    display: "-webkit-box",
+    WebkitLineClamp: 2,
+    WebkitBoxOrient: "vertical",
+    overflow: "hidden",
+    whiteSpace: "pre-line",
+    wordBreak: "break-word",
+    maxWidth: 720,
+  },
+  actions: {
+    whiteSpace: "nowrap",
+    "& > *:not(:first-child)": { marginLeft: 4 },
+  },
+  deleteBtn: {
+    "&:hover": { color: theme.palette.error.main },
   },
 }));
 
@@ -206,46 +238,38 @@ const QuickAnswers = () => {
         aria-labelledby="form-dialog-title"
         quickAnswerId={selectedQuickAnswers && selectedQuickAnswers.id}
       ></QuickAnswersModal>
-      <MainHeader>
-        <Title>{i18n.t("quickAnswers.title")}</Title>
-        <MainHeaderButtonsWrapper>
-          <TextField
-            placeholder={i18n.t("quickAnswers.searchPlaceholder")}
-            type="search"
-            value={searchParam}
-            onChange={handleSearch}
-            InputProps={{
-              startAdornment: (
-                <InputAdornment position="start">
-                  <SearchIcon style={{ color: "gray" }} />
-                </InputAdornment>
-              ),
-            }}
-          />
-          <Button
-            variant="contained"
-            color="primary"
-            onClick={handleOpenQuickAnswersModal}
-          >
-            {i18n.t("quickAnswers.buttons.add")}
-          </Button>
-        </MainHeaderButtonsWrapper>
-      </MainHeader>
-      <Paper
-        className={classes.mainPaper}
-        variant="outlined"
-        onScroll={handleScroll}
-      >
-        <Table size="small">
+      <PageHeader
+        icon={<FlashOnOutlined />}
+        title={i18n.t("quickAnswers.title")}
+        subtitle="Respostas prontas para agilizar o atendimento com atalhos."
+        actions={
+          <>
+            <SearchField
+              placeholder={i18n.t("quickAnswers.searchPlaceholder")}
+              type="search"
+              value={searchParam}
+              onChange={handleSearch}
+            />
+            <Button
+              variant="contained"
+              color="primary"
+              startIcon={<Add />}
+              onClick={handleOpenQuickAnswersModal}
+            >
+              {i18n.t("quickAnswers.buttons.add")}
+            </Button>
+          </>
+        }
+      />
+      <Paper className={classes.tableCard} onScroll={handleScroll}>
+        <Table size="small" stickyHeader>
           <TableHead>
             <TableRow>
-              <TableCell align="center">
+              <TableCell style={{ width: 200 }}>
                 {i18n.t("quickAnswers.table.shortcut")}
               </TableCell>
-              <TableCell align="center">
-                {i18n.t("quickAnswers.table.message")}
-              </TableCell>
-              <TableCell align="center">
+              <TableCell>{i18n.t("quickAnswers.table.message")}</TableCell>
+              <TableCell align="right" style={{ width: 120 }}>
                 {i18n.t("quickAnswers.table.actions")}
               </TableCell>
             </TableRow>
@@ -253,33 +277,77 @@ const QuickAnswers = () => {
           <TableBody>
             <>
               {quickAnswers.map((quickAnswer) => (
-                <TableRow key={quickAnswer.id}>
-                  <TableCell align="center">{quickAnswer.shortcut}</TableCell>
-                  <TableCell align="center">{quickAnswer.message}</TableCell>
-                  <TableCell align="center">
-                    <IconButton
-                      size="small"
-                      onClick={() => handleEditQuickAnswers(quickAnswer)}
-                    >
-                      <Edit />
-                    </IconButton>
-
-                    <IconButton
-                      size="small"
-                      onClick={(e) => {
-                        setConfirmModalOpen(true);
-                        setDeletingQuickAnswers(quickAnswer);
-                      }}
-                    >
-                      <DeleteOutline />
-                    </IconButton>
+                <TableRow key={quickAnswer.id} hover>
+                  <TableCell>
+                    <span className={classes.shortcut}>
+                      {quickAnswer.shortcut}
+                    </span>
+                  </TableCell>
+                  <TableCell>
+                    <Typography variant="body2" className={classes.message}>
+                      {quickAnswer.message}
+                    </Typography>
+                  </TableCell>
+                  <TableCell align="right" className={classes.actions}>
+                    <Tooltip title="Editar">
+                      <IconButton
+                        size="small"
+                        onClick={() => handleEditQuickAnswers(quickAnswer)}
+                      >
+                        <EditOutlined fontSize="small" />
+                      </IconButton>
+                    </Tooltip>
+                    <Tooltip title="Excluir">
+                      <IconButton
+                        size="small"
+                        className={classes.deleteBtn}
+                        onClick={(e) => {
+                          setConfirmModalOpen(true);
+                          setDeletingQuickAnswers(quickAnswer);
+                        }}
+                      >
+                        <DeleteOutline fontSize="small" />
+                      </IconButton>
+                    </Tooltip>
                   </TableCell>
                 </TableRow>
               ))}
-              {loading && <TableRowSkeleton columns={3} />}
+              {loading && (
+                <TableRowSkeleton
+                  columns={3}
+                  rows={quickAnswers.length ? 1 : 5}
+                />
+              )}
             </>
           </TableBody>
         </Table>
+        {!loading && quickAnswers.length === 0 && (
+          <EmptyState
+            icon={<FlashOnOutlined />}
+            title={
+              searchParam
+                ? "Nenhuma resposta encontrada"
+                : "Nenhuma resposta rápida ainda"
+            }
+            description={
+              searchParam
+                ? "Tente buscar por outro atalho ou trecho da mensagem."
+                : "Crie mensagens prontas e use-as no chat digitando / seguido do atalho."
+            }
+            action={
+              !searchParam && (
+                <Button
+                  variant="contained"
+                  color="primary"
+                  startIcon={<Add />}
+                  onClick={handleOpenQuickAnswersModal}
+                >
+                  {i18n.t("quickAnswers.buttons.add")}
+                </Button>
+              )
+            }
+          />
+        )}
       </Paper>
     </MainContainer>
   );

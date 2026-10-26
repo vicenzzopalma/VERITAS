@@ -8,22 +8,46 @@ import { Checkbox, ListItemText } from "@material-ui/core";
 import { i18n } from "../../translate/i18n";
 
 const useStyles = makeStyles(theme => ({
-	container: {
-		width: 120,
-	},
-	formControl: {
-		margin: 0,
-		width: "100%",
+	root: {
+		width: 132,
+		flex: "none",
 	},
 	select: {
-		borderRadius: 6,
+		height: 38,
+		borderRadius: 10,
 		fontSize: "0.82rem",
-		"& .MuiSelect-outlined": {
-			padding: "6px 28px 6px 10px",
-		},
-		"& .MuiOutlinedInput-notchedOutline": {
-			borderColor: "rgba(0, 0, 0, 0.18)",
-		},
+		fontWeight: 600,
+		color: theme.palette.text.secondary,
+	},
+	selectInput: {
+		paddingTop: 0,
+		paddingBottom: 0,
+		paddingLeft: 12,
+		display: "flex",
+		alignItems: "center",
+		height: 38,
+		boxSizing: "border-box",
+	},
+	count: {
+		marginLeft: 6,
+		minWidth: 18,
+		height: 18,
+		padding: "0 5px",
+		borderRadius: 999,
+		display: "inline-flex",
+		alignItems: "center",
+		justifyContent: "center",
+		fontSize: "0.68rem",
+		fontWeight: 700,
+		color: theme.palette.primary.main,
+		backgroundColor: theme.custom.primarySoft,
+	},
+	dot: {
+		width: 8,
+		height: 8,
+		borderRadius: "50%",
+		marginRight: 10,
+		flex: "none",
 	},
 }));
 
@@ -39,15 +63,16 @@ const TicketsQueueSelect = ({
 	};
 
 	return (
-		<div className={classes.container}>
-			<FormControl fullWidth margin="none" className={classes.formControl}>
+		<div className={classes.root}>
+			<FormControl fullWidth>
 				<Select
-					className={classes.select}
 					multiple
 					displayEmpty
 					variant="outlined"
 					value={selectedQueueIds}
 					onChange={handleChange}
+					className={classes.select}
+					classes={{ select: classes.selectInput }}
 					MenuProps={{
 						anchorOrigin: {
 							vertical: "bottom",
@@ -59,18 +84,26 @@ const TicketsQueueSelect = ({
 						},
 						getContentAnchorEl: null,
 					}}
-					renderValue={() => i18n.t("ticketsQueueSelect.placeholder")}
+					renderValue={() => (
+						<>
+							{i18n.t("ticketsQueueSelect.placeholder")}
+							{selectedQueueIds.length > 0 && (
+								<span className={classes.count}>{selectedQueueIds.length}</span>
+							)}
+						</>
+					)}
 				>
 					{userQueues?.length > 0 &&
 						userQueues.map(queue => (
 							<MenuItem dense key={queue.id} value={queue.id}>
 								<Checkbox
-									style={{
-										color: queue.color,
-									}}
 									size="small"
 									color="primary"
 									checked={selectedQueueIds.indexOf(queue.id) > -1}
+								/>
+								<span
+									className={classes.dot}
+									style={{ backgroundColor: queue.color }}
 								/>
 								<ListItemText primary={queue.name} />
 							</MenuItem>

@@ -1,7 +1,6 @@
 import React, { useContext, useState, useEffect, useCallback } from "react";
+import { Link as RouterLink } from "react-router-dom";
 
-import Paper from "@material-ui/core/Paper";
-import Container from "@material-ui/core/Container";
 import Grid from "@material-ui/core/Grid";
 import { makeStyles } from "@material-ui/core/styles";
 import Typography from "@material-ui/core/Typography";
@@ -12,7 +11,6 @@ import TableContainer from "@material-ui/core/TableContainer";
 import TableHead from "@material-ui/core/TableHead";
 import TableRow from "@material-ui/core/TableRow";
 import LinearProgress from "@material-ui/core/LinearProgress";
-import Chip from "@material-ui/core/Chip";
 import IconButton from "@material-ui/core/IconButton";
 import Tooltip from "@material-ui/core/Tooltip";
 import CircularProgress from "@material-ui/core/CircularProgress";
@@ -21,107 +19,223 @@ import StorageIcon from "@material-ui/icons/Storage";
 import PermMediaIcon from "@material-ui/icons/PermMedia";
 import AllInboxIcon from "@material-ui/icons/AllInbox";
 import SmartphoneIcon from "@material-ui/icons/Smartphone";
+import HeadsetMicOutlined from "@material-ui/icons/HeadsetMicOutlined";
+import HourglassEmptyOutlined from "@material-ui/icons/HourglassEmptyOutlined";
+import CheckCircleOutline from "@material-ui/icons/CheckCircleOutline";
+import WifiTethering from "@material-ui/icons/WifiTethering";
+import WhatsAppIcon from "@material-ui/icons/WhatsApp";
+import SecurityOutlined from "@material-ui/icons/SecurityOutlined";
+import SyncAlt from "@material-ui/icons/SyncAlt";
+import QuestionAnswerOutlined from "@material-ui/icons/QuestionAnswerOutlined";
+import PhoneAndroidOutlined from "@material-ui/icons/PhoneAndroidOutlined";
+import ArrowForward from "@material-ui/icons/ArrowForward";
 
-import useTickets from "../../hooks/useTickets";
 import { AuthContext } from "../../context/Auth/AuthContext";
+import { WhatsAppsContext } from "../../context/WhatsApp/WhatsAppsContext";
 import { i18n } from "../../translate/i18n";
 import api from "../../services/api";
 import toastError from "../../errors/toastError";
+import rules from "../../rules";
+import { PageHeader, StatCard, SectionCard, StatusPill, EmptyState } from "../../components/ui";
 import Chart from "./Chart";
 
-const useStyles = makeStyles(theme => ({
-	container: {
-		paddingTop: theme.spacing(3),
-		paddingBottom: theme.spacing(4),
-		[theme.breakpoints.down("sm")]: {
-			paddingTop: theme.spacing(1.5),
-			paddingBottom: theme.spacing(2),
-			paddingLeft: theme.spacing(1),
-			paddingRight: theme.spacing(1),
+const STATUS_TONE = {
+	CONNECTED: ["success", "Conectado"],
+	qrcode: ["warning", "Aguardando QR"],
+	PAIRING: ["warning", "Pareando"],
+	OPENING: ["info", "Abrindo"],
+	DISCONNECTED: ["error", "Desconectado"],
+	TIMEOUT: ["error", "Tempo esgotado"],
+};
+
+// Atalhos do fluxo. `perform` segue as mesmas regras de permissão (rules.js)
+// usadas no menu lateral: quem não tem a permissão não vê o atalho.
+// Operadores e perfis whatsapp_control nunca chegam ao Dashboard (Route.js
+// os redireciona para /live e /whatsapp-control).
+const FLOW = [
+	{
+		to: "/connections",
+		title: "Conectar WhatsApp",
+		desc: "Pareie números e monitore o status de cada sessão.",
+		icon: <SyncAlt />,
+		color: "#0EA5E9",
+	},
+	{
+		to: "/whatsapp-control",
+		title: "CRM",
+		desc: "Acompanhe os aparelhos e conversas monitoradas.",
+		icon: <PhoneAndroidOutlined />,
+		color: "#14B8A6",
+	},
+	{
+		to: "/tickets",
+		title: "Atender tickets",
+		desc: "Responda conversas, transfira e finalize atendimentos.",
+		icon: <WhatsAppIcon />,
+		color: "#22C55E",
+	},
+	{
+		to: "/quickAnswers",
+		title: "Respostas rápidas",
+		desc: "Padronize mensagens com atalhos reutilizáveis.",
+		icon: <QuestionAnswerOutlined />,
+		color: "#F59E0B",
+	},
+	{
+		to: "/audit",
+		perform: "audit:view",
+		title: "Auditar e exportar",
+		desc: "Busque no histórico completo e gere evidências.",
+		icon: <SecurityOutlined />,
+		color: "#5B4CF0",
+	},
+];
+
+const can = (role, action) => {
+	const permissions = rules[role];
+	return Boolean(permissions && permissions.static && permissions.static.includes(action));
+};
+
+const useStyles = makeStyles(theme => {
+	const c = theme.custom;
+	return {
+		page: {
+			width: "100%",
+			maxWidth: 1440,
+			margin: "0 auto",
+			padding: theme.spacing(0, 3, 4),
+			[theme.breakpoints.down("xs")]: { padding: theme.spacing(0, 1.5, 3) },
 		},
-	},
-	fixedHeightPaper: {
-		padding: theme.spacing(2),
-		display: "flex",
-		overflow: "auto",
-		flexDirection: "column",
-		height: 240,
-	},
-	customFixedHeightPaper: {
-		padding: theme.spacing(2),
-		display: "flex",
-		overflow: "hidden",
-		flexDirection: "column",
-		height: 110,
-		borderRadius: 10,
-		boxShadow: "0 2px 8px rgba(0,0,0,0.05)",
-		border: "1px solid rgba(0,0,0,0.06)",
-	},
-	storageCard: {
-		padding: theme.spacing(2),
-		display: "flex",
-		flexDirection: "column",
-		borderRadius: 10,
-		height: "100%",
-		boxShadow: "0 2px 8px rgba(0,0,0,0.06)",
-		border: "1px solid rgba(0,0,0,0.06)",
-		position: "relative",
-		background: theme.palette.type === "dark" ? theme.palette.background.paper : "#ffffff",
-	},
-	storageHeader: {
-		display: "flex",
-		alignItems: "center",
-		marginBottom: theme.spacing(1),
-	},
-	storageIconWrapper: {
-		width: 36,
-		height: 36,
-		borderRadius: 8,
-		display: "flex",
-		alignItems: "center",
-		justifyContent: "center",
-		marginRight: theme.spacing(1.5),
-	},
-	tablePaper: {
-		padding: theme.spacing(2.5),
-		borderRadius: 10,
-		boxShadow: "0 2px 8px rgba(0,0,0,0.06)",
-		border: "1px solid rgba(0,0,0,0.06)",
-		marginTop: theme.spacing(1),
-		[theme.breakpoints.down("sm")]: {
-			padding: theme.spacing(1.5),
+		fill: { height: "100%" },
+		code: {
+			fontFamily: "ui-monospace, SFMono-Regular, Menlo, Consolas, monospace",
+			fontSize: "0.92em",
+			padding: "1px 5px",
+			borderRadius: 6,
+			backgroundColor: c.surfaceAlt,
+			border: `1px solid ${c.border}`,
 		},
-	},
-	tableTitleWrapper: {
-		display: "flex",
-		alignItems: "center",
-		justifyContent: "space-between",
-		marginBottom: theme.spacing(2),
-	},
-	progressBar: {
-		height: 8,
-		borderRadius: 4,
-		backgroundColor: theme.palette.type === "dark" ? "rgba(255,255,255,0.1)" : "#e2e8f0",
-	},
-	statusChipConnected: {
-		backgroundColor: "rgba(22, 163, 74, 0.12)",
-		color: "#16a34a",
-		fontWeight: 700,
-		fontSize: "0.72rem",
-		height: 22,
-	},
-	statusChipDisconnected: {
-		backgroundColor: "rgba(220, 38, 38, 0.12)",
-		color: "#dc2626",
-		fontWeight: 700,
-		fontSize: "0.72rem",
-		height: 22,
-	},
-}));
+		refreshBtn: { border: `1px solid ${c.border}` },
+		connRow: {
+			display: "flex",
+			alignItems: "center",
+			gap: 12,
+			padding: "11px 0",
+			"& + &": { borderTop: `1px solid ${c.border}` },
+		},
+		connIcon: {
+			width: 36,
+			height: 36,
+			borderRadius: 10,
+			display: "grid",
+			placeItems: "center",
+			backgroundColor: "rgba(37,211,102,0.12)",
+			color: "#1FAF55",
+			flex: "none",
+			"& svg": { fontSize: 19 },
+		},
+		connName: {
+			flex: 1,
+			minWidth: 0,
+			fontWeight: 600,
+			fontSize: "0.88rem",
+			overflow: "hidden",
+			textOverflow: "ellipsis",
+			whiteSpace: "nowrap",
+		},
+		link: {
+			fontSize: "0.8rem",
+			fontWeight: 650,
+			textDecoration: "none",
+			color: theme.palette.primary.main,
+		},
+		strong: { fontWeight: 600 },
+		total: { fontWeight: 700, color: theme.palette.primary.main },
+		progressWrap: { display: "flex", alignItems: "center", gap: 8, minWidth: 130 },
+		progressBar: { flex: 1 },
+		emptyCell: { padding: 24, color: c.textMuted },
+		flow: {
+			display: "grid",
+			gridTemplateColumns: "repeat(var(--flow-cols, 4), minmax(0, 1fr))",
+			gap: theme.spacing(3),
+			padding: theme.spacing(3),
+			borderRadius: "0 0 16px 16px",
+			...c.dotGrid,
+			[theme.breakpoints.down("sm")]: { gridTemplateColumns: "repeat(2, minmax(0, 1fr))" },
+			[theme.breakpoints.down("xs")]: { gridTemplateColumns: "1fr" },
+		},
+		node: {
+			position: "relative",
+			display: "flex",
+			flexDirection: "column",
+			gap: 8,
+			padding: 16,
+			borderRadius: 14,
+			backgroundColor: c.surface,
+			border: `1px solid ${c.border}`,
+			boxShadow: c.shadow,
+			color: "inherit",
+			textDecoration: "none",
+			transition: "transform .18s, box-shadow .18s, border-color .18s",
+			"&:hover": {
+				transform: "translateY(-2px)",
+				boxShadow: c.shadowLg,
+				borderColor: theme.palette.primary.main,
+			},
+			"&:hover $nodeArrow": { opacity: 1, transform: "none" },
+			[theme.breakpoints.up("md")]: {
+				"&:not(:last-child)::after": {
+					content: '""',
+					position: "absolute",
+					top: "50%",
+					right: -theme.spacing(3) - 1,
+					width: theme.spacing(3),
+					borderTop: `2px dashed ${c.borderStrong}`,
+				},
+			},
+		},
+		nodeHead: { display: "flex", alignItems: "center", gap: 10, marginBottom: 2 },
+		nodeIcon: {
+			width: 32,
+			height: 32,
+			borderRadius: 9,
+			display: "grid",
+			placeItems: "center",
+			color: "#fff",
+			"& svg": { fontSize: 18 },
+		},
+		nodeStep: {
+			fontSize: "0.68rem",
+			fontWeight: 700,
+			letterSpacing: "0.08em",
+			textTransform: "uppercase",
+			color: c.textSubtle,
+		},
+		nodeTitle: { fontWeight: 700, fontSize: "0.92rem" },
+		nodeDesc: { fontSize: "0.8rem", color: c.textMuted, lineHeight: 1.45 },
+		nodeArrow: {
+			marginLeft: "auto",
+			fontSize: 18,
+			color: theme.palette.primary.main,
+			opacity: 0,
+			transform: "translateX(-4px)",
+			transition: "all .18s",
+		},
+	};
+});
+
+const greeting = () => {
+	const h = new Date().getHours();
+	if (h < 12) return "Bom dia";
+	if (h < 18) return "Boa tarde";
+	return "Boa noite";
+};
 
 const Dashboard = () => {
 	const classes = useStyles();
 	const { user } = useContext(AuthContext);
+	// Lista já carregada globalmente pelo WhatsAppsProvider (sem requisição extra).
+	const { whatsApps = [] } = useContext(WhatsAppsContext) || {};
 
 	const [storageData, setStorageData] = useState(null);
 	const [loadingStorage, setLoadingStorage] = useState(false);
@@ -145,235 +259,272 @@ const Dashboard = () => {
 	const openCount = storageData?.overview?.openTickets ?? 0;
 	const pendingCount = storageData?.overview?.pendingTickets ?? 0;
 	const closedCount = storageData?.overview?.closedTickets ?? 0;
+	const initialLoading = loadingStorage && !storageData;
+	const countValue = value => (initialLoading ? <CircularProgress size={24} /> : value);
+
+	const connected = whatsApps.filter(w => w.status === "CONNECTED").length;
+	const allOnline = whatsApps.length > 0 && connected === whatsApps.length;
+	const firstName = (user?.name || "").split(" ")[0];
+	const today = new Date().toLocaleDateString("pt-BR", {
+		weekday: "long",
+		day: "numeric",
+		month: "long",
+	});
+
+	const flow = FLOW.filter(n => !n.perform || can(user?.profile, n.perform));
+
+	const refreshButton = (
+		<Tooltip title="Atualizar Métricas de Armazenamento">
+			<span>
+				<IconButton
+					size="small"
+					onClick={fetchStorageStats}
+					disabled={loadingStorage}
+					className={classes.refreshBtn}
+				>
+					{loadingStorage ? <CircularProgress size={18} /> : <RefreshIcon fontSize="small" />}
+				</IconButton>
+			</span>
+		</Tooltip>
+	);
 
 	return (
-		<div>
-			<Container maxWidth="lg" className={classes.container}>
-				<Grid container spacing={3}>
-					{/* 1. CARDS DE ATENDIMENTO TRADICIONAIS */}
-					<Grid item xs={12} sm={4}>
-						<Paper className={classes.customFixedHeightPaper}>
-							<Typography component="h3" variant="subtitle2" color="primary">
-								{i18n.t("dashboard.messages.inAttendance.title")}
-							</Typography>
-							<Typography component="h1" variant="h4" style={{ fontWeight: 700, marginTop: 4 }}>
-								{loadingStorage && !storageData ? <CircularProgress size={24} /> : openCount}
-							</Typography>
-						</Paper>
-					</Grid>
-					<Grid item xs={12} sm={4}>
-						<Paper className={classes.customFixedHeightPaper}>
-							<Typography component="h3" variant="subtitle2" color="primary">
-								{i18n.t("dashboard.messages.waiting.title")}
-							</Typography>
-							<Typography component="h1" variant="h4" style={{ fontWeight: 700, marginTop: 4 }}>
-								{loadingStorage && !storageData ? <CircularProgress size={24} /> : pendingCount}
-							</Typography>
-						</Paper>
-					</Grid>
-					<Grid item xs={12} sm={4}>
-						<Paper className={classes.customFixedHeightPaper}>
-							<Typography component="h3" variant="subtitle2" color="primary">
-								{i18n.t("dashboard.messages.closed.title")}
-							</Typography>
-							<Typography component="h1" variant="h4" style={{ fontWeight: 700, marginTop: 4 }}>
-								{loadingStorage && !storageData ? <CircularProgress size={24} /> : closedCount}
-							</Typography>
-						</Paper>
-					</Grid>
+		<div className={`${classes.page} gisaio-page-enter`}>
+			<PageHeader
+				title={`${greeting()}${firstName ? `, ${firstName}` : ""}`}
+				subtitle={`Resumo da operação · ${today}`}
+			/>
 
-					{/* 2. CARDS DE ARMAZENAMENTO DO BANCO DE DADOS E DISCO */}
-					<Grid item xs={12} md={4}>
-						<Paper className={classes.storageCard}>
-							<div className={classes.storageHeader}>
-								<div
-									className={classes.storageIconWrapper}
-									style={{ backgroundColor: "rgba(14, 165, 233, 0.12)", color: "#0284c7" }}
-								>
-									<StorageIcon fontSize="small" />
-								</div>
-								<div>
-									<Typography variant="caption" color="textSecondary" style={{ fontWeight: 600 }}>
-										BANCO DE DADOS (SQLITE)
-									</Typography>
-									<Typography variant="h5" style={{ fontWeight: 700, color: "#0f172a" }}>
-										{storageData ? storageData.database.fileSizeFormatted : "..."}
-									</Typography>
-								</div>
-							</div>
-							<Typography variant="caption" color="textSecondary" style={{ marginTop: "auto" }}>
-								Arquivo: <code>whaticket.sqlite</code> ({storageData?.overview.totalMessages?.toLocaleString() || 0} mensagens)
-							</Typography>
-						</Paper>
-					</Grid>
+			<Grid container spacing={2}>
+				{/* 1. CARDS DE ATENDIMENTO */}
+				<Grid item xs={12} sm={6} md={3}>
+					<StatCard
+						label={i18n.t("dashboard.messages.inAttendance.title")}
+						value={countValue(openCount)}
+						icon={<HeadsetMicOutlined />}
+						tone="primary"
+						footer="Tickets abertos agora"
+					/>
+				</Grid>
+				<Grid item xs={12} sm={6} md={3}>
+					<StatCard
+						label={i18n.t("dashboard.messages.waiting.title")}
+						value={countValue(pendingCount)}
+						icon={<HourglassEmptyOutlined />}
+						tone="warning"
+						footer="Na fila aguardando atendente"
+					/>
+				</Grid>
+				<Grid item xs={12} sm={6} md={3}>
+					<StatCard
+						label={i18n.t("dashboard.messages.closed.title")}
+						value={countValue(closedCount)}
+						icon={<CheckCircleOutline />}
+						tone="success"
+						footer="Atendimentos concluídos"
+					/>
+				</Grid>
+				<Grid item xs={12} sm={6} md={3}>
+					<StatCard
+						label="Conexões ativas"
+						value={
+							<span>
+								{connected}
+								<span style={{ fontSize: "1rem", opacity: 0.45, fontWeight: 600 }}>
+									{" "}
+									/ {whatsApps.length}
+								</span>
+							</span>
+						}
+						icon={<WifiTethering />}
+						tone={allOnline ? "accent" : "error"}
+						footer={allOnline ? "Todas as sessões online" : "Há sessões que precisam de atenção"}
+					/>
+				</Grid>
 
-					<Grid item xs={12} md={4}>
-						<Paper className={classes.storageCard}>
-							<div className={classes.storageHeader}>
-								<div
-									className={classes.storageIconWrapper}
-									style={{ backgroundColor: "rgba(245, 158, 11, 0.12)", color: "#d97706" }}
-								>
-									<PermMediaIcon fontSize="small" />
-								</div>
-								<div>
-									<Typography variant="caption" color="textSecondary" style={{ fontWeight: 600 }}>
-										MÍDIAS & ANEXOS EM DISCO
-									</Typography>
-									<Typography variant="h5" style={{ fontWeight: 700, color: "#0f172a" }}>
-										{storageData ? storageData.media.totalSizeFormatted : "..."}
-									</Typography>
-								</div>
-							</div>
-							<Typography variant="caption" color="textSecondary" style={{ marginTop: "auto" }}>
-								Pasta <code>/public</code> ({storageData?.media.totalFilesCount?.toLocaleString() || 0} arquivos de áudio/foto/doc)
-							</Typography>
-						</Paper>
-					</Grid>
-
-					<Grid item xs={12} md={4}>
-						<Paper className={classes.storageCard}>
-							<div className={classes.storageHeader}>
-								<div
-									className={classes.storageIconWrapper}
-									style={{ backgroundColor: "rgba(16, 185, 129, 0.12)", color: "#059669" }}
-								>
-									<AllInboxIcon fontSize="small" />
-								</div>
-								<div>
-									<Typography variant="caption" color="textSecondary" style={{ fontWeight: 600 }}>
-										ARMAZENAMENTO TOTAL
-									</Typography>
-									<Typography variant="h5" style={{ fontWeight: 700, color: "#0f172a" }}>
-										{storageData ? storageData.overview.totalStorageFormatted : "..."}
-									</Typography>
-								</div>
-							</div>
-							<Typography variant="caption" color="textSecondary" style={{ marginTop: "auto" }}>
-								{storageData?.overview.totalContacts?.toLocaleString() || 0} contatos • {storageData?.overview.totalWhatsapps || 0} canais
-							</Typography>
-						</Paper>
-					</Grid>
-
-					{/* 3. TABELA DE CONSUMO DE ESPAÇO POR NÚMERO DE WHATSAPP */}
-					<Grid item xs={12}>
-						<Paper className={classes.tablePaper}>
-							<div className={classes.tableTitleWrapper}>
-								<div style={{ display: "flex", alignItems: "center" }}>
-									<SmartphoneIcon color="primary" style={{ marginRight: 8 }} />
-									<div>
-										<Typography variant="h6" style={{ fontWeight: 700, fontSize: "1.05rem" }}>
-											Consumo de Armazenamento por Número de WhatsApp
-										</Typography>
-										<Typography variant="caption" color="textSecondary">
-											Detalhamento de espaço ocupado no banco de dados e arquivos de mídia em disco por conexão
-										</Typography>
+				{/* 2. GRÁFICO + SAÚDE DAS CONEXÕES */}
+				<Grid item xs={12} md={8}>
+					<SectionCard
+						title="Volume de tickets hoje"
+						subtitle="Tickets criados por hora"
+						className={classes.fill}
+					>
+						<div style={{ height: 280 }}>
+							<Chart />
+						</div>
+					</SectionCard>
+				</Grid>
+				<Grid item xs={12} md={4}>
+					<SectionCard
+						title="Saúde das conexões"
+						subtitle="Status em tempo real"
+						className={classes.fill}
+						actions={
+							<RouterLink to="/connections" className={classes.link}>
+								Gerenciar
+							</RouterLink>
+						}
+					>
+						{whatsApps.length === 0 ? (
+							<EmptyState
+								icon={<SyncAlt />}
+								title="Nenhuma conexão"
+								description="Adicione um número de WhatsApp para começar."
+							/>
+						) : (
+							whatsApps.slice(0, 6).map(w => {
+								const [tone, label] = STATUS_TONE[w.status] || ["neutral", w.status];
+								return (
+									<div className={classes.connRow} key={w.id}>
+										<div className={classes.connIcon}>
+											<WhatsAppIcon />
+										</div>
+										<div className={classes.connName}>{w.name}</div>
+										<StatusPill tone={tone}>{label}</StatusPill>
 									</div>
-								</div>
-								<Tooltip title="Atualizar Métricas de Armazenamento">
-									<IconButton
-										size="small"
-										onClick={fetchStorageStats}
-										disabled={loadingStorage}
-										style={{ border: "1px solid rgba(0,0,0,0.12)", borderRadius: 8 }}
-									>
-										{loadingStorage ? <CircularProgress size={18} /> : <RefreshIcon fontSize="small" />}
-									</IconButton>
-								</Tooltip>
-							</div>
+								);
+							})
+						)}
+					</SectionCard>
+				</Grid>
 
-							<TableContainer>
-								<Table size="small">
-									<TableHead>
-										<TableRow style={{ backgroundColor: "rgba(0,0,0,0.02)" }}>
-											<TableCell style={{ fontWeight: 700 }}>Aparelho / WhatsApp</TableCell>
-											<TableCell align="center" style={{ fontWeight: 700 }}>Status</TableCell>
-											<TableCell align="center" style={{ fontWeight: 700 }}>Mensagens / Conversas</TableCell>
-											<TableCell align="right" style={{ fontWeight: 700 }}>Espaço no Banco</TableCell>
-											<TableCell align="right" style={{ fontWeight: 700 }}>Espaço de Mídias</TableCell>
-											<TableCell align="right" style={{ fontWeight: 700 }}>Consumo Total</TableCell>
-											<TableCell style={{ fontWeight: 700, width: 140 }}>% do Sistema</TableCell>
-										</TableRow>
-									</TableHead>
-									<TableBody>
-										{storageData?.usageByNumber?.length > 0 ? (
-											storageData.usageByNumber.map(wpp => (
-												<TableRow key={wpp.id} hover>
-													<TableCell style={{ fontWeight: 600 }}>
-														{wpp.name}
-													</TableCell>
-													<TableCell align="center">
-														<Chip
-															label={wpp.status === "CONNECTED" ? "Conectado" : "Desconectado"}
-															size="small"
-															className={
-																wpp.status === "CONNECTED"
-																	? classes.statusChipConnected
-																	: classes.statusChipDisconnected
-															}
+				{/* 3. ARMAZENAMENTO DO BANCO DE DADOS E DISCO */}
+				<Grid item xs={12} md={4}>
+					<StatCard
+						label="Banco de dados (SQLite)"
+						value={storageData ? storageData.database.fileSizeFormatted : "..."}
+						icon={<StorageIcon />}
+						tone="info"
+						footer={
+							<>
+								Arquivo: <code className={classes.code}>whaticket.sqlite</code> (
+								{storageData?.overview.totalMessages?.toLocaleString() || 0} mensagens)
+							</>
+						}
+					/>
+				</Grid>
+				<Grid item xs={12} md={4}>
+					<StatCard
+						label="Mídias & anexos em disco"
+						value={storageData ? storageData.media.totalSizeFormatted : "..."}
+						icon={<PermMediaIcon />}
+						tone="warning"
+						footer={
+							<>
+								Pasta <code className={classes.code}>/public</code> (
+								{storageData?.media.totalFilesCount?.toLocaleString() || 0} arquivos de áudio/foto/doc)
+							</>
+						}
+					/>
+				</Grid>
+				<Grid item xs={12} md={4}>
+					<StatCard
+						label="Armazenamento total"
+						value={storageData ? storageData.overview.totalStorageFormatted : "..."}
+						icon={<AllInboxIcon />}
+						tone="success"
+						footer={`${storageData?.overview.totalContacts?.toLocaleString() || 0} contatos • ${storageData?.overview.totalWhatsapps || 0} canais`}
+					/>
+				</Grid>
+
+				{/* 4. CONSUMO DE ESPAÇO POR NÚMERO DE WHATSAPP */}
+				<Grid item xs={12}>
+					<SectionCard
+						icon={<SmartphoneIcon color="primary" />}
+						title="Consumo de Armazenamento por Número de WhatsApp"
+						subtitle="Detalhamento de espaço ocupado no banco de dados e arquivos de mídia em disco por conexão"
+						actions={refreshButton}
+						flush
+					>
+						<TableContainer>
+							<Table size="small">
+								<TableHead>
+									<TableRow>
+										<TableCell>Aparelho / WhatsApp</TableCell>
+										<TableCell align="center">Status</TableCell>
+										<TableCell align="center">Mensagens / Conversas</TableCell>
+										<TableCell align="right">Espaço no Banco</TableCell>
+										<TableCell align="right">Espaço de Mídias</TableCell>
+										<TableCell align="right">Consumo Total</TableCell>
+										<TableCell style={{ width: 160 }}>% do Sistema</TableCell>
+									</TableRow>
+								</TableHead>
+								<TableBody>
+									{storageData?.usageByNumber?.length > 0 ? (
+										storageData.usageByNumber.map(wpp => (
+											<TableRow key={wpp.id} hover>
+												<TableCell className={classes.strong}>{wpp.name}</TableCell>
+												<TableCell align="center">
+													<StatusPill tone={wpp.status === "CONNECTED" ? "success" : "error"}>
+														{wpp.status === "CONNECTED" ? "Conectado" : "Desconectado"}
+													</StatusPill>
+												</TableCell>
+												<TableCell align="center">
+													<Typography variant="body2" className={classes.strong}>
+														{wpp.messagesCount.toLocaleString()} msgs
+													</Typography>
+													<Typography variant="caption" color="textSecondary">
+														{wpp.ticketsCount} conversas
+													</Typography>
+												</TableCell>
+												<TableCell align="right">{wpp.dbSizeFormatted}</TableCell>
+												<TableCell align="right">{wpp.mediaSizeFormatted}</TableCell>
+												<TableCell align="right" className={classes.total}>
+													{wpp.totalSizeFormatted}
+												</TableCell>
+												<TableCell>
+													<div className={classes.progressWrap}>
+														<LinearProgress
+															variant="determinate"
+															value={Math.min(100, wpp.percentage * 5)} // visual boost for progress bar
+															className={classes.progressBar}
+															color="primary"
 														/>
-													</TableCell>
-													<TableCell align="center">
-														<Typography variant="body2" style={{ fontWeight: 600 }}>
-															{wpp.messagesCount.toLocaleString()} msgs
+														<Typography variant="caption" style={{ fontWeight: 700, minWidth: 35 }}>
+															{wpp.percentage}%
 														</Typography>
-														<Typography variant="caption" color="textSecondary">
-															{wpp.ticketsCount} conversas
-														</Typography>
-													</TableCell>
-													<TableCell align="right">
-														<Typography variant="body2" style={{ fontWeight: 500 }}>
-															{wpp.dbSizeFormatted}
-														</Typography>
-													</TableCell>
-													<TableCell align="right">
-														<Typography variant="body2" style={{ fontWeight: 500 }}>
-															{wpp.mediaSizeFormatted}
-														</Typography>
-													</TableCell>
-													<TableCell align="right">
-														<Typography variant="body2" style={{ fontWeight: 700, color: "#0284c7" }}>
-															{wpp.totalSizeFormatted}
-														</Typography>
-													</TableCell>
-													<TableCell>
-														<div style={{ display: "flex", alignItems: "center" }}>
-															<div style={{ width: "100%", marginRight: 8 }}>
-																<LinearProgress
-																	variant="determinate"
-																	value={Math.min(100, wpp.percentage * 5)} // visual boost for progress bar
-																	className={classes.progressBar}
-																	color="primary"
-																/>
-															</div>
-															<Typography variant="caption" style={{ fontWeight: 700, minWidth: 35 }}>
-																{wpp.percentage}%
-															</Typography>
-														</div>
-													</TableCell>
-												</TableRow>
-											))
-										) : (
-											<TableRow>
-												<TableCell colSpan={7} align="center" style={{ padding: 24 }}>
-													{loadingStorage ? "Carregando métricas..." : "Nenhum aparelho registrado."}
+													</div>
 												</TableCell>
 											</TableRow>
-										)}
-									</TableBody>
-								</Table>
-							</TableContainer>
-						</Paper>
-					</Grid>
-
-					{/* 4. GRÁFICO DE EVOLUÇÃO */}
-					<Grid item xs={12}>
-						<Paper className={classes.fixedHeightPaper}>
-							<Chart />
-						</Paper>
-					</Grid>
+										))
+									) : (
+										<TableRow>
+											<TableCell colSpan={7} align="center" className={classes.emptyCell}>
+												{loadingStorage ? "Carregando métricas..." : "Nenhum aparelho registrado."}
+											</TableCell>
+										</TableRow>
+									)}
+								</TableBody>
+							</Table>
+						</TableContainer>
+					</SectionCard>
 				</Grid>
-			</Container>
+
+				{/* 5. FLUXO DE TRABALHO */}
+				<Grid item xs={12}>
+					<SectionCard
+						title="Fluxo de trabalho"
+						subtitle="Atalhos para as etapas principais do atendimento"
+						flush
+					>
+						<div className={classes.flow} style={{ "--flow-cols": flow.length }}>
+							{flow.map((n, i) => (
+								<RouterLink to={n.to} key={n.to} className={classes.node}>
+									<div className={classes.nodeHead}>
+										<div className={classes.nodeIcon} style={{ backgroundColor: n.color }}>
+											{n.icon}
+										</div>
+										<span className={classes.nodeStep}>Passo {i + 1}</span>
+										<ArrowForward className={classes.nodeArrow} />
+									</div>
+									<div className={classes.nodeTitle}>{n.title}</div>
+									<div className={classes.nodeDesc}>{n.desc}</div>
+								</RouterLink>
+							))}
+						</div>
+					</SectionCard>
+				</Grid>
+			</Grid>
 		</div>
 	);
 };

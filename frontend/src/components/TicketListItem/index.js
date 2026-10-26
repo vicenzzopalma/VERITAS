@@ -4,15 +4,10 @@ import { useHistory, useParams } from "react-router-dom";
 import { parseISO, format, isSameDay } from "date-fns";
 import clsx from "clsx";
 
-import { makeStyles } from "@material-ui/core/styles";
-import { green } from "@material-ui/core/colors";
+import { makeStyles, alpha, useTheme } from "@material-ui/core/styles";
 import ListItem from "@material-ui/core/ListItem";
-import ListItemText from "@material-ui/core/ListItemText";
-import ListItemAvatar from "@material-ui/core/ListItemAvatar";
 import Typography from "@material-ui/core/Typography";
 import Avatar from "@material-ui/core/Avatar";
-import Divider from "@material-ui/core/Divider";
-import Badge from "@material-ui/core/Badge";
 
 import { i18n } from "../../translate/i18n";
 
@@ -23,133 +18,164 @@ import { Tooltip } from "@material-ui/core";
 import { AuthContext } from "../../context/Auth/AuthContext";
 import toastError from "../../errors/toastError";
 
-const useStyles = makeStyles(theme => ({
-	ticket: {
-		position: "relative",
-	},
+const useStyles = makeStyles(theme => {
+	const c = theme.custom;
+	return {
+		ticket: {
+			position: "relative",
+			alignItems: "flex-start",
+			gap: theme.spacing(1.5),
+			borderRadius: 12,
+			margin: "2px 0",
+			padding: theme.spacing(1.25, 1.25, 1.25, 1.75),
+			transition: "background-color .12s",
+			"&$selected, &$selected:hover": {
+				backgroundColor: c.primarySoft,
+			},
+		},
+		selected: {},
 
-	pendingTicket: {
-		cursor: "unset",
-	},
+		pendingTicket: {
+			cursor: "unset",
+		},
 
-	noTicketsDiv: {
-		display: "flex",
-		height: "100px",
-		margin: 40,
-		flexDirection: "column",
-		alignItems: "center",
-		justifyContent: "center",
-	},
+		avatarWrap: {
+			position: "relative",
+			flex: "none",
+		},
 
-	noTicketsText: {
-		textAlign: "center",
-		color: "rgb(104, 121, 146)",
-		fontSize: "14px",
-		lineHeight: "1.4",
-	},
+		avatar: {
+			width: 42,
+			height: 42,
+			border: `1px solid ${c.border}`,
+		},
 
-	noTicketsTitle: {
-		textAlign: "center",
-		fontSize: "16px",
-		fontWeight: "600",
-		margin: "0px",
-	},
-
-	contactNameWrapper: {
-		display: "flex",
-		justifyContent: "space-between",
-		alignItems: "center",
-		minWidth: 0,
-		width: "100%",
-		overflow: "hidden",
-	},
-
-	lastMessageTime: {
-		justifySelf: "flex-end",
-		flex: "none",
-		marginLeft: 6,
-	},
-
-	closedBadge: {
-		alignSelf: "center",
-		justifySelf: "flex-end",
-		marginRight: 32,
-		marginLeft: "auto",
-	},
-
-	contactLastMessage: {
-		paddingRight: 20,
-		minWidth: 0,
-		flex: 1,
-		overflow: "hidden",
-		textOverflow: "ellipsis",
-		whiteSpace: "nowrap",
-	},
-
-	newMessagesCount: {
-		alignSelf: "center",
-		marginRight: 8,
-		marginLeft: "auto",
-	},
-
-	badgeStyle: {
-		color: "white",
-		backgroundColor: green[500],
-	},
-
-	acceptButton: {
-		position: "absolute",
-		left: "50%",
-	},
-
-	ticketQueueColor: {
-		flex: "none",
-		width: "8px",
-		height: "100%",
-		position: "absolute",
-		top: "0%",
-		left: "0%",
-	},
-
-	userTag: {
-		position: "absolute",
-		marginRight: 5,
-		right: 5,
-		bottom: 5,
-		background: "#2576D2",
-		color: "#ffffff",
-		border: "1px solid #CCC",
-		padding: 1,
-		paddingLeft: 5,
-		paddingRight: 5,
-		borderRadius: 10,
-		fontSize: "0.9em"
-		,
-		maxWidth: "calc(100% - 38px)",
-		overflow: "hidden",
-		textOverflow: "ellipsis",
-		whiteSpace: "nowrap",
-	},
-	ticketListItem: {
-		minWidth: 0,
-		overflow: "hidden",
-		"& .MuiListItemText-root": {
+		body: {
+			flex: 1,
 			minWidth: 0,
 			overflow: "hidden",
+			display: "flex",
+			flexDirection: "column",
+			gap: 2,
 		},
-		"& .MuiListItemText-primary, & .MuiListItemText-secondary": {
-			display: "block",
+
+		row: {
+			display: "flex",
+			alignItems: "center",
+			gap: theme.spacing(1),
 			minWidth: 0,
-			width: "100%",
-			overflow: "hidden",
 		},
-	},
-}));
+
+		contactName: {
+			flex: 1,
+			minWidth: 0,
+			fontWeight: 600,
+			fontSize: "0.88rem",
+			color: theme.palette.text.primary,
+		},
+
+		lastMessageTime: {
+			flex: "none",
+			fontSize: "0.72rem",
+			fontWeight: 500,
+			color: c.textSubtle,
+		},
+
+		lastMessageTimeUnread: {
+			color: theme.palette.primary.main,
+			fontWeight: 700,
+		},
+
+		contactLastMessage: {
+			flex: 1,
+			minWidth: 0,
+			fontSize: "0.8rem",
+			color: c.textMuted,
+		},
+
+		unreadText: {
+			color: theme.palette.text.primary,
+			fontWeight: 600,
+		},
+
+		newMessagesCount: {
+			flex: "none",
+			minWidth: 20,
+			height: 20,
+			padding: "0 6px",
+			borderRadius: 999,
+			display: "inline-flex",
+			alignItems: "center",
+			justifyContent: "center",
+			fontSize: "0.7rem",
+			fontWeight: 700,
+			color: theme.palette.primary.contrastText,
+			backgroundColor: theme.palette.primary.main,
+		},
+
+		metaRow: {
+			display: "flex",
+			alignItems: "center",
+			flexWrap: "wrap",
+			gap: 6,
+			marginTop: 4,
+		},
+
+		pill: {
+			display: "inline-flex",
+			alignItems: "center",
+			gap: 5,
+			maxWidth: "100%",
+			padding: "1px 8px",
+			borderRadius: 999,
+			fontSize: "0.68rem",
+			fontWeight: 600,
+			minWidth: 0,
+			lineHeight: 1.6,
+			whiteSpace: "nowrap",
+			overflow: "hidden",
+			textOverflow: "ellipsis",
+			color: c.textMuted,
+			backgroundColor: c.surfaceAlt,
+			border: `1px solid ${c.border}`,
+		},
+
+		pillDot: {
+			width: 6,
+			height: 6,
+			borderRadius: "50%",
+			flex: "none",
+		},
+
+		closedPill: {
+			color: theme.palette.success.main,
+			backgroundColor: alpha(theme.palette.success.main, 0.1),
+			borderColor: "transparent",
+		},
+
+		acceptButton: {
+			marginLeft: "auto",
+			padding: "2px 12px",
+			minHeight: 0,
+			fontSize: "0.75rem",
+		},
+
+		ticketQueueColor: {
+			position: "absolute",
+			left: 4,
+			top: 12,
+			bottom: 12,
+			width: 3,
+			borderRadius: 3,
+		},
+	};
+});
 
 import { getContactDisplayName, formatPhoneNumber, isPendingResolution, PENDING_TOOLTIP } from "../../helpers/contactHelper";
 
 const TicketListItem = ({ ticket }) => {
 	const classes = useStyles();
+	const theme = useTheme();
 	const history = useHistory();
 	const [loading, setLoading] = useState(false);
 	const { ticketId } = useParams();
@@ -183,19 +209,21 @@ const TicketListItem = ({ ticket }) => {
 		history.push(`/tickets/${id}`);
 	};
 
+	const hasUnread = ticket.unreadMessages > 0;
+	const queueColor = ticket.queue?.color || theme.custom.textSubtle;
+
 	return (
 		<React.Fragment key={ticket.id}>
 			<ListItem
-				dense
 				button
 				onClick={e => {
 					if (ticket.status === "pending") return;
 					handleSelectTicket(ticket.id);
 				}}
 				selected={ticketId && +ticketId === ticket.id}
+				classes={{ selected: classes.selected }}
 				className={clsx(classes.ticket, {
 					[classes.pendingTicket]: ticket.status === "pending",
-					[classes.ticketListItem]: true,
 				})}
 			>
 				<Tooltip
@@ -204,93 +232,104 @@ const TicketListItem = ({ ticket }) => {
 					title={ticket.queue?.name || "Sem fila"}
 				>
 					<span
-						style={{ backgroundColor: ticket.queue?.color || "#7C7C7C" }}
+						style={{ backgroundColor: queueColor }}
 						className={classes.ticketQueueColor}
 					></span>
 				</Tooltip>
-				<ListItemAvatar>
-					<Avatar src={ticket?.contact?.profilePicUrl} />
-				</ListItemAvatar>
-				<ListItemText
-					disableTypography
-					primary={
-						<span className={classes.contactNameWrapper}>
+				<div className={classes.avatarWrap}>
+					<Avatar
+						className={classes.avatar}
+						src={ticket?.contact?.profilePicUrl}
+					/>
+				</div>
+				<div className={classes.body}>
+					<div className={classes.row}>
+						<Typography
+							noWrap
+							component="span"
+							className={classes.contactName}
+							title={getContactDisplayName(ticket.contact)}
+						>
+							{getContactDisplayName(ticket.contact)}
+						</Typography>
+						{ticket.lastMessage && (
 							<Typography
-								noWrap
 								component="span"
-								variant="body2"
-								color="textPrimary"
-								style={{ minWidth: 0, flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}
-								title={getContactDisplayName(ticket.contact)}
+								className={clsx(classes.lastMessageTime, {
+									[classes.lastMessageTimeUnread]: hasUnread,
+								})}
 							>
-								{getContactDisplayName(ticket.contact)}
-							</Typography>
-							{ticket.status === "closed" && (
-								<Badge
-									className={classes.closedBadge}
-									badgeContent={"closed"}
-									color="primary"
-								/>
-							)}
-							{ticket.lastMessage && (
-								<Typography
-									className={classes.lastMessageTime}
-									component="span"
-									variant="body2"
-									color="textSecondary"
-								>
-									{isSameDay(parseISO(ticket.updatedAt), new Date()) ? (
-										<>{format(parseISO(ticket.updatedAt), "HH:mm")}</>
-									) : (
-										<>{format(parseISO(ticket.updatedAt), "dd/MM/yyyy")}</>
-									)}
-								</Typography>
-							)}
-							{ticket.whatsappId && (
-								<div className={classes.userTag} title={i18n.t("ticketsList.connectionTitle")}>{ticket.whatsapp?.name}</div>
-							)}
-						</span>
-					}
-					secondary={
-						<span className={classes.contactNameWrapper}>
-							<Typography
-								className={classes.contactLastMessage}
-								noWrap
-								component="span"
-								variant="body2"
-								color="textSecondary"
-							>
-								{ticket.lastMessage ? (
-									<MarkdownWrapper>{ticket.lastMessage}</MarkdownWrapper>
+								{isSameDay(parseISO(ticket.updatedAt), new Date()) ? (
+									<>{format(parseISO(ticket.updatedAt), "HH:mm")}</>
 								) : (
-									<br />
+									<>{format(parseISO(ticket.updatedAt), "dd/MM/yyyy")}</>
 								)}
 							</Typography>
-
-							<Badge
-								className={classes.newMessagesCount}
-								badgeContent={ticket.unreadMessages}
-								classes={{
-									badge: classes.badgeStyle,
-								}}
-							/>
-						</span>
-					}
-				/>
-				{ticket.status === "pending" && (
-					<ButtonWithSpinner
-						color="primary"
-						variant="contained"
-						className={classes.acceptButton}
-						size="small"
-						loading={loading}
-						onClick={e => handleAcepptTicket(ticket.id)}
-					>
-						{i18n.t("ticketsList.buttons.accept")}
-					</ButtonWithSpinner>
-				)}
+						)}
+					</div>
+					<div className={classes.row}>
+						<Typography
+							className={clsx(classes.contactLastMessage, {
+								[classes.unreadText]: hasUnread,
+							})}
+							noWrap
+							component="span"
+						>
+							{ticket.lastMessage ? (
+								<MarkdownWrapper>{ticket.lastMessage}</MarkdownWrapper>
+							) : (
+								<br />
+							)}
+						</Typography>
+						{hasUnread && (
+							<span className={classes.newMessagesCount}>
+								{ticket.unreadMessages}
+							</span>
+						)}
+					</div>
+					{(ticket.queue ||
+						ticket.whatsappId ||
+						ticket.status === "closed" ||
+						ticket.status === "pending") && (
+						<div className={classes.metaRow}>
+							{ticket.queue && (
+								<span className={classes.pill}>
+									<span
+										className={classes.pillDot}
+										style={{ backgroundColor: queueColor }}
+									/>
+									{ticket.queue.name}
+								</span>
+							)}
+							{ticket.whatsappId && (
+								<span
+									className={classes.pill}
+									title={i18n.t("ticketsList.connectionTitle")}
+								>
+									{ticket.whatsapp?.name}
+								</span>
+							)}
+							{ticket.status === "closed" && (
+								<span className={clsx(classes.pill, classes.closedPill)}>
+									closed
+								</span>
+							)}
+							{ticket.status === "pending" && (
+								<ButtonWithSpinner
+									color="primary"
+									variant="contained"
+									className={classes.acceptButton}
+									size="small"
+									loading={loading}
+									onClick={e => handleAcepptTicket(ticket.id)}
+								>
+									{i18n.t("ticketsList.buttons.accept")}
+								</ButtonWithSpinner>
+							)}
+						</div>
+					)}
+				</div>
 			</ListItem>
-			<Divider variant="inset" component="li" />
 		</React.Fragment>
 	);
 };

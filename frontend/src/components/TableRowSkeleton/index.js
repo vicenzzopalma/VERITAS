@@ -4,47 +4,43 @@ import TableRow from "@material-ui/core/TableRow";
 import Skeleton from "@material-ui/lab/Skeleton";
 import { makeStyles } from "@material-ui/core";
 
-const useStyles = makeStyles(theme => ({
-	customTableCell: {
+const useStyles = makeStyles(() => ({
+	avatarCell: {
 		display: "flex",
 		alignItems: "center",
-		justifyContent: "center",
+		gap: 12,
 	},
 }));
 
-const TableRowSkeleton = ({ avatar, columns }) => {
+// Placeholder row(s) shown while a table is loading.
+// `avatar` renders a leading cell with a circle + text line (people tables);
+// `columns` is the number of additional plain cells; `rows` repeats the row.
+const TableRowSkeleton = ({ avatar, columns = 0, rows = 1 }) => {
 	const classes = useStyles();
+	const widths = ["70%", "55%", "40%", "60%", "35%"];
 	return (
 		<>
-			<TableRow>
-				{avatar && (
-					<>
-						<TableCell style={{ paddingRight: 0 }}>
-							<Skeleton
-								animation="wave"
-								variant="circle"
-								width={40}
-								height={40}
-							/>
-						</TableCell>
+			{Array.from({ length: rows }, (_, r) => (
+				<TableRow key={r}>
+					{avatar && (
 						<TableCell>
-							<Skeleton animation="wave" height={30} width={80} />
+							<div className={classes.avatarCell}>
+								<Skeleton animation="wave" variant="circle" width={34} height={34} />
+								<Skeleton animation="wave" height={18} width={120} />
+							</div>
 						</TableCell>
-					</>
-				)}
-				{Array.from({ length: columns }, (_, index) => (
-					<TableCell align="center" key={index}>
-						<div className={classes.customTableCell}>
+					)}
+					{Array.from({ length: columns }, (_, index) => (
+						<TableCell key={index}>
 							<Skeleton
-								align="center"
 								animation="wave"
-								height={30}
-								width={80}
+								height={18}
+								width={widths[(index + r) % widths.length]}
 							/>
-						</div>
-					</TableCell>
-				))}
-			</TableRow>
+						</TableCell>
+					))}
+				</TableRow>
+			))}
 		</>
 	);
 };

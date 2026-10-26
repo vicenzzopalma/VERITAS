@@ -4,14 +4,18 @@ import { Formik, Form, Field } from "formik";
 import { toast } from "react-toastify";
 import { WhatsAppsContext } from "../../context/WhatsApp/WhatsAppsContext";
 
-import { makeStyles } from "@material-ui/core/styles";
-import { green } from "@material-ui/core/colors";
+import { makeStyles, alpha } from "@material-ui/core/styles";
+import Close from "@material-ui/icons/Close";
+import WhatsApp from "@material-ui/icons/WhatsApp";
+import Add from "@material-ui/icons/Add";
+import ListAlt from "@material-ui/icons/ListAlt";
+import ArchiveOutlined from "@material-ui/icons/ArchiveOutlined";
 
 import {
 	Dialog,
 	DialogContent,
-	DialogTitle,
 	Button,
+	IconButton,
 	DialogActions,
 	CircularProgress,
 	TextField,
@@ -48,19 +52,136 @@ const useStyles = makeStyles(theme => ({
 		flexWrap: "wrap",
 	},
 
+	header: {
+		display: "flex",
+		alignItems: "flex-start",
+		gap: theme.spacing(1.5),
+		padding: theme.spacing(2.5, 2, 2, 3),
+		borderBottom: `1px solid ${theme.custom.border}`,
+	},
+	headerIcon: {
+		flex: "none",
+		width: 40,
+		height: 40,
+		borderRadius: 12,
+		display: "grid",
+		placeItems: "center",
+		color: "#25D366",
+		backgroundColor: alpha("#25D366", theme.palette.type === "dark" ? 0.16 : 0.12),
+		"& svg": { fontSize: 20 },
+	},
+	headerText: { flex: 1, minWidth: 0 },
+	title: { fontWeight: 700, fontSize: "1.08rem", lineHeight: 1.3 },
+	subtitle: {
+		color: theme.palette.text.secondary,
+		fontSize: "0.83rem",
+		marginTop: 2,
+	},
+
+	content: {
+		display: "flex",
+		flexDirection: "column",
+		gap: theme.spacing(0.5),
+		padding: theme.spacing(2.5, 3),
+	},
+
+	sectionLabel: {
+		fontSize: "0.7rem",
+		fontWeight: 700,
+		textTransform: "uppercase",
+		letterSpacing: "0.08em",
+		color: theme.palette.text.secondary,
+		marginBottom: theme.spacing(0.5),
+	},
+	sectionSpacer: {
+		marginTop: theme.spacing(1.5),
+		paddingTop: theme.spacing(2),
+		borderTop: `1px dashed ${theme.custom.border}`,
+	},
+
 	multFieldLine: {
 		display: "flex",
-		"& > *:not(:last-child)": {
-			marginRight: theme.spacing(1),
-		},
+		alignItems: "center",
+		flexWrap: "wrap",
+		gap: theme.spacing(2),
+		marginBottom: theme.spacing(0.5),
 	},
+
+	textField: {
+		flex: "1 1 240px",
+	},
+
+	toggle: {
+		margin: 0,
+		padding: theme.spacing(0.5, 1.5, 0.5, 0.5),
+		borderRadius: 10,
+		border: `1px solid ${theme.custom.border}`,
+		backgroundColor: theme.custom.surfaceAlt,
+		marginTop: 4,
+		"& .MuiFormControlLabel-label": { fontWeight: 600, fontSize: "0.86rem" },
+	},
+
+	sectorRow: {
+		display: "flex",
+		gap: theme.spacing(1),
+		alignItems: "center",
+	},
+	sectorBtn: {
+		height: 40,
+		whiteSpace: "nowrap",
+		flex: "none",
+		marginTop: 4,
+	},
+	placeholder: { color: theme.custom.textSubtle },
+
+	archiveBox: {
+		marginTop: theme.spacing(1),
+		marginBottom: theme.spacing(1),
+		padding: theme.spacing(1.5, 2),
+		borderRadius: 12,
+		border: `1px solid ${theme.custom.border}`,
+		backgroundColor: theme.custom.surfaceAlt,
+		display: "flex",
+		alignItems: "center",
+		gap: theme.spacing(1.5),
+		transition: "all 0.2s ease",
+	},
+	archiveBoxActive: {
+		borderColor: theme.palette.secondary.main,
+		backgroundColor: alpha(theme.palette.secondary.main, theme.palette.type === "dark" ? 0.12 : 0.08),
+	},
+	archiveIcon: {
+		flex: "none",
+		width: 36,
+		height: 36,
+		borderRadius: 10,
+		display: "grid",
+		placeItems: "center",
+		color: theme.palette.text.secondary,
+		backgroundColor: theme.palette.background.paper,
+		border: `1px solid ${theme.custom.border}`,
+		"& svg": { fontSize: 18 },
+	},
+	archiveIconActive: {
+		color: theme.palette.secondary.main,
+		borderColor: alpha(theme.palette.secondary.main, 0.4),
+	},
+	archiveText: { flex: 1, minWidth: 0 },
+	archiveTitle: { fontWeight: 700, fontSize: "0.88rem" },
+	archiveTitleActive: { color: theme.palette.secondary.main },
+	archiveHelp: { color: theme.palette.text.secondary, display: "block", marginTop: 2, lineHeight: 1.45 },
+
+	chipName: { fontWeight: 600 },
+	chipPhone: { marginLeft: 8, color: theme.palette.text.secondary },
+	chipHolder: { marginLeft: 8, fontSize: "0.85em", color: theme.palette.info.main },
+	chipDevice: { marginLeft: 8, fontSize: "0.8em", color: theme.palette.success.main },
 
 	btnWrapper: {
 		position: "relative",
 	},
 
 	buttonProgress: {
-		color: green[500],
+		color: theme.palette.primary.main,
 		position: "absolute",
 		top: "50%",
 		left: "50%",
@@ -80,6 +201,7 @@ const SessionSchema = Yup.object().shape({
 
 
 const CrmChipSelector = ({ sector, setFieldValue }) => {
+	const classes = useStyles();
 	const [crmChips, setCrmChips] = useState([]);
 	const [loading, setLoading] = useState(false);
 	const [selectedPhone, setSelectedPhone] = useState("");
@@ -135,7 +257,7 @@ const CrmChipSelector = ({ sector, setFieldValue }) => {
 	if (!sector) return null;
 
 	return (
-		<div style={{ marginTop: 8, marginBottom: 8 }}>
+		<div>
 			<FormControl variant="outlined" margin="dense" fullWidth>
 				<InputLabel id="crm-chip-select-label" shrink>
 					WhatsApp do CRM ({sector}) - Opcional
@@ -150,7 +272,7 @@ const CrmChipSelector = ({ sector, setFieldValue }) => {
 					disabled={loading}
 					renderValue={selected => {
 						if (!selected) {
-							return <span style={{ color: "#94a3b8" }}>Nenhum / Manual (Não vincular)</span>;
+							return <span className={classes.placeholder}>Nenhum / Manual (Não vincular)</span>;
 						}
 						const chip = crmChips.find(c => c.phone_number === selected);
 						if (chip) {
@@ -164,15 +286,15 @@ const CrmChipSelector = ({ sector, setFieldValue }) => {
 					</MenuItem>
 					{crmChips.map(chip => (
 						<MenuItem key={chip.id || chip.phone_number} value={chip.phone_number}>
-							<span style={{ fontWeight: 600 }}>{chip.name || "Sem Nome"}</span>
-							<span style={{ marginLeft: 8, color: "#64748b" }}>({chip.phone_number})</span>
+							<span className={classes.chipName}>{chip.name || "Sem Nome"}</span>
+							<span className={classes.chipPhone}>({chip.phone_number})</span>
 							{chip.holder ? (
-								<span style={{ marginLeft: 8, fontSize: "0.85em", color: "#0284c7" }}>
+								<span className={classes.chipHolder}>
 									[{chip.holder}]
 								</span>
 							) : null}
 							{chip.device_name ? (
-								<span style={{ marginLeft: 8, fontSize: "0.8em", color: "#16a34a" }}>
+								<span className={classes.chipDevice}>
 									[Celular {chip.device_name}]
 								</span>
 							) : null}
@@ -334,11 +456,24 @@ const WhatsAppModal = ({ open, onClose, whatsAppId }) => {
 				fullWidth
 				scroll="paper"
 			>
-				<DialogTitle>
-					{whatsAppId
-						? i18n.t("whatsappModal.title.edit")
-						: i18n.t("whatsappModal.title.add")}
-				</DialogTitle>
+				<div className={classes.header}>
+					<div className={classes.headerIcon}>
+						<WhatsApp />
+					</div>
+					<div className={classes.headerText}>
+						<Typography component="h2" className={classes.title}>
+							{whatsAppId
+								? i18n.t("whatsappModal.title.edit")
+								: i18n.t("whatsappModal.title.add")}
+						</Typography>
+						<Typography className={classes.subtitle}>
+							Identificação, setor, proteção anti-ban e mensagens automáticas da conexão.
+						</Typography>
+					</div>
+					<IconButton size="small" onClick={handleClose} aria-label="Fechar">
+						<Close fontSize="small" />
+					</IconButton>
+				</div>
 				<Formik
 					initialValues={whatsApp}
 					enableReinitialize={true}
@@ -351,8 +486,11 @@ const WhatsAppModal = ({ open, onClose, whatsAppId }) => {
 					}}
 				>
 					{({ values, touched, errors, isSubmitting, setFieldValue }) => (
-						<Form>
-							<DialogContent dividers>
+						<Form style={{ display: "flex", flexDirection: "column", minHeight: 0 }}>
+							<DialogContent className={classes.content}>
+								<Typography className={classes.sectionLabel}>
+									Identificação
+								</Typography>
 								<div className={classes.multFieldLine}>
 									<Field
 										as={TextField}
@@ -375,11 +513,12 @@ const WhatsAppModal = ({ open, onClose, whatsAppId }) => {
 											/>
 										}
 										label={i18n.t("whatsappModal.form.default")}
+										className={classes.toggle}
 									/>
 								</div>
-								<div style={{ marginTop: 8, marginBottom: 8 }}>
+								<div>
 									{!customSector ? (
-										<div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+										<div className={classes.sectorRow}>
 											<FormControl
 												variant="outlined"
 												margin="dense"
@@ -406,7 +545,7 @@ const WhatsAppModal = ({ open, onClose, whatsAppId }) => {
 													}}
 													renderValue={selected => {
 														if (!selected) {
-															return <span style={{ color: "#94a3b8" }}>Selecione o setor...</span>;
+															return <span className={classes.placeholder}>Selecione o setor...</span>;
 														}
 														return selected;
 													}}
@@ -434,15 +573,16 @@ const WhatsAppModal = ({ open, onClose, whatsAppId }) => {
 												variant="outlined"
 												size="small"
 												color="primary"
-												style={{ height: 40, whiteSpace: "nowrap" }}
+												startIcon={<Add fontSize="small" />}
+												className={classes.sectorBtn}
 												onClick={() => setCustomSector(true)}
 											>
-												+ Novo
+												Novo
 											</Button>
 											)}
 										</div>
 									) : (
-										<div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+										<div className={classes.sectorRow}>
 											<Field
 												as={TextField}
 												label="Digite o Nome do Novo Setor *"
@@ -457,7 +597,8 @@ const WhatsAppModal = ({ open, onClose, whatsAppId }) => {
 											<Button
 												variant="outlined"
 												size="small"
-												style={{ height: 40, whiteSpace: "nowrap" }}
+												startIcon={<ListAlt fontSize="small" />}
+												className={classes.sectorBtn}
 												onClick={() => setCustomSector(false)}
 											>
 												Lista
@@ -468,33 +609,21 @@ const WhatsAppModal = ({ open, onClose, whatsAppId }) => {
 
 								{/* Controle de Arquivamento do Aparelho */}
 								<div
-									style={{
-										marginTop: 10,
-										marginBottom: 12,
-										padding: "10px 14px",
-										borderRadius: 8,
-										border: values.isArchived ? "1px solid #7c3aed" : "1px solid #e2e8f0",
-										backgroundColor: values.isArchived ? "rgba(124, 58, 237, 0.08)" : "transparent",
-										display: "flex",
-										alignItems: "center",
-										justifyContent: "space-between",
-										transition: "all 0.2s ease"
-									}}
+									className={`${classes.archiveBox} ${values.isArchived ? classes.archiveBoxActive : ""}`}
 								>
-									<div style={{ marginRight: 16 }}>
+									<div
+										className={`${classes.archiveIcon} ${values.isArchived ? classes.archiveIconActive : ""}`}
+									>
+										<ArchiveOutlined />
+									</div>
+									<div className={classes.archiveText}>
 										<Typography
 											variant="subtitle2"
-											style={{
-												fontWeight: 700,
-												color: values.isArchived ? "#7c3aed" : "inherit",
-												display: "flex",
-												alignItems: "center",
-												gap: 6
-											}}
+											className={`${classes.archiveTitle} ${values.isArchived ? classes.archiveTitleActive : ""}`}
 										>
-											📁 Colocar no Arquivados
+											Colocar no Arquivados
 										</Typography>
-										<Typography variant="caption" style={{ color: "#64748b", display: "block", marginTop: 2 }}>
+										<Typography variant="caption" className={classes.archiveHelp}>
 											{values.isArchived
 												? "Aparelho ARQUIVADO: Exibido na aba 'Arquivados' e preservado no cofre de auditoria sem tentar reconectar."
 												: "Mover este aparelho para a aba 'Arquivados' caso esteja fora de uso, preservando o histórico intacto."}
@@ -523,7 +652,11 @@ const WhatsAppModal = ({ open, onClose, whatsAppId }) => {
 								</div>
 
 								<CrmChipSelector sector={values.sector} setFieldValue={setFieldValue} />
-								<div style={{ marginTop: 8, marginBottom: 8 }}>
+
+								<Typography className={`${classes.sectionLabel} ${classes.sectionSpacer}`}>
+									Proteção anti-ban
+								</Typography>
+								<div>
 									<Field
 										as={TextField}
 										label="Proxy Dedicado (HTTP / SOCKS5)"
@@ -535,7 +668,7 @@ const WhatsAppModal = ({ open, onClose, whatsAppId }) => {
 										helperText="Opcional: Isola o IP desta conexão para proteção anti-ban"
 									/>
 								</div>
-								<div style={{ marginBottom: 8 }}>
+								<div>
 									<FormControlLabel
 										control={
 											<Field
@@ -546,8 +679,13 @@ const WhatsAppModal = ({ open, onClose, whatsAppId }) => {
 											/>
 										}
 										label="Simulação de Digitação Humana (Human Flow Anti-Ban)"
+										className={classes.toggle}
 									/>
 								</div>
+
+								<Typography className={`${classes.sectionLabel} ${classes.sectionSpacer}`}>
+									Mensagens e filas
+								</Typography>
 								<div>
 									<Field
 										as={TextField}
@@ -594,7 +732,6 @@ const WhatsAppModal = ({ open, onClose, whatsAppId }) => {
 							<DialogActions>
 								<Button
 									onClick={handleClose}
-									color="secondary"
 									disabled={isSubmitting}
 									variant="outlined"
 								>

@@ -1,24 +1,28 @@
 import React, { useState, useContext, useEffect } from "react";
 import { useLocation } from "react-router-dom";
 import clsx from "clsx";
+import { ThemeProvider as MUIThemeProvider } from "@material-ui/core/styles";
 import {
   makeStyles,
+  useTheme,
   useMediaQuery,
   Drawer,
-  AppBar,
-  Toolbar,
-  List,
-  Typography,
-  Divider,
   MenuItem,
   IconButton,
   Menu,
-  Switch,
+  Tooltip,
+  Avatar,
+  Divider,
+  ListItemIcon,
 } from "@material-ui/core";
 import MenuIcon from "@material-ui/icons/Menu";
 import ChevronLeftIcon from "@material-ui/icons/ChevronLeft";
-import AccountCircle from "@material-ui/icons/AccountCircle";
-import Brightness4Icon from "@material-ui/icons/Brightness4";
+import ChevronRightIcon from "@material-ui/icons/ChevronRight";
+import Brightness4Outlined from "@material-ui/icons/Brightness4Outlined";
+import WbSunnyOutlined from "@material-ui/icons/WbSunnyOutlined";
+import PersonOutline from "@material-ui/icons/PersonOutline";
+import ExitToApp from "@material-ui/icons/ExitToApp";
+import UnfoldMore from "@material-ui/icons/UnfoldMore";
 
 import MainListItems from "./MainListItems";
 import NotificationsPopOver from "../components/NotificationsPopOver";
@@ -27,237 +31,303 @@ import { AuthContext } from "../context/Auth/AuthContext";
 import BackdropLoading from "../components/BackdropLoading";
 import { i18n } from "../translate/i18n";
 import { useThemeContext } from "../context/DarkMode";
+import { buildTheme } from "../theme";
 
-const drawerWidth = 240;
-const collapsedWidth = 68;
+const drawerWidth = 256;
+const railWidth = 76;
+const COLLAPSE_KEY = "veritas:sidebar-collapsed";
 
-const useStyles = makeStyles((theme) => ({
-  root: {
-    display: "flex",
-    height: "100vh",
-    width: "100vw",
-    overflow: "hidden",
-  },
-  toolbar: {
-    paddingRight: 24,
-    [theme.breakpoints.down("sm")]: {
-      paddingLeft: 8,
-      paddingRight: 8,
+const PROFILE_LABELS = {
+  admin_master: "Administrador master",
+  admin: "Administrador",
+  user: "Usuário",
+  operator: "Operador",
+  whatsapp_control: "WhatsApp Control",
+  whatsapp_control_high: "WhatsApp Control (alto)",
+};
+
+const PAGE_TITLES = [
+  ["/whatsapp-control", "CRM", "Gestão"],
+  ["/live", "Atendimento", "Atendimento"],
+  ["/audit", "Auditoria", "Gestão"],
+  ["/tickets", "Tickets", "Atendimento"],
+  ["/contacts", "Contatos", "Atendimento"],
+  ["/quickanswers", "Respostas Rápidas", "Atendimento"],
+  ["/connections", "Conexões", "Gestão"],
+  ["/users", "Usuários", "Administração"],
+  ["/queues", "Filas", "Administração"],
+  ["/settings", "Configurações", "Administração"],
+];
+
+const getPageMeta = (pathname) => {
+  const p = pathname.toLowerCase();
+  const match = PAGE_TITLES.find(([prefix]) => p.startsWith(prefix));
+  return match ? { title: match[1], group: match[2] } : { title: "Dashboard", group: "Visão geral" };
+};
+
+export const initials = (name = "") =>
+  name
+    .split(" ")
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((s) => s[0])
+    .join("")
+    .toUpperCase() || "?";
+
+const useStyles = makeStyles((theme) => {
+  const c = theme.custom;
+  return {
+    root: {
+      display: "flex",
+      height: "100vh",
+      backgroundColor: c.bg,
     },
-  },
-  toolbarIcon: {
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "flex-end",
-    padding: "0 8px",
-    minHeight: "48px",
-  },
-  appBar: {
-    zIndex: theme.zIndex.drawer - 1,
-    transition: theme.transitions.create(["width", "margin"], {
-      easing: theme.transitions.easing.sharp,
-      duration: 200,
-    }),
-    backgroundColor: theme.palette.background.default,
-    marginLeft: collapsedWidth,
-    width: `calc(100% - ${collapsedWidth}px)`,
-    [theme.breakpoints.down("sm")]: {
-      marginLeft: 0,
-      width: "100%",
+    drawerPaper: {
+      position: "relative",
+      width: drawerWidth,
+      overflowX: "hidden",
+      backgroundColor: c.surface,
+      display: "flex",
+      flexDirection: "column",
+      transition: theme.transitions.create("width", {
+        easing: theme.transitions.easing.sharp,
+        duration: theme.transitions.duration.enteringScreen,
+      }),
     },
-  },
-  menuButton: {
-    marginRight: 20,
-    color: theme.palette.text.primary,
-    [theme.breakpoints.up("md")]: {
-      display: "none",
+    drawerCollapsed: { width: railWidth },
+    brand: {
+      display: "flex",
+      alignItems: "center",
+      gap: 12,
+      height: 64,
+      padding: "0 16px 0 20px",
+      flex: "none",
     },
-  },
-  title: {
-    flexGrow: 1,
-    color: theme.palette.text.primary,
-  },
-  drawerContainer: {
-    width: collapsedWidth,
-    flexShrink: 0,
-    whiteSpace: "nowrap",
-    overflow: "hidden",
-    [theme.breakpoints.down("sm")]: {
-      width: 0,
-      overflow: "visible",
+    brandCollapsed: { justifyContent: "center", padding: 0 },
+    logo: {
+      width: 34,
+      height: 34,
+      borderRadius: 10,
+      background: c.gradient,
+      color: "#fff",
+      display: "grid",
+      placeItems: "center",
+      fontWeight: 800,
+      fontSize: 16,
+      flex: "none",
+      boxShadow: `0 6px 16px -6px ${theme.palette.primary.main}`,
     },
-  },
-  drawerPaper: {
-    width: drawerWidth,
-    transition: "width 0.22s cubic-bezier(0.4, 0, 0.2, 1)",
-    overflowX: "hidden",
-    boxShadow: "6px 0 24px rgba(0, 0, 0, 0.25)",
-    zIndex: theme.zIndex.drawer + 5,
-    backgroundColor: theme.palette.background.paper,
-  },
-  drawerPaperClose: {
-    width: collapsedWidth,
-    transition: "width 0.22s cubic-bezier(0.4, 0, 0.2, 1)",
-    boxShadow: "2px 0 8px rgba(0, 0, 0, 0.08)",
-    zIndex: theme.zIndex.drawer + 5,
-    overflowX: "hidden",
-    overflowY: "auto",
-    boxSizing: "border-box",
-    "& .MuiListItemText-root": {
-      display: "none !important",
-      visibility: "hidden !important",
-      opacity: "0 !important",
-      width: "0 !important",
-      overflow: "hidden !important",
-      whiteSpace: "nowrap !important",
+    brandText: { flex: 1, minWidth: 0, lineHeight: 1.15 },
+    brandName: { fontWeight: 750, fontSize: "1rem", letterSpacing: "-0.01em" },
+    brandSub: { fontSize: "0.72rem", color: c.textSubtle, fontWeight: 500 },
+    nav: {
+      flex: 1,
+      overflowY: "auto",
+      overflowX: "hidden",
+      padding: theme.spacing(0.5, 1.5, 2),
     },
-    "& .MuiListItemText-primary": {
-      display: "none !important",
-      visibility: "hidden !important",
+    navCollapsed: { padding: theme.spacing(0.5, 1, 2) },
+    userCard: {
+      margin: theme.spacing(1.5),
+      padding: 10,
+      display: "flex",
+      alignItems: "center",
+      gap: 10,
+      borderRadius: 12,
+      border: `1px solid ${c.border}`,
+      backgroundColor: c.surfaceAlt,
+      cursor: "pointer",
+      textAlign: "left",
+      font: "inherit",
+      color: "inherit",
+      width: `calc(100% - ${theme.spacing(3)}px)`,
+      transition: "background-color .15s",
+      "&:hover": { backgroundColor: c.surfaceHover },
     },
-    "& .MuiListItemIcon-root": {
-      minWidth: 0,
-      width: "100%",
-      justifyContent: "center",
-    },
-    "& .MuiListItem-root": {
-      width: "68px !important",
-      minWidth: "68px !important",
-      maxWidth: "68px !important",
-      boxSizing: "border-box",
-      overflow: "hidden",
-      paddingLeft: "10px !important",
-      paddingRight: "10px !important",
-      marginRight: "0 !important",
-      borderRight: "0 !important",
-      borderRadius: "0 !important",
-    },
-    "& li": {
-      width: "68px !important",
-      maxWidth: "68px !important",
-      overflow: "hidden",
-    },
-    "& .MuiListSubheader-root": {
-      width: "68px !important",
-      maxWidth: "68px !important",
-      paddingLeft: "0 !important",
-      paddingRight: "0 !important",
-    },
-  },
-  mobileDrawerPaper: {
-    width: "min(86vw, 320px)",
-    maxWidth: "320px",
-    overflowX: "hidden",
-    boxShadow: "8px 0 28px rgba(0, 0, 0, 0.28)",
-  },
-  crmDrawerPaper: {
-    backgroundColor: "#0c0d14 !important",
-    borderRight: "1px solid rgba(255, 255, 255, 0.08) !important",
-    fontFamily: "'Outfit', sans-serif !important",
-    boxShadow: "8px 0 32px rgba(0, 0, 0, 0.6) !important",
-    "& *": {
-      fontFamily: "'Outfit', sans-serif !important",
-    },
-    "& .MuiDivider-root": {
-      backgroundColor: "rgba(255, 255, 255, 0.1) !important",
-    },
-    "& .MuiIconButton-root": {
-      color: "#ffffff !important",
-    },
-    "& .MuiSvgIcon-root": {
-      color: "#ffffff !important",
-      fill: "#ffffff !important",
-    },
-    "& .MuiTypography-root": {
-      color: "#ffffff !important",
-      fontWeight: 500,
-    },
-    "& .MuiListItemIcon-root": {
-      color: "#ffffff !important",
-    },
-    "& .MuiListItemText-primary": {
-      color: "#ffffff !important",
-    },
-    "& .MuiListSubheader-root": {
-      color: "#94a3b8 !important",
-      backgroundColor: "transparent !important",
+    userCardCollapsed: { justifyContent: "center", padding: 6, border: "none", background: "none" },
+    avatar: {
+      width: 34,
+      height: 34,
+      fontSize: "0.8rem",
       fontWeight: 700,
-      fontSize: "0.75rem",
-      textTransform: "uppercase",
-      letterSpacing: "0.08em",
-    }
-  },
-  appBarSpacer: {
-    minHeight: "48px",
-    [theme.breakpoints.down("sm")]: {
-      minHeight: "56px",
+      background: c.gradient,
+      color: "#fff",
     },
-  },
-  content: {
-    flex: 1,
-    overflow: "auto",
-    height: "100vh",
-    minWidth: 0,
-    [theme.breakpoints.down("sm")]: {
-      width: "100%",
-      height: "100dvh",
+    userText: { flex: 1, minWidth: 0, lineHeight: 1.2 },
+    userName: {
+      fontWeight: 650,
+      fontSize: "0.85rem",
+      whiteSpace: "nowrap",
+      overflow: "hidden",
+      textOverflow: "ellipsis",
     },
-  },
-  contentFull: {
-    flex: 1,
-    overflow: "hidden",
-    height: "100vh",
-    margin: 0,
-    padding: 0,
-    minWidth: 0,
-    [theme.breakpoints.down("sm")]: {
-      width: "100%",
-      height: "100dvh",
+    userRole: { fontSize: "0.72rem", color: c.textSubtle, textTransform: "capitalize" },
+    main: {
+      flex: 1,
+      minWidth: 0,
+      display: "flex",
+      flexDirection: "column",
+      height: "100vh",
     },
-  },
-  switch: {
-    transform: "scale(0.8)",
-  },
-  iconButton: {
-    color: theme.palette.text.primary,
-  },
-  themeSwitchContainer: {
-    display: "flex",
-    alignItems: "center",
-  },
-  themeIcon: {
-    color: theme.palette.text.primary,
-  },
-}));
+    topbar: {
+      height: 64,
+      flex: "none",
+      display: "flex",
+      alignItems: "center",
+      gap: 8,
+      padding: theme.spacing(0, 3),
+      borderBottom: `1px solid ${c.border}`,
+      backgroundColor: theme.palette.type === "dark" ? "rgba(18,21,31,0.8)" : "rgba(255,255,255,0.8)",
+      backdropFilter: "saturate(180%) blur(10px)",
+      position: "relative",
+      zIndex: 2,
+      [theme.breakpoints.down("xs")]: { padding: theme.spacing(0, 1.5) },
+    },
+    crumbs: { flex: 1, minWidth: 0, display: "flex", alignItems: "center", gap: 8 },
+    crumbGroup: {
+      color: c.textSubtle,
+      fontSize: "0.85rem",
+      fontWeight: 500,
+      [theme.breakpoints.down("xs")]: { display: "none" },
+    },
+    crumbSep: { color: c.borderStrong, [theme.breakpoints.down("xs")]: { display: "none" } },
+    crumbTitle: { fontWeight: 650, fontSize: "0.92rem", whiteSpace: "nowrap" },
+    topActions: {
+      display: "flex",
+      alignItems: "center",
+      gap: 4,
+      "& .MuiIconButton-root": { width: 38, height: 38 },
+    },
+    content: {
+      flex: 1,
+      overflow: "auto",
+      display: "flex",
+      flexDirection: "column",
+      minHeight: 0,
+    },
+    contentFull: { overflow: "hidden", height: "100vh" },
+    crmMenuFab: {
+      position: "fixed",
+      top: 10,
+      left: 10,
+      zIndex: theme.zIndex.appBar,
+      backgroundColor: "rgba(12,13,20,0.85)",
+      color: "#fff",
+      "&:hover": { backgroundColor: "rgba(12,13,20,0.95)" },
+    },
+    menuHeader: { padding: "10px 16px 8px", minWidth: 220 },
+  };
+});
+
+const crmTheme = buildTheme("dark");
+
+const Sidebar = ({ isMobile, isCollapsed, mobileOpen, onCloseMobile, onCollapse, user, onUserClick }) => {
+  const classes = useStyles();
+
+  const content = (
+    <>
+      <div className={clsx(classes.brand, isCollapsed && classes.brandCollapsed)}>
+        <div className={classes.logo}>V</div>
+        {!isCollapsed && (
+          <>
+            <div className={classes.brandText}>
+              <div className={classes.brandName}>VERITAS</div>
+              <div className={classes.brandSub}>Atendimento &amp; Auditoria</div>
+            </div>
+            {!isMobile && (
+              <Tooltip title="Recolher menu">
+                <IconButton size="small" onClick={() => onCollapse(true)} aria-label="Recolher menu">
+                  <ChevronLeftIcon fontSize="small" />
+                </IconButton>
+              </Tooltip>
+            )}
+          </>
+        )}
+      </div>
+      {isCollapsed && (
+        <div style={{ display: "flex", justifyContent: "center", paddingBottom: 4 }}>
+          <Tooltip title="Expandir menu" placement="right">
+            <IconButton size="small" onClick={() => onCollapse(false)} aria-label="Expandir menu">
+              <ChevronRightIcon fontSize="small" />
+            </IconButton>
+          </Tooltip>
+        </div>
+      )}
+      <div className={clsx(classes.nav, isCollapsed && classes.navCollapsed)}>
+        <MainListItems collapsed={isCollapsed} drawerClose={() => isMobile && onCloseMobile()} />
+      </div>
+      {user?.id && (
+        <button
+          type="button"
+          className={clsx(classes.userCard, isCollapsed && classes.userCardCollapsed)}
+          onClick={onUserClick}
+          aria-haspopup="true"
+          aria-controls="user-menu"
+        >
+          <Avatar className={classes.avatar}>{initials(user.name)}</Avatar>
+          {!isCollapsed && (
+            <>
+              <div className={classes.userText}>
+                <div className={classes.userName}>{user.name}</div>
+                <div className={classes.userRole}>{PROFILE_LABELS[user.profile] || user.profile}</div>
+              </div>
+              <UnfoldMore fontSize="small" style={{ opacity: 0.5 }} />
+            </>
+          )}
+        </button>
+      )}
+    </>
+  );
+
+  return isMobile ? (
+    <Drawer
+      variant="temporary"
+      open={mobileOpen}
+      onClose={onCloseMobile}
+      classes={{ paper: classes.drawerPaper }}
+      ModalProps={{ keepMounted: true }}
+    >
+      {content}
+    </Drawer>
+  ) : (
+    <Drawer
+      variant="permanent"
+      open
+      classes={{ paper: clsx(classes.drawerPaper, isCollapsed && classes.drawerCollapsed) }}
+    >
+      {content}
+    </Drawer>
+  );
+};
 
 const LoggedInLayout = ({ children }) => {
   const classes = useStyles();
-  const location = useLocation();
-  const { user, handleLogout, loading } = useContext(AuthContext);
-  const isMobile = useMediaQuery((theme) => theme.breakpoints.down("sm"));
-
-  const isWhatsappControl = location.pathname.startsWith("/whatsapp-control") || user?.profile === "whatsapp_control" || user?.profile === "whatsapp_control_high";
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
+  const { pathname } = useLocation();
 
   const [userModalOpen, setUserModalOpen] = useState(false);
   const [anchorEl, setAnchorEl] = useState(null);
-  const [menuOpen, setMenuOpen] = useState(false);
-
-  // Menu Retrátil por Hover
-  const [drawerHovered, setDrawerHovered] = useState(false);
-  const [mobileDrawerOpen, setMobileDrawerOpen] = useState(false);
-  const isDrawerExpanded = isMobile || drawerHovered;
-
+  const [mobileOpen, setMobileOpen] = useState(false);
+  const [collapsed, setCollapsed] = useState(() => {
+    try {
+      return localStorage.getItem(COLLAPSE_KEY) === "1";
+    } catch (e) {
+      return false;
+    }
+  });
+  const { handleLogout, loading, user } = useContext(AuthContext);
   const { darkMode, toggleTheme } = useThemeContext();
 
-  const handleMenu = (event) => {
-    setAnchorEl(event.currentTarget);
-    setMenuOpen(true);
-  };
+  useEffect(() => {
+    try {
+      localStorage.setItem(COLLAPSE_KEY, collapsed ? "1" : "0");
+    } catch (e) {
+      // ignore
+    }
+  }, [collapsed]);
 
-  const handleCloseMenu = () => {
-    setAnchorEl(null);
-    setMenuOpen(false);
-  };
+  const handleCloseMenu = () => setAnchorEl(null);
 
   const handleOpenUserModal = () => {
     setUserModalOpen(true);
@@ -269,148 +339,103 @@ const LoggedInLayout = ({ children }) => {
     handleLogout();
   };
 
-  const drawerClose = () => {
-    setDrawerHovered(false);
-    setMobileDrawerOpen(false);
-  };
-
   if (loading) {
     return <BackdropLoading />;
   }
 
+  const isCollapsed = !isMobile && collapsed;
+  // Mesma regra do layout anterior: no CRM o iframe tem cabeçalho próprio.
+  const isCrm =
+    pathname.startsWith("/whatsapp-control") ||
+    user?.profile === "whatsapp_control" ||
+    user?.profile === "whatsapp_control_high";
+  const { title, group } = getPageMeta(pathname);
+
+  const sidebar = (
+    <Sidebar
+      isMobile={isMobile}
+      isCollapsed={isCollapsed}
+      mobileOpen={mobileOpen}
+      onCloseMobile={() => setMobileOpen(false)}
+      onCollapse={setCollapsed}
+      user={user}
+      onUserClick={(e) => setAnchorEl(e.currentTarget)}
+    />
+  );
+
   return (
     <div className={classes.root}>
-      {/* Menu Lateral Retrátil Flutuante (expansão no hover) */}
-      <div
-        className={classes.drawerContainer}
-        onMouseEnter={() => setDrawerHovered(true)}
-        onMouseLeave={() => setDrawerHovered(false)}
+      {/* No CRM (iframe escuro) o menu lateral fica sempre no tema escuro. */}
+      {isCrm ? <MUIThemeProvider theme={crmTheme}>{sidebar}</MUIThemeProvider> : sidebar}
+
+      <UserModal open={userModalOpen} onClose={() => setUserModalOpen(false)} userId={user?.id} />
+
+      <Menu
+        id="user-menu"
+        anchorEl={anchorEl}
+        getContentAnchorEl={null}
+        anchorOrigin={{ vertical: "top", horizontal: "right" }}
+        transformOrigin={{ vertical: "bottom", horizontal: "left" }}
+        open={Boolean(anchorEl)}
+        onClose={handleCloseMenu}
       >
-        <Drawer
-          variant={isMobile ? "temporary" : "permanent"}
-          classes={{
-            paper: clsx(
-              isMobile
-                ? classes.mobileDrawerPaper
-                : isDrawerExpanded
-                  ? classes.drawerPaper
-                  : classes.drawerPaperClose,
-              isWhatsappControl && classes.crmDrawerPaper,
-              isWhatsappControl && "crm-drawer-dark-mode"
-            ),
-          }}
-          open={isMobile ? mobileDrawerOpen : isDrawerExpanded}
-          onClose={() => setMobileDrawerOpen(false)}
-        >
-          <div className={classes.toolbarIcon}>
-            <IconButton
-              onClick={() => {
-                if (isMobile) {
-                  setMobileDrawerOpen(false);
-                } else {
-                  setDrawerHovered(!drawerHovered);
-                }
-              }}
-              style={isWhatsappControl ? { color: "#ffffff" } : undefined}
-            >
-              {isDrawerExpanded ? (
-                <ChevronLeftIcon style={isWhatsappControl ? { color: "#ffffff", fill: "#ffffff" } : undefined} />
-              ) : (
-                <MenuIcon style={isWhatsappControl ? { color: "#ffffff", fill: "#ffffff" } : undefined} />
-              )}
-            </IconButton>
+        <div className={classes.menuHeader}>
+          <div className={classes.userName}>{user?.name}</div>
+          <div className={classes.userRole} style={{ textTransform: "none" }}>
+            {user?.email}
           </div>
-          <Divider style={isWhatsappControl ? { backgroundColor: "rgba(255, 255, 255, 0.1)" } : undefined} />
-          <List>
-            <MainListItems drawerClose={drawerClose} collapsed={!isDrawerExpanded} />
-          </List>
-          <Divider style={isWhatsappControl ? { backgroundColor: "rgba(255, 255, 255, 0.1)" } : undefined} />
-        </Drawer>
-      </div>
+        </div>
+        <Divider style={{ margin: "4px 0" }} />
+        <MenuItem onClick={handleOpenUserModal}>
+          <ListItemIcon style={{ minWidth: 32 }}>
+            <PersonOutline fontSize="small" />
+          </ListItemIcon>
+          {i18n.t("mainDrawer.appBar.user.profile")}
+        </MenuItem>
+        <MenuItem onClick={toggleTheme}>
+          <ListItemIcon style={{ minWidth: 32 }}>
+            {darkMode ? <WbSunnyOutlined fontSize="small" /> : <Brightness4Outlined fontSize="small" />}
+          </ListItemIcon>
+          {darkMode ? "Tema claro" : "Tema escuro"}
+        </MenuItem>
+        <MenuItem onClick={handleClickLogout}>
+          <ListItemIcon style={{ minWidth: 32 }}>
+            <ExitToApp fontSize="small" />
+          </ListItemIcon>
+          {i18n.t("mainDrawer.appBar.user.logout")}
+        </MenuItem>
+      </Menu>
 
-      <UserModal
-        open={userModalOpen}
-        onClose={() => setUserModalOpen(false)}
-        userId={user?.id}
-      />
-
-      {/* Na aba Whatsapp Control, o CRM tem seu próprio header completo, então ocultamos o AppBar do Veritas */}
-      {!isWhatsappControl && (
-        <AppBar position="absolute" className={classes.appBar}>
-          <Toolbar variant="dense" className={classes.toolbar}>
-            <IconButton
-              edge="start"
-              aria-label="Abrir menu"
-              className={classes.menuButton}
-              onClick={() => setMobileDrawerOpen(true)}
-            >
+      <div className={classes.main}>
+        {isCrm && isMobile && (
+          <IconButton className={classes.crmMenuFab} aria-label="Abrir menu" onClick={() => setMobileOpen(true)}>
+            <MenuIcon />
+          </IconButton>
+        )}
+        {!isCrm && (
+        <header className={classes.topbar}>
+          {isMobile && (
+            <IconButton edge="start" aria-label="Abrir menu" onClick={() => setMobileOpen(true)}>
               <MenuIcon />
             </IconButton>
-            <Typography
-              component="h1"
-              variant="h6"
-              noWrap
-              className={classes.title}
-            >
-              VERITAS
-            </Typography>
-
-            <div className={classes.themeSwitchContainer}>
-              <Brightness4Icon className={classes.themeIcon} />
-              <Switch
-                checked={darkMode}
-                onChange={toggleTheme}
-                color="default"
-                className={classes.switch}
-              />
-            </div>
-
-            {user.id && (
-              <NotificationsPopOver className={classes.iconButton} />
-            )}
-
-            <div>
-              <IconButton
-                aria-label="account of current user"
-                aria-controls="menu-appbar"
-                aria-haspopup="true"
-                onClick={handleMenu}
-                className={classes.iconButton}
-              >
-                <AccountCircle />
+          )}
+          <div className={classes.crumbs}>
+            <span className={classes.crumbGroup}>{group}</span>
+            <span className={classes.crumbSep}>/</span>
+            <span className={classes.crumbTitle}>{title}</span>
+          </div>
+          <div className={classes.topActions}>
+            <Tooltip title={darkMode ? "Tema claro" : "Tema escuro"}>
+              <IconButton onClick={toggleTheme} aria-label="Alternar tema">
+                {darkMode ? <WbSunnyOutlined fontSize="small" /> : <Brightness4Outlined fontSize="small" />}
               </IconButton>
-              <Menu
-                id="menu-appbar"
-                anchorEl={anchorEl}
-                getContentAnchorEl={null}
-                anchorOrigin={{
-                  vertical: "bottom",
-                  horizontal: "right",
-                }}
-                transformOrigin={{
-                  vertical: "top",
-                  horizontal: "right",
-                }}
-                open={menuOpen}
-                onClose={handleCloseMenu}
-              >
-                <MenuItem onClick={handleOpenUserModal}>
-                  {i18n.t("mainDrawer.appBar.user.profile")}
-                </MenuItem>
-                <MenuItem onClick={handleClickLogout}>
-                  {i18n.t("mainDrawer.appBar.user.logout")}
-                </MenuItem>
-              </Menu>
-            </div>
-          </Toolbar>
-        </AppBar>
-      )}
-
-      {/* Conteúdo Principal */}
-      <main className={isWhatsappControl ? classes.contentFull : classes.content}>
-        {!isWhatsappControl && <div className={classes.appBarSpacer} />}
-        {children}
-      </main>
+            </Tooltip>
+            {user?.id && <NotificationsPopOver />}
+          </div>
+        </header>
+        )}
+        <main className={clsx(classes.content, isCrm && classes.contentFull)}>{children ? children : null}</main>
+      </div>
     </div>
   );
 };

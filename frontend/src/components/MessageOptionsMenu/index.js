@@ -5,13 +5,17 @@ import MenuItem from "@material-ui/core/MenuItem";
 import { i18n } from "../../translate/i18n";
 import api from "../../services/api";
 import ConfirmationModal from "../ConfirmationModal";
-import { Menu } from "@material-ui/core";
+import { Menu, ListItemIcon } from "@material-ui/core";
+import { useTheme } from "@material-ui/core/styles";
+import ReplyIcon from "@material-ui/icons/Reply";
+import DeleteOutlineIcon from "@material-ui/icons/DeleteOutline";
 import { ReplyMessageContext } from "../../context/ReplyingMessage/ReplyingMessageContext";
 import toastError from "../../errors/toastError";
 
 const MessageOptionsMenu = ({ message, menuOpen, handleClose, anchorEl }) => {
   const { setReplyingMessage } = useContext(ReplyMessageContext);
   const [confirmationOpen, setConfirmationOpen] = useState(false);
+  const theme = useTheme();
 
   const handleDeleteMessage = async () => {
     try {
@@ -56,11 +60,22 @@ const MessageOptionsMenu = ({ message, menuOpen, handleClose, anchorEl }) => {
         onClose={handleClose}
       >
         {message.fromMe && (
-          <MenuItem onClick={handleOpenConfirmationModal}>
+          <MenuItem
+            onClick={handleOpenConfirmationModal}
+            style={{ color: theme.palette.error.main }}
+          >
+            <ListItemIcon
+              style={{ minWidth: 32, color: theme.palette.error.main }}
+            >
+              <DeleteOutlineIcon fontSize="small" />
+            </ListItemIcon>
             {i18n.t("messageOptionsMenu.delete")}
           </MenuItem>
         )}
         <MenuItem onClick={hanldeReplyMessage}>
+          <ListItemIcon style={{ minWidth: 32 }}>
+            <ReplyIcon fontSize="small" />
+          </ListItemIcon>
           {i18n.t("messageOptionsMenu.reply")}
         </MenuItem>
       </Menu>

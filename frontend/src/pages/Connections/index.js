@@ -1,48 +1,63 @@
 import React, { useState, useCallback, useContext, useEffect } from "react";
 import { toast } from "react-toastify";
-import { format, parseISO } from "date-fns";
 import { useHistory } from "react-router-dom";
+import clsx from "clsx";
 
-import { makeStyles, useTheme } from "@material-ui/core/styles";
-import { green } from "@material-ui/core/colors";
+import { makeStyles, alpha, lighten, useTheme } from "@material-ui/core/styles";
 import {
 	Button,
-	TableBody,
-	TableRow,
-	TableCell,
 	IconButton,
-	Table,
-	TableHead,
 	Paper,
 	Tooltip,
 	Typography,
 	CircularProgress,
-	Chip,
-	TextField,
 	InputAdornment,
-	useMediaQuery,
-	Card,
-	CardContent,
-	CardActions,
-	Box,
-	Divider,
 } from "@material-ui/core";
+import Skeleton from "@material-ui/lab/Skeleton";
 import {
 	Edit,
-	CheckCircle,
-	SignalCellularConnectedNoInternet2Bar,
-	SignalCellularConnectedNoInternet0Bar,
-	SignalCellular4Bar,
-	CropFree,
 	DeleteOutline,
 	Archive,
 	Unarchive,
-	Search as SearchIcon,
 	Clear as ClearIcon,
 	AccessTime,
 	Sync as SyncIcon,
+	WhatsApp,
+	Add,
+	Star,
+	Schedule,
+	CropFree,
+	Refresh,
+	LinkOff,
+	PhoneIphone,
+	PhonelinkRing,
+	ArchiveOutlined,
+	LockOutlined,
+	InfoOutlined,
+	SearchOutlined,
+	ErrorOutline,
 } from "@material-ui/icons";
 
+import MainContainer from "../../components/MainContainer";
+import {
+	PageHeader,
+	StatusPill,
+	EmptyState,
+	SearchField,
+	toneColor,
+} from "../../components/ui";
+
+import api from "../../services/api";
+import WhatsAppModal from "../../components/WhatsAppModal";
+import ConfirmationModal from "../../components/ConfirmationModal";
+import QrcodeModal from "../../components/QrcodeModal";
+import { i18n } from "../../translate/i18n";
+import { WhatsAppsContext } from "../../context/WhatsApp/WhatsAppsContext";
+import { AuthContext } from "../../context/Auth/AuthContext";
+import toastError from "../../errors/toastError";
+
+const WHATSAPP_GREEN = "#25D366";
+const ARCHIVE_COLOR = "#7C3AED";
 
 const getSectorColor = sector => {
 	switch (sector) {
@@ -94,144 +109,386 @@ const formatDateTime = dateVal => {
 	}
 };
 
-import MainContainer from "../../components/MainContainer";
-import MainHeader from "../../components/MainHeader";
-import MainHeaderButtonsWrapper from "../../components/MainHeaderButtonsWrapper";
-import Title from "../../components/Title";
-import TableRowSkeleton from "../../components/TableRowSkeleton";
-
-import api from "../../services/api";
-import WhatsAppModal from "../../components/WhatsAppModal";
-import ConfirmationModal from "../../components/ConfirmationModal";
-import QrcodeModal from "../../components/QrcodeModal";
-import { i18n } from "../../translate/i18n";
-import { WhatsAppsContext } from "../../context/WhatsApp/WhatsAppsContext";
-import { AuthContext } from "../../context/Auth/AuthContext";
-import toastError from "../../errors/toastError";
-
-const useStyles = makeStyles(theme => ({
-	mainPaper: {
-		flex: 1,
-		padding: theme.spacing(0.5),
-		overflowY: "scroll",
-		...theme.scrollbarStyles,
-		"& .MuiTableCell-root": {
-			padding: "5px 8px",
-			fontSize: "0.78rem",
-			lineHeight: 1.2,
+const useStyles = makeStyles(theme => {
+	const c = theme.custom;
+	const isDark = theme.palette.type === "dark";
+	const archiveColor = isDark ? lighten(ARCHIVE_COLOR, 0.35) : ARCHIVE_COLOR;
+	return {
+		spin: {
+			animation: "$spin 1s linear infinite",
 		},
-		"& .MuiTableHead-root .MuiTableCell-root": {
-			padding: "7px 8px",
-			fontSize: "0.72rem",
-			fontWeight: 800,
+		"@keyframes spin": {
+			"0%": {
+				transform: "rotate(0deg)",
+			},
+			"100%": {
+				transform: "rotate(360deg)",
+			},
 		},
-		"& .MuiButton-root": {
-			minHeight: 34,
-			padding: "4px 9px",
-			fontSize: "0.72rem",
+
+		// Header controls
+		segmented: {
+			display: "inline-flex",
+			padding: 3,
+			gap: 3,
+			borderRadius: 10,
+			border: `1px solid ${c.border}`,
+			backgroundColor: isDark ? c.surfaceAlt : c.surface,
+			flexShrink: 0,
+			[theme.breakpoints.down("xs")]: { width: "100%" },
+		},
+		segment: {
+			height: 32,
+			padding: "0 12px",
 			borderRadius: 8,
+			border: "none",
+			background: "transparent",
+			color: c.textMuted,
+			fontFamily: "inherit",
+			fontSize: "0.82rem",
+			fontWeight: 650,
+			cursor: "pointer",
+			display: "inline-flex",
+			alignItems: "center",
+			justifyContent: "center",
+			gap: 6,
+			whiteSpace: "nowrap",
+			transition: "background-color .15s, color .15s",
+			"& svg": { fontSize: 16 },
+			"&:hover": { color: c.text, backgroundColor: c.surfaceHover },
+			[theme.breakpoints.down("xs")]: { flex: 1 },
 		},
-		"& .MuiIconButton-root": {
-			padding: 5,
+		segmentActive: {
+			color: theme.palette.primary.main,
+			backgroundColor: c.primarySoft,
+			"&:hover": { color: theme.palette.primary.main, backgroundColor: c.primarySoft },
 		},
-	},
-	pageHeader: {
-		padding: "0 4px 4px",
-		"& h1, & h2, & h3, & h4, & h5, & h6": {
-			fontSize: "1rem",
-			fontWeight: 800,
+		segmentArchivedActive: {
+			color: archiveColor,
+			backgroundColor: alpha(ARCHIVE_COLOR, isDark ? 0.18 : 0.1),
+			"&:hover": { color: archiveColor, backgroundColor: alpha(ARCHIVE_COLOR, isDark ? 0.18 : 0.1) },
 		},
-	},
-	spin: {
-		animation: "$spin 1s linear infinite",
-	},
-	"@keyframes spin": {
-		"0%": {
-			transform: "rotate(0deg)",
+		segmentCount: {
+			fontSize: "0.72rem",
+			fontWeight: 700,
+			padding: "0 6px",
+			borderRadius: 999,
+			backgroundColor: c.surfaceAlt,
+			border: `1px solid ${c.border}`,
+			lineHeight: "18px",
 		},
-		"100%": {
-			transform: "rotate(360deg)",
+		search: {
+			minWidth: 260,
+			[theme.breakpoints.down("xs")]: { width: "100%", minWidth: 0 },
 		},
-	},
+		clearBtn: { padding: 2, "& svg": { color: c.textSubtle } },
+		headerBtn: {
+			whiteSpace: "nowrap",
+			[theme.breakpoints.down("xs")]: { flex: 1 },
+		},
 
-	sectorFilter: {
-		display: "flex",
-		alignItems: "center",
-		gap: 6,
-		flexWrap: "wrap",
-		marginBottom: 8,
-		padding: "6px 10px",
-		backgroundColor: theme.palette.type === "dark" ? "#111827" : "#fff",
-		borderRadius: 8,
-		border: `1px solid ${theme.palette.type === "dark" ? "rgba(148, 163, 184, 0.18)" : "rgba(0, 0, 0, 0.08)"}`,
-		boxShadow: theme.palette.type === "dark" ? "0 1px 3px rgba(0,0,0,0.24)" : "0 1px 3px rgba(0,0,0,0.04)",
-		[theme.breakpoints.down("sm")]: {
-			flexWrap: "nowrap",
-			overflowX: "auto",
-			WebkitOverflowScrolling: "touch",
-			padding: "6px 8px",
-			"&::-webkit-scrollbar": {
-				height: 3,
-			},
-			"&::-webkit-scrollbar-thumb": {
-				backgroundColor: "rgba(148, 163, 184, 0.3)",
-				borderRadius: 2,
+		// Sector filter / archive banner
+		filterBar: {
+			display: "flex",
+			alignItems: "center",
+			gap: theme.spacing(0.75),
+			flexWrap: "wrap",
+			marginBottom: theme.spacing(2),
+			padding: theme.spacing(1.25, 1.5),
+			borderRadius: 14,
+			[theme.breakpoints.down("sm")]: {
+				flexWrap: "nowrap",
+				overflowX: "auto",
+				WebkitOverflowScrolling: "touch",
+				...theme.scrollbarStyles,
 			},
 		},
-	},
-	mobileCardContainer: {
-		display: "flex",
-		flexDirection: "column",
-		gap: 12,
-		padding: "4px 2px 20px 2px",
-	},
-	mobileCard: {
-		borderRadius: 12,
-		border: `1px solid ${theme.palette.type === "dark" ? "rgba(148, 163, 184, 0.18)" : "rgba(0, 0, 0, 0.08)"}`,
-		backgroundColor: theme.palette.type === "dark" ? "#1e293b" : "#ffffff",
-		boxShadow: "0 2px 8px rgba(0,0,0,0.06)",
-		overflow: "hidden",
-	},
-	mobileCardHeader: {
-		padding: "10px 14px 8px 14px",
-		display: "flex",
-		alignItems: "center",
-		justifyContent: "space-between",
-		borderBottom: `1px solid ${theme.palette.type === "dark" ? "rgba(148, 163, 184, 0.1)" : "rgba(0, 0, 0, 0.05)"}`,
-	},
-	mobileCardBody: {
-		padding: "10px 14px",
-		display: "flex",
-		flexDirection: "column",
-		gap: 8,
-	},
-	mobileCardActions: {
-		padding: "6px 12px 8px 12px",
-		display: "flex",
-		alignItems: "center",
-		justifyContent: "space-between",
-		borderTop: `1px solid ${theme.palette.type === "dark" ? "rgba(148, 163, 184, 0.1)" : "rgba(0, 0, 0, 0.05)"}`,
-		backgroundColor: theme.palette.type === "dark" ? "rgba(15, 23, 42, 0.4)" : "rgba(248, 250, 252, 0.6)",
-	},
-	customTableCell: {
-		display: "flex",
-		alignItems: "center",
-		justifyContent: "center",
-	},
-	tooltip: {
-		backgroundColor: theme.palette.type === "dark" ? "#1e293b" : "#f5f5f9",
-		color: theme.palette.type === "dark" ? "#e5e7eb" : "rgba(0, 0, 0, 0.87)",
-		fontSize: theme.typography.pxToRem(14),
-		border: `1px solid ${theme.palette.type === "dark" ? "#475569" : "#dadde9"}`,
-		maxWidth: 450,
-	},
-	tooltipPopper: {
-		textAlign: "center",
-	},
-	buttonProgress: {
-		color: green[500],
-	},
-}));
+		filterLabel: {
+			fontSize: "0.7rem",
+			fontWeight: 700,
+			textTransform: "uppercase",
+			letterSpacing: "0.08em",
+			color: c.textSubtle,
+			marginRight: theme.spacing(0.5),
+			whiteSpace: "nowrap",
+		},
+		filterChip: {
+			display: "inline-flex",
+			alignItems: "center",
+			gap: 6,
+			height: 28,
+			padding: "0 10px",
+			borderRadius: 999,
+			border: `1px solid ${c.border}`,
+			background: "transparent",
+			color: c.textMuted,
+			fontFamily: "inherit",
+			fontSize: "0.76rem",
+			fontWeight: 650,
+			cursor: "pointer",
+			whiteSpace: "nowrap",
+			flexShrink: 0,
+			transition: "background-color .15s, border-color .15s, color .15s",
+			"&:hover": { backgroundColor: c.surfaceHover },
+		},
+		filterDot: { width: 7, height: 7, borderRadius: "50%", flex: "none" },
+		filterCount: { opacity: 0.75, fontWeight: 600 },
+		archiveBanner: {
+			display: "flex",
+			alignItems: "center",
+			gap: theme.spacing(1.5),
+			marginBottom: theme.spacing(2),
+			padding: theme.spacing(1.5, 2),
+			borderRadius: 14,
+			borderColor: alpha(ARCHIVE_COLOR, 0.35),
+			backgroundColor: alpha(ARCHIVE_COLOR, isDark ? 0.1 : 0.05),
+			[theme.breakpoints.down("xs")]: { flexDirection: "column", alignItems: "stretch" },
+		},
+		archiveBannerIcon: {
+			width: 36,
+			height: 36,
+			borderRadius: 10,
+			flex: "none",
+			display: "grid",
+			placeItems: "center",
+			color: archiveColor,
+			backgroundColor: alpha(ARCHIVE_COLOR, isDark ? 0.18 : 0.1),
+			"& svg": { fontSize: 19 },
+			[theme.breakpoints.down("xs")]: { display: "none" },
+		},
+		archiveBannerText: { flex: 1, fontSize: "0.84rem", color: c.textMuted, lineHeight: 1.5 },
+		archiveBannerStrong: { color: c.text, fontWeight: 700 },
+		archiveBtn: {
+			flexShrink: 0,
+			color: "#fff",
+			backgroundColor: ARCHIVE_COLOR,
+			"&:hover": { backgroundColor: "#6D28D9" },
+		},
+
+		// Cards
+		scroll: {
+			flex: 1,
+			minHeight: 0,
+			overflowY: "auto",
+			margin: theme.spacing(0, -0.5),
+			padding: theme.spacing(0.5, 0.5, 2),
+			...theme.scrollbarStyles,
+		},
+		grid: {
+			display: "grid",
+			gridTemplateColumns: "repeat(auto-fill, minmax(310px, 1fr))",
+			gap: theme.spacing(2),
+			[theme.breakpoints.down("xs")]: { gridTemplateColumns: "1fr" },
+		},
+		card: {
+			borderRadius: 16,
+			display: "flex",
+			flexDirection: "column",
+			overflow: "hidden",
+			transition: "transform .18s ease, box-shadow .18s ease, border-color .18s ease",
+			"&:hover": {
+				transform: "translateY(-2px)",
+				boxShadow: c.shadowLg,
+				borderColor: c.borderStrong,
+			},
+		},
+		cardArchived: {
+			backgroundColor: c.surfaceAlt,
+		},
+		cardBody: {
+			padding: theme.spacing(2, 2, 1.75),
+			display: "flex",
+			flexDirection: "column",
+			gap: theme.spacing(1.5),
+			flex: 1,
+		},
+		cardTop: {
+			display: "flex",
+			alignItems: "flex-start",
+			gap: theme.spacing(1.5),
+		},
+		iconTile: {
+			position: "relative",
+			width: 44,
+			height: 44,
+			borderRadius: 12,
+			flex: "none",
+			display: "grid",
+			placeItems: "center",
+			color: WHATSAPP_GREEN,
+			backgroundColor: alpha(WHATSAPP_GREEN, isDark ? 0.16 : 0.12),
+			"& svg": { fontSize: 24 },
+		},
+		iconTileArchived: {
+			color: archiveColor,
+			backgroundColor: alpha(ARCHIVE_COLOR, isDark ? 0.18 : 0.1),
+		},
+		liveDot: {
+			position: "absolute",
+			right: -2,
+			bottom: -2,
+			width: 12,
+			height: 12,
+			borderRadius: "50%",
+			border: `2px solid ${c.surface}`,
+		},
+		nameBlock: { flex: 1, minWidth: 0 },
+		name: {
+			fontWeight: 700,
+			fontSize: "0.96rem",
+			lineHeight: 1.3,
+			overflow: "hidden",
+			textOverflow: "ellipsis",
+			whiteSpace: "nowrap",
+		},
+		meta: {
+			display: "flex",
+			alignItems: "center",
+			gap: 4,
+			marginTop: 2,
+			fontSize: "0.76rem",
+			color: c.textSubtle,
+			"& svg": { fontSize: 14 },
+		},
+		topActions: { display: "flex", gap: 2, marginRight: -6, marginTop: -4 },
+		iconBtn: { "& svg": { fontSize: 19 } },
+		unarchiveBtn: { color: theme.palette.info.main },
+		deleteBtn: {
+			"&:hover": {
+				color: theme.palette.error.main,
+				backgroundColor: alpha(theme.palette.error.main, 0.08),
+			},
+		},
+		pills: { display: "flex", flexWrap: "wrap", alignItems: "center", gap: theme.spacing(0.75) },
+		iconPill: { "& svg": { fontSize: 13 } },
+		archivedPill: {
+			color: archiveColor,
+			backgroundColor: alpha(ARCHIVE_COLOR, isDark ? 0.18 : 0.1),
+		},
+		sectorPill: {
+			display: "inline-flex",
+			alignItems: "center",
+			gap: 6,
+			padding: "3px 10px",
+			borderRadius: 999,
+			fontSize: "0.74rem",
+			fontWeight: 650,
+			whiteSpace: "nowrap",
+			lineHeight: 1.5,
+		},
+		infoRow: {
+			display: "flex",
+			alignItems: "center",
+			justifyContent: "space-between",
+			gap: theme.spacing(1),
+			padding: theme.spacing(1, 1.25),
+			borderRadius: 10,
+			backgroundColor: c.surfaceAlt,
+			border: `1px solid ${c.border}`,
+		},
+		infoLabel: {
+			display: "inline-flex",
+			alignItems: "center",
+			gap: 4,
+			fontSize: "0.72rem",
+			fontWeight: 700,
+			textTransform: "uppercase",
+			letterSpacing: "0.06em",
+			color: c.textSubtle,
+			cursor: "help",
+			"& svg": { fontSize: 14 },
+		},
+		timerMuted: { color: c.textSubtle, fontSize: "0.82rem", fontWeight: 600 },
+		timerPill: {
+			fontFamily: "ui-monospace, SFMono-Regular, Menlo, Consolas, monospace",
+			letterSpacing: "0.02em",
+			"& svg": { fontSize: 13 },
+		},
+		cardFooter: {
+			display: "flex",
+			flexWrap: "wrap",
+			alignItems: "center",
+			gap: theme.spacing(1),
+			padding: theme.spacing(1.25, 2),
+			borderTop: `1px solid ${c.border}`,
+			backgroundColor: c.surfaceAlt,
+			minHeight: 56,
+		},
+		footerLabel: {
+			fontSize: "0.72rem",
+			fontWeight: 700,
+			textTransform: "uppercase",
+			letterSpacing: "0.06em",
+			color: c.textSubtle,
+			marginRight: "auto",
+		},
+		actionBtn: { "& svg": { fontSize: 17 } },
+		dangerBtn: {
+			color: theme.palette.error.main,
+			"&:hover": {
+				borderColor: theme.palette.error.main,
+				backgroundColor: alpha(theme.palette.error.main, 0.08),
+			},
+		},
+		auditBtn: {
+			color: "#fff",
+			backgroundColor: theme.palette.info.main,
+			"&:hover": { backgroundColor: theme.palette.info.dark || theme.palette.info.main },
+		},
+		emptyPaper: { borderRadius: 16 },
+
+		// Rich tooltip (status explanations)
+		tooltip: {
+			backgroundColor: c.surface,
+			color: c.text,
+			fontSize: theme.typography.pxToRem(13),
+			border: `1px solid ${c.border}`,
+			boxShadow: c.shadowLg,
+			borderRadius: 10,
+			padding: theme.spacing(1, 1.5),
+			maxWidth: 360,
+		},
+		tooltipArrow: {
+			color: c.surface,
+			"&::before": { border: `1px solid ${c.border}` },
+		},
+		tooltipTitle: { fontWeight: 700, fontSize: "0.84rem" },
+		tooltipContent: { color: c.textMuted, fontSize: "0.8rem", marginTop: 4, lineHeight: 1.45 },
+
+		// Error boundary fallback
+		errorPaper: { borderRadius: 16, padding: theme.spacing(3) },
+		errorMessage: {
+			color: theme.palette.error.main,
+			fontWeight: 700,
+			margin: theme.spacing(1.5, 0),
+			backgroundColor: alpha(theme.palette.error.main, isDark ? 0.14 : 0.08),
+			padding: theme.spacing(1.5),
+			borderRadius: 10,
+		},
+		errorStack: {
+			fontSize: "0.75rem",
+			backgroundColor: c.surfaceAlt,
+			color: c.textMuted,
+			border: `1px solid ${c.border}`,
+			padding: theme.spacing(1.5),
+			borderRadius: 10,
+			overflowX: "auto",
+			maxHeight: 300,
+		},
+	};
+});
+
+const STATUS_META = {
+	CONNECTED: { tone: "success", label: "Conectado", tip: "connected" },
+	qrcode: { tone: "warning", label: "Aguardando QR Code", tip: "qrcode" },
+	PAIRING: { tone: "warning", label: "Pareando", tip: "timeout" },
+	TIMEOUT: { tone: "error", label: "Conexão perdida", tip: "timeout" },
+	DISCONNECTED: { tone: "error", label: "Desconectado", tip: "disconnected" },
+	OPENING: { tone: "info", label: "Conectando", tip: null },
+};
+
+const getStatusMeta = status =>
+	STATUS_META[status] || { tone: "neutral", label: status || "-", tip: null };
 
 const CustomToolTip = ({ title, content, children }) => {
 	const classes = useStyles();
@@ -241,14 +498,12 @@ const CustomToolTip = ({ title, content, children }) => {
 			arrow
 			classes={{
 				tooltip: classes.tooltip,
-				popper: classes.tooltipPopper,
+				arrow: classes.tooltipArrow,
 			}}
 			title={
 				<React.Fragment>
-					<Typography gutterBottom color="inherit">
-						{title}
-					</Typography>
-					{content && <Typography>{content}</Typography>}
+					<div className={classes.tooltipTitle}>{title}</div>
+					{content && <div className={classes.tooltipContent}>{content}</div>}
 				</React.Fragment>
 			}
 		>
@@ -260,12 +515,12 @@ const CustomToolTip = ({ title, content, children }) => {
 const Connections = () => {
 	const classes = useStyles();
 	const theme = useTheme();
-	const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
+	const isDark = theme.palette.type === "dark";
 
 	const { whatsApps, loading, fetchWhatsApps } = useContext(WhatsAppsContext);
 	const { user } = useContext(AuthContext);
-	const isMaster = user?.profile === "admin_master" || 
-		user?.profile === "admin" || 
+	const isMaster = user?.profile === "admin_master" ||
+		user?.profile === "admin" ||
 		String(user?.email || "").toLowerCase().trim() === "vicenzzo.mastronikolis@realess.com.br";
 	const isOperational = user?.profile === "admin_operational" || user?.profile === "admin";
 	const isManager = user?.profile === "whatsapp_control" || user?.profile === "whatsapp_control_high";
@@ -736,25 +991,41 @@ const Connections = () => {
 		}
 	};
 
+	// Sector colors are data semantics; lighten them in dark mode for contrast.
+	const sectorTint = sector => {
+		const base = getSectorColor(sector);
+		return {
+			fg: isDark ? lighten(base, 0.45) : base,
+			bg: alpha(base, isDark ? 0.22 : 0.1),
+			border: alpha(base, isDark ? 0.5 : 0.35),
+			base,
+		};
+	};
+
+	const renderSectorPill = sector => {
+		const tint = sectorTint(sector);
+		return (
+			<span
+				className={classes.sectorPill}
+				style={{ color: tint.fg, backgroundColor: tint.bg }}
+			>
+				{sector}
+			</span>
+		);
+	};
+
 	const renderActionButtons = whatsApp => {
 		if (isArchivedWhatsapp(whatsApp)) {
 			return (
 				<Button
 					size="small"
 					variant="contained"
+					disableElevation
+					className={clsx(classes.actionBtn, classes.auditBtn)}
+					startIcon={<SearchOutlined />}
 					onClick={() => history.push(`/audit?whatsappId=${whatsApp.id}`)}
-					style={{
-						backgroundColor: "#0284c7",
-						color: "#fff",
-						textTransform: "none",
-						fontWeight: 700,
-						fontSize: "0.72rem",
-						borderRadius: 6,
-						padding: "3px 8px",
-						whiteSpace: "nowrap"
-					}}
 				>
-					🔍 Ver na Auditoria
+					Ver na Auditoria
 				</Button>
 			);
 		}
@@ -766,8 +1037,9 @@ const Connections = () => {
 						size="small"
 						variant="contained"
 						color="primary"
+						className={classes.actionBtn}
+						startIcon={<CropFree />}
 						onClick={() => handleOpenQrModal(whatsApp)}
-						style={{ marginRight: 6 }}
 					>
 						{i18n.t("connections.buttons.qrcode")}
 					</Button>
@@ -778,14 +1050,17 @@ const Connections = () => {
 							size="small"
 							variant="outlined"
 							color="primary"
+							className={classes.actionBtn}
+							startIcon={<Refresh />}
 							onClick={() => handleStartWhatsAppSession(whatsApp.id)}
 						>
 							{i18n.t("connections.buttons.tryAgain")}
-						</Button>{" "}
+						</Button>
 						<Button
 							size="small"
 							variant="outlined"
-							color="secondary"
+							className={classes.actionBtn}
+							startIcon={<CropFree />}
 							onClick={() => handleRequestNewQrCode(whatsApp)}
 						>
 							{i18n.t("connections.buttons.newQr")}
@@ -798,7 +1073,8 @@ const Connections = () => {
 					<Button
 						size="small"
 						variant="outlined"
-						color="secondary"
+						className={clsx(classes.actionBtn, classes.dangerBtn)}
+						startIcon={<LinkOff />}
 						onClick={() => {
 							handleOpenConfirmationModal("disconnect", whatsApp.id);
 						}}
@@ -808,15 +1084,21 @@ const Connections = () => {
 				)}
 				{whatsApp.status === "OPENING" && (
 					<>
-						<Button size="small" variant="outlined" disabled color="default" style={{ marginRight: 6 }}>
+						<Button
+							size="small"
+							variant="outlined"
+							disabled
+							color="default"
+							startIcon={<CircularProgress size={14} color="inherit" />}
+						>
 							{i18n.t("connections.buttons.connecting")}
 						</Button>
 						<Button
 							size="small"
 							variant="outlined"
-							color="secondary"
+							className={clsx(classes.actionBtn, classes.dangerBtn)}
+							startIcon={<LinkOff />}
 							onClick={() => handleOpenConfirmationModal("disconnect", whatsApp.id)}
-							style={{ marginRight: 6 }}
 						>
 							{i18n.t("connections.buttons.disconnect")}
 						</Button>
@@ -824,6 +1106,8 @@ const Connections = () => {
 							size="small"
 							variant="outlined"
 							color="primary"
+							className={classes.actionBtn}
+							startIcon={<CropFree />}
 							onClick={() => handleRequestNewQrCode(whatsApp)}
 						>
 							{i18n.t("connections.buttons.newQr")}
@@ -841,102 +1125,65 @@ const Connections = () => {
 					title="Linha / Chamado Arquivado"
 					content="Histórico permanente importado do Digisac. Disponível para consulta no Cofre de Auditoria."
 				>
-					<Chip
-						label="📁 Arquivado"
-						size="small"
-						style={{
-							backgroundColor: "#7c3aed",
-							color: "#fff",
-							fontWeight: 700,
-							fontSize: "0.72rem",
-							borderRadius: 4,
-							height: 22,
-						}}
-					/>
+					<span>
+						<StatusPill tone="neutral" dot={false} className={clsx(classes.iconPill, classes.archivedPill)}>
+							<ArchiveOutlined />
+							Arquivado
+						</StatusPill>
+					</span>
 				</CustomToolTip>
 			);
 		}
 
+		const meta = getStatusMeta(whatsApp.status);
+		const pill = (
+			<StatusPill tone={meta.tone} dot={whatsApp.status !== "OPENING"}>
+				{whatsApp.status === "OPENING" && <CircularProgress size={10} thickness={6} color="inherit" />}
+				{meta.label}
+			</StatusPill>
+		);
+
+		if (!meta.tip) return pill;
+
 		return (
-			<div className={classes.customTableCell}>
-				{whatsApp.status === "DISCONNECTED" && (
-					<CustomToolTip
-						title={i18n.t("connections.toolTips.disconnected.title")}
-						content={i18n.t("connections.toolTips.disconnected.content")}
-					>
-						<SignalCellularConnectedNoInternet0Bar color="secondary" />
-					</CustomToolTip>
-				)}
-				{whatsApp.status === "OPENING" && (
-					<CircularProgress size={24} className={classes.buttonProgress} />
-				)}
-				{whatsApp.status === "qrcode" && (
-					<CustomToolTip
-						title={i18n.t("connections.toolTips.qrcode.title")}
-						content={i18n.t("connections.toolTips.qrcode.content")}
-					>
-						<CropFree />
-					</CustomToolTip>
-				)}
-				{whatsApp.status === "CONNECTED" && (
-					<CustomToolTip title={i18n.t("connections.toolTips.connected.title")}>
-						<SignalCellular4Bar style={{ color: green[500] }} />
-					</CustomToolTip>
-				)}
-				{(whatsApp.status === "TIMEOUT" || whatsApp.status === "PAIRING") && (
-					<CustomToolTip
-						title={i18n.t("connections.toolTips.timeout.title")}
-						content={i18n.t("connections.toolTips.timeout.content")}
-					>
-						<SignalCellularConnectedNoInternet2Bar color="secondary" />
-					</CustomToolTip>
-				)}
-			</div>
+			<CustomToolTip
+				title={i18n.t(`connections.toolTips.${meta.tip}.title`)}
+				content={meta.tip === "connected" ? null : i18n.t(`connections.toolTips.${meta.tip}.content`)}
+			>
+				<span>{pill}</span>
+			</CustomToolTip>
 		);
 	};
 
 	const renderTimerCell = whatsApp => {
 		if (isArchivedWhatsapp(whatsApp)) {
 			return (
-				<Typography variant="caption" style={{ color: "#94a3b8", fontWeight: 600 }}>
+				<span className={classes.timerMuted}>
 					Arquivo Histórico
-				</Typography>
+				</span>
 			);
 		}
+
+		const muted = <span className={classes.timerMuted}>-</span>;
+		const released = chip => (
+			<Tooltip title={`WhatsApp Control CRM (Gestão de celulares): Chip liberado da restrição (${chip.status || "Liberado"})`} arrow>
+				<span>
+					<StatusPill tone="success" dot={false} className={classes.iconPill}>
+						<AccessTime />
+						Liberado
+					</StatusPill>
+				</span>
+			</Tooltip>
+		);
 
 		try {
 			const chip = getMatchedChip(whatsApp);
 			if (!chip) {
-				return (
-					<Typography variant="body2" style={{ color: "#cbd5e1", fontSize: "0.85rem", fontWeight: 600 }}>
-						-
-					</Typography>
-				);
+				return muted;
 			}
 
 			if (chip.alarm_active === 1) {
-				return (
-					<Tooltip title={`WhatsApp Control CRM (Gestão de celulares): Chip liberado da restrição (${chip.status || "Liberado"})`} arrow>
-						<span
-							style={{
-								display: "inline-flex",
-								alignItems: "center",
-								gap: 4,
-								padding: "3px 8px",
-								borderRadius: 12,
-								backgroundColor: "#f0fdf4",
-								border: "1px solid #bbf7d0",
-								color: "#15803d",
-								fontWeight: 700,
-								fontSize: "0.74rem",
-								letterSpacing: "0.2px",
-							}}
-						>
-							<span style={{ fontSize: "0.75rem" }}>⏰</span>
-							Liberado
-						</span>
-					</Tooltip>
-				);
+				return released(chip);
 			}
 
 			if (chip.restricted_until) {
@@ -950,38 +1197,13 @@ const Connections = () => {
 				}
 
 				if (isNaN(targetTime)) {
-					return (
-						<Typography variant="body2" style={{ color: "#cbd5e1", fontSize: "0.85rem", fontWeight: 600 }}>
-							-
-						</Typography>
-					);
+					return muted;
 				}
 
 				const diff = targetTime - nowTime;
 
 				if (diff <= 0) {
-					return (
-						<Tooltip title={`WhatsApp Control CRM (Gestão de celulares): Chip liberado da restrição (${chip.status || "Liberado"})`} arrow>
-							<span
-								style={{
-									display: "inline-flex",
-									alignItems: "center",
-									gap: 4,
-									padding: "3px 8px",
-									borderRadius: 12,
-									backgroundColor: "#f0fdf4",
-									border: "1px solid #bbf7d0",
-									color: "#15803d",
-									fontWeight: 700,
-									fontSize: "0.74rem",
-									letterSpacing: "0.2px",
-								}}
-							>
-								<span style={{ fontSize: "0.75rem" }}>⏰</span>
-								Liberado
-							</span>
-						</Tooltip>
-					);
+					return released(chip);
 				}
 
 				const days = Math.floor(diff / 8.64e7);
@@ -1012,43 +1234,161 @@ const Connections = () => {
 						title={`WhatsApp Control CRM (Gestão de celulares): ${chip.status || "Restrito"}${formattedTarget ? ` • Até ${formattedTarget}` : ""}`}
 						arrow
 					>
-						<span
-							style={{
-								display: "inline-flex",
-								alignItems: "center",
-								gap: 4,
-								padding: "3px 8px",
-								borderRadius: 12,
-								backgroundColor: "#fffbeb",
-								border: "1px solid #fef3c7",
-								boxShadow: "0 1px 2px rgba(217, 119, 6, 0.08)",
-								color: "#b45309",
-								fontWeight: 700,
-								fontFamily: "monospace",
-								fontSize: "0.78rem",
-								letterSpacing: "0.4px",
-							}}
-						>
-							<AccessTime style={{ fontSize: 13, color: "#d97706" }} />
-							{label}
+						<span>
+							<StatusPill tone="warning" dot={false} className={clsx(classes.iconPill, classes.timerPill)}>
+								<AccessTime />
+								{label}
+							</StatusPill>
 						</span>
 					</Tooltip>
 				);
 			}
 
-			return (
-				<Typography variant="body2" style={{ color: "#cbd5e1", fontSize: "0.85rem", fontWeight: 600 }}>
-					-
-				</Typography>
-			);
+			return muted;
 		} catch (err) {
-			return (
-				<Typography variant="body2" style={{ color: "#cbd5e1", fontSize: "0.85rem", fontWeight: 600 }}>
-					-
-				</Typography>
-			);
+			return muted;
 		}
 	};
+
+	const renderEmptyMessage = () =>
+		searchParam ? (
+			<>Nenhuma conexão encontrada para "<strong>{searchParam}</strong>"{selectedSector !== "TODOS" ? ` no setor ${selectedSector}` : ""}.</>
+		) : (
+			<>Nenhum WhatsApp cadastrado no setor <strong>{selectedSector}</strong>.</>
+		);
+
+	const renderSkeletons = () =>
+		[0, 1, 2, 3, 4, 5].map(i => (
+			<Paper key={i} className={classes.card}>
+				<div className={classes.cardBody}>
+					<div className={classes.cardTop}>
+						<Skeleton variant="rect" width={44} height={44} style={{ borderRadius: 12 }} />
+						<div className={classes.nameBlock}>
+							<Skeleton width="60%" height={22} />
+							<Skeleton width="40%" height={16} />
+						</div>
+					</div>
+					<Skeleton width={160} height={26} style={{ borderRadius: 999 }} />
+					<Skeleton variant="rect" height={38} style={{ borderRadius: 10 }} />
+				</div>
+				<div className={classes.cardFooter}>
+					<Skeleton width={120} height={32} />
+				</div>
+			</Paper>
+		));
+
+	const renderCard = whatsApp => {
+		const archived = isArchivedWhatsapp(whatsApp);
+		const meta = getStatusMeta(whatsApp.status);
+		const dotColor = archived ? ARCHIVE_COLOR : toneColor(theme, meta.tone);
+		return (
+			<Paper key={whatsApp.id} className={clsx(classes.card, archived && classes.cardArchived)}>
+				<div className={classes.cardBody}>
+					<div className={classes.cardTop}>
+						<div className={clsx(classes.iconTile, archived && classes.iconTileArchived)}>
+							{archived ? <ArchiveOutlined /> : <WhatsApp />}
+							<span className={classes.liveDot} style={{ backgroundColor: dotColor }} />
+						</div>
+						<div className={classes.nameBlock}>
+							<div className={classes.name} title={whatsApp.name}>
+								{whatsApp.name}
+							</div>
+							<div className={classes.meta}>
+								<Schedule />
+								<span>
+									{i18n.t("connections.table.lastUpdate")}:{" "}
+									{formatDateTime(whatsApp.updatedAt)}
+								</span>
+							</div>
+						</div>
+						<div className={classes.topActions}>
+							<Tooltip title="Editar Configurações do Aparelho" arrow>
+								<IconButton
+									size="small"
+									className={classes.iconBtn}
+									onClick={() => handleEditWhatsApp(whatsApp)}
+								>
+									<Edit />
+								</IconButton>
+							</Tooltip>
+							{archived ? (
+								<Tooltip title="Desarquivar Aparelho (Mover para Ativos)" arrow>
+									<IconButton
+										size="small"
+										className={clsx(classes.iconBtn, classes.unarchiveBtn)}
+										onClick={() => handleToggleArchive(whatsApp)}
+									>
+										<Unarchive />
+									</IconButton>
+								</Tooltip>
+							) : (
+								<Tooltip title="Arquivar Aparelho (Mover para Arquivados)" arrow>
+									<IconButton
+										size="small"
+										className={classes.iconBtn}
+										onClick={() => handleToggleArchive(whatsApp)}
+									>
+										<Archive />
+									</IconButton>
+								</Tooltip>
+							)}
+							<Tooltip title="Excluir Conexão" arrow>
+								<IconButton
+									size="small"
+									className={clsx(classes.iconBtn, classes.deleteBtn)}
+									onClick={e => {
+										handleOpenConfirmationModal("delete", whatsApp.id);
+									}}
+								>
+									<DeleteOutline />
+								</IconButton>
+							</Tooltip>
+						</div>
+					</div>
+					<div className={classes.pills}>
+						{renderStatusToolTips(whatsApp)}
+						{renderSectorPill(whatsApp.sector || "Junior")}
+						{whatsApp.isDefault && (
+							<StatusPill tone="primary" dot={false} className={classes.iconPill}>
+								<Star />
+								{i18n.t("connections.table.default")}
+							</StatusPill>
+						)}
+						{whatsApp.proxyUrl && (
+							<Tooltip title="Proxy dedicado ativo (IP isolado)" arrow>
+								<span>
+									<StatusPill tone="success" dot={false} className={classes.iconPill}>
+										<LockOutlined />
+										Proxy
+									</StatusPill>
+								</span>
+							</Tooltip>
+						)}
+					</div>
+					<div className={classes.infoRow}>
+						<Tooltip title="Gestão de celulares = Whatsapp control = CRM = Whatsapp Control CRM" arrow>
+							<span className={classes.infoLabel}>
+								Timer CRM <InfoOutlined />
+							</span>
+						</Tooltip>
+						{renderTimerCell(whatsApp)}
+					</div>
+				</div>
+				<div className={classes.cardFooter}>
+					<span className={classes.footerLabel}>
+						{i18n.t("connections.table.session")}
+					</span>
+					{renderActionButtons(whatsApp)}
+				</div>
+			</Paper>
+		);
+	};
+
+	const totalVisible = activeCount + archivedCount;
+	const connectedCount = (allowedSectors
+		? (whatsApps || []).filter(w => allowedSectors.includes(w.sector || ""))
+		: whatsApps || []
+	).filter(w => !isArchivedWhatsapp(w) && w.status === "CONNECTED").length;
 
 	return (
 		<MainContainer>
@@ -1070,545 +1410,236 @@ const Connections = () => {
 				onClose={handleCloseWhatsAppModal}
 				whatsAppId={!qrModalOpen && selectedWhatsApp?.id}
 			/>
-			<div className={classes.pageHeader}>
-			<MainHeader>
-				<Title>{i18n.t("connections.title")}</Title>
-				<MainHeaderButtonsWrapper>
-					{/* Botão de alternância ao lado da pesquisa: Conexões Ativas vs Chamados Arquivados */}
-					<div style={{ display: "inline-flex", gap: 6, marginRight: isMobile ? 0 : 8, width: isMobile ? "100%" : "auto", flexShrink: 0 }}>
-						<Button
-							variant={connectionTab === "active" ? "contained" : "outlined"}
-							size="small"
-							onClick={() => setConnectionTab("active")}
-							style={{
-								flex: isMobile ? 1 : "none",
-								height: 38,
-								borderRadius: 8,
-								fontWeight: 700,
-								fontSize: "0.78rem",
-								padding: "0 12px",
-								textTransform: "none",
-								backgroundColor: connectionTab === "active" ? "#0284c7" : "transparent",
-								color: connectionTab === "active" ? "#fff" : theme.palette.text.primary,
-								borderColor: connectionTab === "active" ? "#0284c7" : (theme.palette.type === "dark" ? "rgba(148, 163, 184, 0.3)" : "#cbd5e1"),
-							}}
-						>
-							📱 Ativos ({activeCount})
-						</Button>
-						<Button
-							variant={connectionTab === "archived" ? "contained" : "outlined"}
-							size="small"
-							onClick={() => setConnectionTab("archived")}
-							style={{
-								flex: isMobile ? 1 : "none",
-								height: 38,
-								borderRadius: 8,
-								fontWeight: 700,
-								fontSize: "0.78rem",
-								padding: "0 12px",
-								textTransform: "none",
-								backgroundColor: connectionTab === "archived" ? "#7c3aed" : "transparent",
-								color: connectionTab === "archived" ? "#fff" : theme.palette.text.primary,
-								borderColor: connectionTab === "archived" ? "#7c3aed" : (theme.palette.type === "dark" ? "rgba(148, 163, 184, 0.3)" : "#cbd5e1"),
-							}}
-						>
-							📁 Arquivados ({archivedCount})
-						</Button>
-					</div>
+			<PageHeader
+				icon={<WhatsApp />}
+				tone="success"
+				title={i18n.t("connections.title")}
+				subtitle={
+					loading
+						? " "
+						: `${activeCount} ${activeCount === 1 ? "conexão ativa" : "conexões ativas"} · ${connectedCount} ${
+								connectedCount === 1 ? "conectada" : "conectadas"
+						  }${archivedCount ? ` · ${archivedCount} ${archivedCount === 1 ? "arquivada" : "arquivadas"}` : ""}`
+				}
+				actions={
+					<>
+						{/* Alternância: Conexões Ativas vs Chamados Arquivados */}
+						<div className={classes.segmented} role="tablist">
+							<button
+								type="button"
+								role="tab"
+								aria-selected={connectionTab === "active"}
+								className={clsx(classes.segment, connectionTab === "active" && classes.segmentActive)}
+								onClick={() => setConnectionTab("active")}
+							>
+								<PhonelinkRing />
+								Ativos
+								<span className={classes.segmentCount}>{activeCount}</span>
+							</button>
+							<button
+								type="button"
+								role="tab"
+								aria-selected={connectionTab === "archived"}
+								className={clsx(classes.segment, connectionTab === "archived" && classes.segmentArchivedActive)}
+								onClick={() => setConnectionTab("archived")}
+							>
+								<ArchiveOutlined />
+								Arquivados
+								<span className={classes.segmentCount}>{archivedCount}</span>
+							</button>
+						</div>
 
-					<TextField
-						placeholder="Buscar nome, número, setor..."
-						type="search"
-						variant="outlined"
-						size="small"
-						value={searchParam}
-						onChange={e => setSearchParam(e.target.value)}
-						InputProps={{
-							startAdornment: (
-								<InputAdornment position="start">
-									<SearchIcon style={{ color: "#64748b", fontSize: 20 }} />
-								</InputAdornment>
-							),
-							endAdornment: searchParam ? (
-								<InputAdornment position="end">
-									<IconButton
-										size="small"
-										onClick={() => setSearchParam("")}
-										style={{ padding: 2 }}
+						<SearchField
+							className={classes.search}
+							placeholder="Buscar nome, número, setor..."
+							type="search"
+							value={searchParam}
+							onChange={e => setSearchParam(e.target.value)}
+							endAdornment={
+								searchParam ? (
+									<InputAdornment position="end">
+										<IconButton
+											size="small"
+											className={classes.clearBtn}
+											onClick={() => setSearchParam("")}
+											aria-label="Limpar busca"
+										>
+											<ClearIcon fontSize="small" />
+										</IconButton>
+									</InputAdornment>
+								) : null
+							}
+						/>
+						{connectionTab === "active" && (
+							<Tooltip
+								title="Tentar reconectar todos os dispositivos desconectados. Se não conectarem, o botão de QR Code será exibido."
+								arrow
+							>
+								<span>
+									<Button
+										variant="outlined"
+										className={classes.headerBtn}
+										disabled={reconnectingAll}
+										onClick={handleReconnectAll}
+										startIcon={
+											<SyncIcon className={reconnectingAll ? classes.spin : ""} />
+										}
 									>
-										<ClearIcon fontSize="small" style={{ color: "#94a3b8" }} />
-									</IconButton>
-								</InputAdornment>
-							) : null,
-							style: {
-								borderRadius: 8,
-								backgroundColor: theme.palette.type === "dark" ? "#1e293b" : "#fff",
-								fontSize: "0.85rem",
-								height: 38,
-							},
-						}}
-						style={{ minWidth: isMobile ? "100%" : 260, width: isMobile ? "100%" : "auto", marginRight: isMobile ? 0 : 8 }}
-					/>
-					{connectionTab === "active" && (
-						<Tooltip
-							title="Tentar reconectar todos os dispositivos desconectados. Se não conectarem, o botão de QR Code será exibido."
-							arrow
-						>
-							<span>
-								<Button
-									variant="contained"
-									size="small"
-									disabled={reconnectingAll}
-									onClick={handleReconnectAll}
-									startIcon={
-										<SyncIcon
-											className={reconnectingAll ? classes.spin : ""}
-											style={{ fontSize: 17 }}
-										/>
-									}
-									style={{
-										height: 38,
-										borderRadius: 8,
-										fontWeight: 700,
-										fontSize: "0.8rem",
-										padding: "0 12px",
-										textTransform: "none",
-										backgroundColor: reconnectingAll ? "#475569" : "#059669",
-										color: "#fff",
-										boxShadow: "0 1px 3px rgba(0,0,0,0.12)",
-										whiteSpace: "nowrap",
-										marginRight: 8,
-									}}
-								>
-									{reconnectingAll ? "Tentando..." : "Tentar todos"}
-								</Button>
-							</span>
-						</Tooltip>
-					)}
-					{connectionTab === "active" && (
-						<Button
-							variant="contained"
-							color="primary"
-							onClick={handleOpenWhatsAppModal}
-							style={{
-								height: 38,
-								borderRadius: 8,
-								fontWeight: 700,
-							}}
-						>
-							{i18n.t("connections.buttons.add")}
-						</Button>
-					)}
-				</MainHeaderButtonsWrapper>
+										{reconnectingAll ? "Tentando..." : "Tentar todos"}
+									</Button>
+								</span>
+							</Tooltip>
+						)}
+						{connectionTab === "active" && (
+							<Button
+								variant="contained"
+								color="primary"
+								className={classes.headerBtn}
+								startIcon={<Add />}
+								onClick={handleOpenWhatsAppModal}
+							>
+								{i18n.t("connections.buttons.add")}
+							</Button>
+						)}
+					</>
+				}
+			/>
 
-			</MainHeader>
-			</div>
-
-			{/* Mini Filtro por Setores (Ativos) OU Faixa Informativa (Arquivados) */}
+			{/* Filtro por Setores (Ativos) OU Faixa Informativa (Arquivados) */}
 			{connectionTab === "archived" ? (
-				<div
-					style={{
-						display: "flex",
-						alignItems: "center",
-						justifyContent: "space-between",
-						marginBottom: 8,
-						padding: "8px 14px",
-						backgroundColor: theme.palette.type === "dark" ? "#1e1b4b" : "#f5f3ff",
-						border: `1px solid ${theme.palette.type === "dark" ? "#4338ca" : "#c4b5fd"}`,
-						borderRadius: 8,
-						boxShadow: theme.palette.type === "dark" ? "0 1px 3px rgba(0,0,0,0.24)" : "0 1px 3px rgba(0,0,0,0.04)",
-					}}
-				>
-					<Typography
-						variant="body2"
-						style={{
-							fontWeight: 600,
-							color: theme.palette.type === "dark" ? "#c7d2fe" : "#5b21b6",
-							fontSize: "0.82rem",
-						}}
-					>
-						📁 <strong>Chamados e Linhas Arquivadas:</strong> Todas as conversas e contatos legados importados do Digisac estão salvos nessas linhas e disponíveis no Cofre de Auditoria.
+				<Paper className={classes.archiveBanner}>
+					<div className={classes.archiveBannerIcon}>
+						<ArchiveOutlined />
+					</div>
+					<Typography component="div" className={classes.archiveBannerText}>
+						<span className={classes.archiveBannerStrong}>Chamados e Linhas Arquivadas:</span>{" "}
+						Todas as conversas e contatos legados importados do Digisac estão salvos nessas linhas e disponíveis no Cofre de Auditoria.
 					</Typography>
 					<Button
 						size="small"
 						variant="contained"
+						disableElevation
+						className={classes.archiveBtn}
 						onClick={() => history.push("/audit")}
-						style={{
-							backgroundColor: "#7c3aed",
-							color: "#fff",
-							textTransform: "none",
-							fontWeight: 700,
-							fontSize: "0.75rem",
-							borderRadius: 6,
-							flexShrink: 0,
-							marginLeft: 12,
-						}}
 					>
 						Abrir no Cofre de Auditoria
 					</Button>
-				</div>
+				</Paper>
 			) : (
-				<div
-					className={classes.sectorFilter}
-					style={{
-						display: "flex",
-						alignItems: "center",
-						gap: 8,
-						flexWrap: "wrap",
-						marginBottom: 8,
-						padding: "6px 10px",
-						backgroundColor: theme.palette.type === "dark" ? "#111827" : "#fff",
-						borderRadius: 8,
-						border: `1px solid ${theme.palette.type === "dark" ? "rgba(148, 163, 184, 0.18)" : "rgba(0, 0, 0, 0.08)"}`,
-						boxShadow: theme.palette.type === "dark" ? "0 1px 3px rgba(0,0,0,0.24)" : "0 1px 3px rgba(0,0,0,0.04)",
-					}}
-				>
-				<Typography
-					variant="body2"
-					style={{
-						fontWeight: 800,
-						color: theme.palette.type === "dark" ? "#cbd5e1" : "#334155",
-						marginRight: 6,
-						textTransform: "uppercase",
-						fontSize: "0.68rem",
-						letterSpacing: "0.6px",
-					}}
-				>
-					Filtrar Setor:
-				</Typography>
-				<Chip
-					label={`TODOS (${sectorCounts.TODOS || 0})`}
-					size="small"
-					color={selectedSector === "TODOS" ? "primary" : "default"}
-					variant={selectedSector === "TODOS" ? "default" : "outlined"}
-					onClick={() => setSelectedSector("TODOS")}
-					style={{
-						fontWeight: 700,
-						cursor: "pointer",
-						borderRadius: 6,
-						height: 24,
-						fontSize: "0.68rem",
-					}}
-				/>
-				{sectorsList.map(sector => {
-					const count = sectorCounts[sector] || 0;
-					const isSelected = selectedSector === sector;
-					const sectorColor = getSectorColor(sector);
-					return (
-						<Chip
-							key={sector}
-							label={`${sector} (${count})`}
-							size="small"
-							onClick={() => setSelectedSector(sector)}
-							variant={isSelected ? "default" : "outlined"}
-							style={{
-								fontWeight: 700,
-								cursor: "pointer",
-								borderRadius: 6,
-								height: 24,
-								fontSize: "0.68rem",
-								backgroundColor: isSelected ? sectorColor : "transparent",
-								borderColor: sectorColor,
-								color: isSelected ? "#fff" : sectorColor,
-							}}
-						/>
-					);
-				})}
-			</div>
-			)}
-
-			{isMobile ? (
-				<div className={classes.mobileCardContainer}>
-					{loading ? (
-						<Box display="flex" justifyContent="center" alignItems="center" p={4}>
-							<CircularProgress size={32} />
-						</Box>
-					) : filteredWhatsApps?.length > 0 ? (
-						filteredWhatsApps.map(whatsApp => (
-							<Card key={whatsApp.id} className={classes.mobileCard} variant="outlined">
-								<div className={classes.mobileCardHeader}>
-									<Box display="flex" alignItems="center" gap={1} minWidth={0}>
-										<Typography variant="subtitle1" style={{ fontWeight: 700, fontSize: "0.95rem", color: theme.palette.text.primary }}>
-											{whatsApp.name}
-										</Typography>
-										{whatsApp.isDefault && (
-											<CheckCircle style={{ color: green[500], fontSize: 18 }} />
-										)}
-									</Box>
-									<Chip
-										label={whatsApp.sector || "Junior"}
-										size="small"
-										style={{
-											backgroundColor: getSectorColor(whatsApp.sector || "Junior"),
-											color: "#fff",
-											fontWeight: 700,
-											fontSize: "0.7rem",
-											borderRadius: 4,
-											height: 22,
-										}}
-									/>
-								</div>
-
-								<div className={classes.mobileCardBody}>
-									<Box display="flex" justifyContent="space-between" alignItems="center">
-										<Box display="flex" alignItems="center" gap={1}>
-											<Typography variant="caption" style={{ color: "#64748b", fontWeight: 700, textTransform: "uppercase", fontSize: "0.65rem" }}>
-												Status:
-											</Typography>
-											{renderStatusToolTips(whatsApp)}
-										</Box>
-
-										<Box display="flex" alignItems="center" gap={0.5}>
-											{whatsApp.proxyUrl && (
-												<span
-													style={{
-														color: "#16a34a",
-														backgroundColor: "rgba(22, 163, 74, 0.12)",
-														padding: "2px 6px",
-														borderRadius: 4,
-														fontWeight: 700,
-														fontSize: "0.68rem"
-													}}
-												>
-													🔒 Proxy
-												</span>
-											)}
-											<Typography variant="caption" style={{ color: "#94a3b8", fontSize: "0.7rem" }}>
-												{formatDateTime(whatsApp.updatedAt)}
-											</Typography>
-										</Box>
-									</Box>
-
-									<Box display="flex" justifyContent="space-between" alignItems="center" pt={0.3}>
-										<Box display="flex" alignItems="center" gap={0.8}>
-											<Typography variant="caption" style={{ color: "#64748b", fontWeight: 700, textTransform: "uppercase", fontSize: "0.65rem" }}>
-												Timer:
-											</Typography>
-											{renderTimerCell(whatsApp)}
-										</Box>
-									</Box>
-								</div>
-
-								<div className={classes.mobileCardActions}>
-									<Box display="flex" alignItems="center" gap={0.5} flexWrap="wrap">
-										{renderActionButtons(whatsApp)}
-									</Box>
-
-									<Box display="flex" alignItems="center">
-										<Tooltip title="Editar Configurações do Aparelho" arrow>
-											<IconButton
-												size="small"
-												onClick={() => handleEditWhatsApp(whatsApp)}
-												style={{ padding: 6 }}
-											>
-												<Edit fontSize="small" />
-											</IconButton>
-										</Tooltip>
-
-										{isArchivedWhatsapp(whatsApp) ? (
-											<Tooltip title="Desarquivar Aparelho (Mover para Ativos)" arrow>
-												<IconButton
-													size="small"
-													onClick={() => handleToggleArchive(whatsApp)}
-													style={{ padding: 6, color: "#0284c7" }}
-												>
-													<Unarchive fontSize="small" />
-												</IconButton>
-											</Tooltip>
-										) : (
-											<Tooltip title="Arquivar Aparelho (Mover para Arquivados)" arrow>
-												<IconButton
-													size="small"
-													onClick={() => handleToggleArchive(whatsApp)}
-													style={{ padding: 6, color: "#64748b" }}
-												>
-													<Archive fontSize="small" />
-												</IconButton>
-											</Tooltip>
-										)}
-
-										<Tooltip title="Excluir Conexão" arrow>
-											<IconButton
-												size="small"
-												onClick={() => handleOpenConfirmationModal("delete", whatsApp.id)}
-												style={{ padding: 6, color: "#ef4444" }}
-											>
-												<DeleteOutline fontSize="small" />
-											</IconButton>
-										</Tooltip>
-									</Box>
-								</div>
-							</Card>
-						))
-					) : (
-						<Paper variant="outlined" style={{ padding: 24, textAlign: "center", color: "#64748b", borderRadius: 10 }}>
-							<Typography variant="body2" style={{ fontWeight: 500 }}>
-								{searchParam ? (
-									<>Nenhuma conexão encontrada para "<strong>{searchParam}</strong>"{selectedSector !== "TODOS" ? ` no setor ${selectedSector}` : ""}.</>
-								) : (
-									<>Nenhum WhatsApp cadastrado no setor <strong>{selectedSector}</strong>.</>
-								)}
-							</Typography>
-						</Paper>
-					)}
-				</div>
-			) : (
-				<Paper className={classes.mainPaper} variant="outlined">
-					<Table size="small">
-						<TableHead>
-							<TableRow>
-								<TableCell align="center">
-									{i18n.t("connections.table.name")}
-								</TableCell>
-								<TableCell align="center">
-									Setor
-								</TableCell>
-								<TableCell align="center">
-									{i18n.t("connections.table.status")}
-								</TableCell>
-								<TableCell align="center">
-									<Tooltip title="Gestão de celulares = Whatsapp control = CRM = Whatsapp Control CRM" arrow>
-										<span style={{ cursor: "help", display: "inline-flex", alignItems: "center", gap: 3 }}>
-											Timer CRM <span style={{ fontSize: "0.72rem" }}>ℹ️</span>
-										</span>
-									</Tooltip>
-								</TableCell>
-								<TableCell align="center">
-									{i18n.t("connections.table.session")}
-								</TableCell>
-								<TableCell align="center">
-									{i18n.t("connections.table.lastUpdate")}
-								</TableCell>
-								<TableCell align="center">
-									{i18n.t("connections.table.default")}
-								</TableCell>
-								<TableCell align="center">
-									{i18n.t("connections.table.actions")}
-								</TableCell>
-							</TableRow>
-						</TableHead>
-						<TableBody>
-							{loading ? (
-								<TableRowSkeleton />
-							) : (
-								<>
-									{filteredWhatsApps?.length > 0 &&
-										filteredWhatsApps.map(whatsApp => (
-											<TableRow key={whatsApp.id}>
-												<TableCell align="center">
-													<div style={{ fontWeight: 600 }}>{whatsApp.name}</div>
-													{whatsApp.proxyUrl && (
-														<Typography
-															variant="caption"
-															style={{
-																color: "#16a34a",
-																fontWeight: 600,
-																display: "block",
-																fontSize: "0.72rem"
-															}}
-														>
-															🔒 Proxy Ativo
-														</Typography>
-													)}
-												</TableCell>
-												<TableCell align="center">
-													<Chip
-														label={whatsApp.sector || "Junior"}
-														size="small"
-														style={{
-															backgroundColor: getSectorColor(whatsApp.sector || "Junior"),
-															color: "#fff",
-															fontWeight: 700,
-															fontSize: "0.72rem",
-															borderRadius: 4,
-															height: 22,
-														}}
-													/>
-												</TableCell>
-												<TableCell align="center">
-													{renderStatusToolTips(whatsApp)}
-												</TableCell>
-												<TableCell align="center">
-													{renderTimerCell(whatsApp)}
-												</TableCell>
-												<TableCell align="center">
-													{renderActionButtons(whatsApp)}
-												</TableCell>
-												<TableCell align="center">
-													{formatDateTime(whatsApp.updatedAt)}
-												</TableCell>
-												<TableCell align="center">
-													{whatsApp.isDefault && (
-														<div className={classes.customTableCell}>
-															<CheckCircle style={{ color: green[500] }} />
-														</div>
-													)}
-												</TableCell>
-												<TableCell align="center">
-													<Tooltip title="Editar Configurações do Aparelho" arrow>
-														<IconButton
-															size="small"
-															onClick={() => handleEditWhatsApp(whatsApp)}
-														>
-															<Edit />
-														</IconButton>
-													</Tooltip>
-
-													{isArchivedWhatsapp(whatsApp) ? (
-														<Tooltip title="Desarquivar Aparelho (Mover para Ativos)" arrow>
-															<IconButton
-																size="small"
-																onClick={() => handleToggleArchive(whatsApp)}
-																style={{ color: "#0284c7" }}
-															>
-																<Unarchive />
-															</IconButton>
-														</Tooltip>
-													) : (
-														<Tooltip title="Arquivar Aparelho (Mover para Arquivados)" arrow>
-															<IconButton
-																size="small"
-																onClick={() => handleToggleArchive(whatsApp)}
-																style={{ color: "#64748b" }}
-															>
-																<Archive />
-															</IconButton>
-														</Tooltip>
-													)}
-
-													<Tooltip title="Excluir Conexão" arrow>
-														<IconButton
-															size="small"
-															onClick={e => {
-																handleOpenConfirmationModal("delete", whatsApp.id);
-															}}
-															style={{ color: "#ef4444" }}
-														>
-															<DeleteOutline />
-														</IconButton>
-													</Tooltip>
-												</TableCell>
-											</TableRow>
-										))}
-									{filteredWhatsApps?.length === 0 && (
-										<TableRow>
-											<TableCell colSpan={8} align="center">
-												<Typography variant="body2" style={{ padding: "28px 0", color: "#64748b", fontWeight: 500 }}>
-													{searchParam ? (
-														<>Nenhuma conexão encontrada para "<strong>{searchParam}</strong>"{selectedSector !== "TODOS" ? ` no setor ${selectedSector}` : ""}.</>
-													) : (
-														<>Nenhum WhatsApp cadastrado no setor <strong>{selectedSector}</strong>.</>
-													)}
-												</Typography>
-											</TableCell>
-										</TableRow>
-									)}
-								</>
-							)}
-						</TableBody>
-					</Table>
+				<Paper className={classes.filterBar}>
+					<span className={classes.filterLabel}>Filtrar setor</span>
+					<button
+						type="button"
+						className={classes.filterChip}
+						onClick={() => setSelectedSector("TODOS")}
+						style={
+							selectedSector === "TODOS"
+								? {
+										color: theme.palette.primary.main,
+										backgroundColor: theme.custom.primarySoft,
+										borderColor: alpha(theme.palette.primary.main, 0.35),
+								  }
+								: undefined
+						}
+					>
+						TODOS
+						<span className={classes.filterCount}>{sectorCounts.TODOS || 0}</span>
+					</button>
+					{sectorsList.map(sector => {
+						const count = sectorCounts[sector] || 0;
+						const isSelected = selectedSector === sector;
+						const tint = sectorTint(sector);
+						return (
+							<button
+								type="button"
+								key={sector}
+								className={classes.filterChip}
+								onClick={() => setSelectedSector(sector)}
+								style={
+									isSelected
+										? { color: tint.fg, backgroundColor: tint.bg, borderColor: tint.border }
+										: undefined
+								}
+							>
+								<span className={classes.filterDot} style={{ backgroundColor: tint.base }} />
+								{sector}
+								<span className={classes.filterCount}>{count}</span>
+							</button>
+						);
+					})}
 				</Paper>
 			)}
+
+			<div className={classes.scroll}>
+				{loading ? (
+					<div className={classes.grid}>{renderSkeletons()}</div>
+				) : filteredWhatsApps?.length > 0 ? (
+					<div className={classes.grid}>
+						{filteredWhatsApps.map(whatsApp => renderCard(whatsApp))}
+					</div>
+				) : (
+					<Paper className={classes.emptyPaper}>
+						<EmptyState
+							icon={connectionTab === "archived" ? <ArchiveOutlined /> : <PhoneIphone />}
+							title={
+								searchParam
+									? "Nenhuma conexão encontrada"
+									: totalVisible === 0
+									? "Nenhuma conexão ainda"
+									: "Nada por aqui"
+							}
+							description={renderEmptyMessage()}
+							action={
+								connectionTab === "active" && !searchParam ? (
+									<Button
+										variant="contained"
+										color="primary"
+										startIcon={<Add />}
+										onClick={handleOpenWhatsAppModal}
+									>
+										{i18n.t("connections.buttons.add")}
+									</Button>
+								) : null
+							}
+						/>
+					</Paper>
+				)}
+			</div>
+		</MainContainer>
+	);
+};
+
+const ConnectionsErrorFallback = ({ error, errorInfo }) => {
+	const classes = useStyles();
+	return (
+		<MainContainer>
+			<PageHeader
+				icon={<ErrorOutline />}
+				tone="error"
+				title="Conexões"
+				subtitle="Ocorreu um erro ao carregar as conexões."
+			/>
+			<Paper className={classes.errorPaper}>
+				<Typography variant="h6" gutterBottom>
+					Ocorreu um erro ao carregar as conexões:
+				</Typography>
+				<Typography variant="body1" className={classes.errorMessage}>
+					{String(error?.message || error || "Erro desconhecido")}
+				</Typography>
+				<pre className={classes.errorStack}>
+					{String(error?.stack || "")}
+					{"\n\nComponent Stack:\n"}
+					{String(errorInfo?.componentStack || "")}
+				</pre>
+				<Button
+					variant="contained"
+					color="primary"
+					onClick={() => window.location.reload()}
+					style={{ marginTop: 16 }}
+				>
+					Recarregar
+				</Button>
+			</Paper>
 		</MainContainer>
 	);
 };
@@ -1628,32 +1659,10 @@ class ErrorBoundary extends React.Component {
 	render() {
 		if (this.state.hasError) {
 			return (
-				<MainContainer>
-					<MainHeader>
-						<Title>Conexões</Title>
-					</MainHeader>
-					<Paper style={{ padding: 24, margin: 16 }}>
-						<Typography variant="h6" color="secondary" gutterBottom>
-							Ocorreu um erro ao carregar as conexões:
-						</Typography>
-						<Typography variant="body1" style={{ color: "#b91c1c", fontWeight: 700, margin: "12px 0", background: "#fef2f2", padding: 12, borderRadius: 6 }}>
-							{String(this.state.error?.message || this.state.error || "Erro desconhecido")}
-						</Typography>
-						<pre style={{ fontSize: "0.75rem", background: "#f8fafc", color: "#334155", padding: 12, borderRadius: 6, overflowX: "auto", maxHeight: 300 }}>
-							{String(this.state.error?.stack || "")}
-							{"\n\nComponent Stack:\n"}
-							{String(this.state.errorInfo?.componentStack || "")}
-						</pre>
-						<Button
-							variant="contained"
-							color="primary"
-							onClick={() => window.location.reload()}
-							style={{ marginTop: 16 }}
-						>
-							Recarregar
-						</Button>
-					</Paper>
-				</MainContainer>
+				<ConnectionsErrorFallback
+					error={this.state.error}
+					errorInfo={this.state.errorInfo}
+				/>
 			);
 		}
 		return this.props.children;

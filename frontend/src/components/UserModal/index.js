@@ -9,7 +9,6 @@ import {
 	Dialog,
 	DialogActions,
 	DialogContent,
-	DialogTitle,
 	CircularProgress,
 	Select,
 	InputLabel,
@@ -21,13 +20,13 @@ import {
 	InputAdornment,
 	IconButton,
 	Chip,
-	FormHelperText
+	FormHelperText,
+	Typography
 } from '@material-ui/core';
 
-import { Visibility, VisibilityOff } from '@material-ui/icons';
+import { Visibility, VisibilityOff, Close, PersonAddOutlined, PersonOutline, Add, CategoryOutlined } from '@material-ui/icons';
 
-import { makeStyles } from "@material-ui/core/styles";
-import { green } from "@material-ui/core/colors";
+import { makeStyles, alpha } from "@material-ui/core/styles";
 
 import { i18n } from "../../translate/i18n";
 
@@ -43,11 +42,98 @@ const useStyles = makeStyles(theme => ({
 		display: "flex",
 		flexWrap: "wrap",
 	},
+	header: {
+		display: "flex",
+		alignItems: "flex-start",
+		gap: theme.spacing(1.5),
+		padding: theme.spacing(2.5, 2, 2, 3),
+		borderBottom: `1px solid ${theme.custom.border}`,
+	},
+	headerIcon: {
+		flex: "none",
+		width: 40,
+		height: 40,
+		borderRadius: 12,
+		display: "grid",
+		placeItems: "center",
+		color: theme.palette.primary.main,
+		backgroundColor: theme.custom.primarySoft,
+		"& svg": { fontSize: 20 },
+	},
+	headerText: { flex: 1, minWidth: 0 },
+	title: { fontWeight: 700, fontSize: "1.08rem", lineHeight: 1.3 },
+	subtitle: {
+		color: theme.palette.text.secondary,
+		fontSize: "0.83rem",
+		marginTop: 2,
+	},
+	content: {
+		padding: theme.spacing(2.5, 3),
+		display: "flex",
+		flexDirection: "column",
+		gap: theme.spacing(1.5),
+		"& .MuiFormControl-marginDense": { marginTop: 0, marginBottom: 0 },
+	},
+	sectionLabel: {
+		fontSize: "0.7rem",
+		fontWeight: 700,
+		textTransform: "uppercase",
+		letterSpacing: "0.08em",
+		color: theme.palette.text.secondary,
+	},
+	sectionSpacer: {
+		marginTop: theme.spacing(1.5),
+		paddingTop: theme.spacing(2),
+		borderTop: `1px dashed ${theme.custom.border}`,
+	},
+	managerHelp: {
+		color: theme.palette.primary.main,
+		fontWeight: 500,
+	},
+	permBox: {
+		marginTop: theme.spacing(1),
+		padding: theme.spacing(2),
+		border: `1px solid ${theme.custom.border}`,
+		borderRadius: 12,
+		backgroundColor: theme.custom.surfaceAlt,
+	},
+	permHead: {
+		display: "flex",
+		justifyContent: "space-between",
+		alignItems: "center",
+		flexWrap: "wrap",
+		gap: theme.spacing(1),
+		marginBottom: theme.spacing(0.5),
+	},
+	permTitle: { fontWeight: 700, fontSize: "0.92rem", color: theme.palette.text.primary },
+	permHelp: { color: theme.palette.text.secondary, margin: 0 },
+	permActions: { display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap" },
+	permTextBtn: { textTransform: "none", fontSize: "0.75rem", fontWeight: 700 },
+	permList: { display: "flex", flexDirection: "column", gap: 6, marginTop: theme.spacing(1.25) },
+	permRow: {
+		display: "flex",
+		alignItems: "center",
+		justifyContent: "space-between",
+		flexWrap: "wrap",
+		padding: theme.spacing(0.5, 1.5),
+		backgroundColor: theme.palette.background.paper,
+		borderRadius: 10,
+		border: `1px solid ${theme.custom.border}`,
+	},
+	permSector: { fontWeight: 600, color: theme.palette.text.primary, minWidth: 140 },
+	permChecks: { display: "flex", gap: theme.spacing(2) },
+	masterOnlyChip: {
+		marginLeft: 8,
+		height: 20,
+		fontSize: "0.65rem",
+		fontWeight: 650,
+		color: theme.palette.warning.main,
+		backgroundColor: alpha(theme.palette.warning.main, theme.palette.type === "dark" ? 0.16 : 0.12),
+	},
 	multFieldLine: {
 		display: "flex",
-		"& > *:not(:last-child)": {
-			marginRight: theme.spacing(1),
-		},
+		gap: theme.spacing(1.5),
+		[theme.breakpoints.down("xs")]: { flexDirection: "column" },
 	},
 
 	btnWrapper: {
@@ -55,7 +141,7 @@ const useStyles = makeStyles(theme => ({
 	},
 
 	buttonProgress: {
-		color: green[500],
+		color: theme.palette.primary.main,
 		position: "absolute",
 		top: "50%",
 		left: "50%",
@@ -63,8 +149,9 @@ const useStyles = makeStyles(theme => ({
 		marginLeft: -12,
 	},
 	formControl: {
-		margin: theme.spacing(1),
-		minWidth: 120,
+		margin: 0,
+		minWidth: 160,
+		[theme.breakpoints.down("xs")]: { width: "100%" },
 	},
 }));
 
@@ -261,11 +348,24 @@ const UserModal = ({ open, onClose, userId }) => {
 				fullWidth
 				scroll="paper"
 			>
-				<DialogTitle id="form-dialog-title">
-					{userId
-						? `${i18n.t("userModal.title.edit")}`
-						: `${i18n.t("userModal.title.add")}`}
-				</DialogTitle>
+				<div className={classes.header}>
+					<div className={classes.headerIcon}>
+						{userId ? <PersonOutline /> : <PersonAddOutlined />}
+					</div>
+					<div className={classes.headerText}>
+						<Typography id="form-dialog-title" component="h2" className={classes.title}>
+							{userId
+								? `${i18n.t("userModal.title.edit")}`
+								: `${i18n.t("userModal.title.add")}`}
+						</Typography>
+						<Typography className={classes.subtitle}>
+							Dados de acesso, perfil, setores e filas de atendimento do usuário.
+						</Typography>
+					</div>
+					<IconButton size="small" onClick={handleClose} aria-label="Fechar">
+						<Close fontSize="small" />
+					</IconButton>
+				</div>
 				<Formik
 					initialValues={user}
 					enableReinitialize={true}
@@ -278,8 +378,11 @@ const UserModal = ({ open, onClose, userId }) => {
 					}}
 				>
 					{({ touched, errors, isSubmitting, values, setFieldValue }) => (
-						<Form>
-							<DialogContent dividers>
+						<Form style={{ display: "flex", flexDirection: "column", minHeight: 0 }}>
+							<DialogContent className={classes.content}>
+								<Typography className={classes.sectionLabel}>
+									Dados de acesso
+								</Typography>
 								<div className={classes.multFieldLine}>
 									<Field
 										as={TextField}
@@ -305,6 +408,7 @@ const UserModal = ({ open, onClose, userId }) => {
 										endAdornment: (
 											<InputAdornment position="end">
 											<IconButton
+												size="small"
 												aria-label="toggle password visibility"
 												onClick={() => setShowPassword((e) => !e)}
 											>
@@ -400,6 +504,17 @@ const UserModal = ({ open, onClose, userId }) => {
 									role={loggedInUser.profile}
 									perform="user-modal:editQueues"
 									yes={() => (
+										<Typography
+											className={`${classes.sectionLabel} ${classes.sectionSpacer}`}
+										>
+											Atendimento
+										</Typography>
+									)}
+								/>
+								<Can
+									role={loggedInUser.profile}
+									perform="user-modal:editQueues"
+									yes={() => (
 										<QueueSelect
 											selectedQueueIds={selectedQueueIds}
 											onChange={values => setSelectedQueueIds(values)}
@@ -414,7 +529,7 @@ const UserModal = ({ open, onClose, userId }) => {
 											const isManager = values.profile === "whatsapp_control" || values.profile === "whatsapp_control_high";
 											if (isManager) {
 												return (
-													<FormControl variant="outlined" margin="dense" fullWidth style={{ marginTop: 10 }}>
+													<FormControl variant="outlined" margin="dense" fullWidth>
 														<InputLabel id="connection-sectors-label">
 															Setor(es) sob responsabilidade
 														</InputLabel>
@@ -438,7 +553,7 @@ const UserModal = ({ open, onClose, userId }) => {
 																</MenuItem>
 															))}
 														</Field>
-														<FormHelperText style={{ color: "#6366f1", fontWeight: 500 }}>
+														<FormHelperText className={classes.managerHelp}>
 															{values.profile === "whatsapp_control_high"
 																? "Gestor Alto: terá acesso às Conexões e Auditoria apenas dos celulares destes setores."
 																: "Gestor Baixo: terá acesso às Conexões apenas dos celulares destes setores."}
@@ -494,22 +609,22 @@ const UserModal = ({ open, onClose, userId }) => {
 
 								{/* Matriz de Permissões por Setor para Master configurando permissões do usuário */}
 								{isMaster && String(values.email || "").toLowerCase().trim() !== "vicenzzo.mastronikolis@realess.com.br" && (
-									<div style={{ marginTop: 16, padding: 14, border: "1px solid #c7d2fe", borderRadius: 8, background: "rgba(99,102,241,0.03)" }}>
-										<div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
+									<div className={classes.permBox}>
+										<div className={classes.permHead}>
 											<div>
-												<strong style={{ color: "#312e81", fontSize: "0.95rem" }}>
+												<div className={classes.permTitle}>
 													Permissões por setor (Auditoria, Tickets e CRM)
-												</strong>
-												<FormHelperText style={{ color: "#475569", margin: 0 }}>
+												</div>
+												<FormHelperText className={classes.permHelp}>
 													Defina os setores que este usuário poderá ver e editar.
 												</FormHelperText>
 											</div>
-											<div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+											<div className={classes.permActions}>
 												<Button
 													size="small"
 													variant="text"
 													color="primary"
-													style={{ textTransform: "none", fontSize: "0.75rem", fontWeight: 700 }}
+													className={classes.permTextBtn}
 													onClick={() => {
 														const allPerms = availableSectors.map(s => ({
 															sector: s.name,
@@ -525,7 +640,7 @@ const UserModal = ({ open, onClose, userId }) => {
 													size="small"
 													variant="text"
 													color="secondary"
-													style={{ textTransform: "none", fontSize: "0.75rem", fontWeight: 700 }}
+													className={classes.permTextBtn}
 													onClick={() => {
 														const nonePerms = availableSectors.map(s => ({
 															sector: s.name,
@@ -541,15 +656,16 @@ const UserModal = ({ open, onClose, userId }) => {
 													size="small"
 													variant="outlined"
 													color="primary"
-													style={{ textTransform: "none", fontWeight: 700, borderRadius: 6 }}
+													startIcon={<Add fontSize="small" />}
+													style={{ textTransform: "none", fontWeight: 700 }}
 													onClick={() => setNewSectorOpen(true)}
 												>
-													+ Novo setor
+													Novo setor
 												</Button>
 											</div>
 										</div>
 
-										<div style={{ display: "flex", flexDirection: "column", gap: 6, marginTop: 10 }}>
+										<div className={classes.permList}>
 											{availableSectors.map(secItem => {
 												const sector = secItem.name;
 												const current = (values.sectorPermissions || []).find(p => p.sector === sector) || {
@@ -581,35 +697,18 @@ const UserModal = ({ open, onClose, userId }) => {
 												};
 
 												return (
-													<div
-														key={sector}
-														style={{
-															display: "flex",
-															alignItems: "center",
-															justifyContent: "space-between",
-															padding: "6px 12px",
-															background: "#fff",
-															borderRadius: 6,
-															border: "1px solid #e2e8f0"
-														}}
-													>
-														<span style={{ fontWeight: 600, color: "#1e293b", minWidth: 140 }}>
+													<div key={sector} className={classes.permRow}>
+														<span className={classes.permSector}>
 															{sector}
 															{secItem.minimumProfile === "admin_master" && (
 																<Chip
 																	size="small"
 																	label="Apenas Master"
-																	style={{
-																		marginLeft: 8,
-																		height: 20,
-																		fontSize: "0.65rem",
-																		background: "#fef3c7",
-																		color: "#92400e"
-																	}}
+																	className={classes.masterOnlyChip}
 																/>
 															)}
 														</span>
-														<div style={{ display: "flex", gap: 16 }}>
+														<div className={classes.permChecks}>
 															<FormControlLabel
 																control={
 																	<Checkbox
@@ -664,7 +763,6 @@ const UserModal = ({ open, onClose, userId }) => {
 							<DialogActions>
 								<Button
 									onClick={handleClose}
-									color="secondary"
 									disabled={isSubmitting}
 									variant="outlined"
 								>
@@ -695,8 +793,23 @@ const UserModal = ({ open, onClose, userId }) => {
 
 			{/* Popup para Adicionar Novo Setor */}
 			<Dialog open={newSectorOpen} onClose={() => setNewSectorOpen(false)} maxWidth="xs" fullWidth>
-				<DialogTitle>Novo Setor</DialogTitle>
-				<DialogContent>
+				<div className={classes.header}>
+					<div className={classes.headerIcon}>
+						<CategoryOutlined />
+					</div>
+					<div className={classes.headerText}>
+						<Typography component="h2" className={classes.title}>
+							Novo Setor
+						</Typography>
+						<Typography className={classes.subtitle}>
+							Crie um setor e defina o nível mínimo de acesso.
+						</Typography>
+					</div>
+					<IconButton size="small" onClick={() => setNewSectorOpen(false)} aria-label="Fechar">
+						<Close fontSize="small" />
+					</IconButton>
+				</div>
+				<DialogContent className={classes.content}>
 					<TextField
 						autoFocus
 						fullWidth
@@ -705,7 +818,6 @@ const UserModal = ({ open, onClose, userId }) => {
 						margin="dense"
 						value={newSectorName}
 						onChange={e => setNewSectorName(e.target.value)}
-						style={{ marginBottom: 14 }}
 					/>
 					<FormControl fullWidth variant="outlined" margin="dense">
 						<InputLabel id="min-profile-label">Nível mínimo que pode ver</InputLabel>
@@ -724,7 +836,7 @@ const UserModal = ({ open, onClose, userId }) => {
 					</FormControl>
 				</DialogContent>
 				<DialogActions>
-					<Button onClick={() => setNewSectorOpen(false)} color="secondary">
+					<Button onClick={() => setNewSectorOpen(false)} variant="outlined">
 						Cancelar
 					</Button>
 					<Button
