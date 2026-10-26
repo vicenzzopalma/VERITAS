@@ -1463,11 +1463,13 @@ const initializeSession = async (whatsapp: Whatsapp): Promise<void> => {
     const validMessages = messages.filter(msg => {
       if (!msg.message || !shouldHandleMessage(msg)) return false;
 
-      if (type === "notify") return true;
-
-      if (type === "append" && msg.key.fromMe) return true;
-
-      return false;
+      // "notify" = mensagem em tempo real.
+      // "append" = fila offline que o WhatsApp entrega ao reconectar (mensagens
+      // recebidas enquanto a sessão estava caída) e mensagens próprias.
+      // Antes só aceitávamos "append" de mensagens próprias, então tudo que o
+      // contato mandava durante uma queda de conexão era descartado.
+      // Duplicatas não são problema: a gravação é upsert pelo id da mensagem.
+      return type === "notify" || type === "append";
     });
 
     if (validMessages.length === 0) return;
@@ -1482,11 +1484,19 @@ const initializeSession = async (whatsapp: Whatsapp): Promise<void> => {
             mediaPayload
           } = await getMessageData(msg, wbot);
 
+          // Grava com o horário real do WhatsApp, não o do processamento:
+          // mensagens entregues com atraso (fila offline) ficavam com hora errada.
+          const originalTimestamp = new Date(
+            parseMessageTimestamp(msg.messageTimestamp)
+          );
+
           await handleMessage(
             messagePayload,
             contactPayload,
             contextPayload,
-            mediaPayload
+            mediaPayload,
+            false,
+            originalTimestamp
           );
         } catch (err) {
           logger.error(err, "Error handling message upsert");
