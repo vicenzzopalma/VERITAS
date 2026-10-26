@@ -72,7 +72,7 @@ import ExportAuditModal from "../../components/ExportAuditModal";
 import MediaViewerModal from "../../components/MediaViewerModal";
 import ContactDrawer from "../../components/ContactDrawer";
 import { getContactDisplayName, formatPhoneNumber, isPendingResolution, PENDING_TOOLTIP } from "../../helpers/contactHelper";
-import { PageHeader, StatCard, StatusPill, EmptyState } from "../../components/ui";
+import { StatCard, StatusPill, EmptyState } from "../../components/ui";
 
 const useStyles = makeStyles((theme) => {
   const c = theme.custom;
@@ -107,7 +107,22 @@ const useStyles = makeStyles((theme) => {
     },
     pageHeader: {
       flex: "none",
-      [theme.breakpoints.down("sm")]: { padding: theme.spacing(2, 0, 1.5) },
+      display: "flex",
+      alignItems: "center",
+      gap: theme.spacing(1),
+      padding: theme.spacing(1.5, 0, 1.25),
+      [theme.breakpoints.down("sm")]: { padding: theme.spacing(1.25, 0, 1) },
+    },
+    pageTitle: {
+      fontWeight: 700,
+      fontSize: "1.02rem",
+      letterSpacing: "-0.01em",
+      display: "flex",
+      alignItems: "center",
+      gap: 8,
+      flex: 1,
+      minWidth: 0,
+      "& svg": { fontSize: 19, color: theme.palette.primary.main },
     },
     kpiRow: {
       marginBottom: theme.spacing(2),
@@ -1003,6 +1018,25 @@ const Audit = () => {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
   const [mobileFiltersExpanded, setMobileFiltersExpanded] = useState(false);
+  // Indicadores ficam ocultos por padrão para a conversa ganhar espaço.
+  const [showKpis, setShowKpis] = useState(() => {
+    try {
+      return localStorage.getItem("veritas:audit-kpis") === "1";
+    } catch (e) {
+      return false;
+    }
+  });
+  const toggleKpis = () => {
+    setShowKpis((prev) => {
+      const next = !prev;
+      try {
+        localStorage.setItem("veritas:audit-kpis", next ? "1" : "0");
+      } catch (e) {
+        // ignore
+      }
+      return next;
+    });
+  };
   const { user } = useContext(AuthContext);
   const history = useHistory();
   const location = useLocation();
@@ -1724,37 +1758,39 @@ const Audit = () => {
   return (
     <div className={classes.root}>
       {/* 1. Cabeçalho do Cofre */}
-      <PageHeader
-        className={classes.pageHeader}
-        icon={<SecurityIcon />}
-        title={isMobile ? "Auditoria" : "Cofre de Auditoria"}
-        subtitle={
-          isMobile
-            ? undefined
-            : "Investigação forense de conversas WhatsApp: mensagens arquivadas, apagadas e mídias."
-        }
-        actions={
-          <>
-            <Tooltip title="Atualizar dados">
-              <IconButton size="small" onClick={handleRefreshAll}>
-                <RefreshIcon fontSize="small" />
-              </IconButton>
-            </Tooltip>
-            <Button
-              variant="contained"
-              color="primary"
-              size={isMobile ? "small" : "medium"}
-              startIcon={<GetAppIcon />}
-              onClick={() => setExportModalOpen(true)}
-            >
-              {isMobile ? "Exportar" : "Exportar laudo"}
-            </Button>
-          </>
-        }
-      />
+      <div className={classes.pageHeader}>
+        <div className={classes.pageTitle}>
+          <SecurityIcon />
+          {isMobile ? "Auditoria" : "Cofre de Auditoria"}
+        </div>
+        {!isMobile && (
+          <Button
+            size="small"
+            variant={showKpis ? "contained" : "outlined"}
+            onClick={toggleKpis}
+            aria-pressed={showKpis}
+          >
+            {showKpis ? "Ocultar indicadores" : "Mostrar indicadores"}
+          </Button>
+        )}
+        <Tooltip title="Atualizar dados">
+          <IconButton size="small" onClick={handleRefreshAll}>
+            <RefreshIcon fontSize="small" />
+          </IconButton>
+        </Tooltip>
+        <Button
+          variant="contained"
+          color="primary"
+          size="small"
+          startIcon={<GetAppIcon />}
+          onClick={() => setExportModalOpen(true)}
+        >
+          {isMobile ? "Exportar" : "Exportar laudo"}
+        </Button>
+      </div>
 
-      {/* 2. KPIs */}
-      {!isMobile && (
+      {/* 2. KPIs (só quando o usuário pede) */}
+      {!isMobile && showKpis && (
         <Grid container spacing={2} className={classes.kpiRow}>
           <Grid item xs={6} md={3}>
             <StatCard

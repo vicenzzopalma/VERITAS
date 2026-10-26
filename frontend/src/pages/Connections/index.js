@@ -12,6 +12,11 @@ import {
 	Typography,
 	CircularProgress,
 	InputAdornment,
+	Table,
+	TableHead,
+	TableBody,
+	TableRow,
+	TableCell,
 } from "@material-ui/core";
 import Skeleton from "@material-ui/lab/Skeleton";
 import {
@@ -436,6 +441,86 @@ const useStyles = makeStyles(theme => {
 			"&:hover": { backgroundColor: theme.palette.info.dark || theme.palette.info.main },
 		},
 		emptyPaper: { borderRadius: 16 },
+
+		// Table (sober list layout)
+		tablePaper: {
+			flex: 1,
+			minHeight: 0,
+			display: "flex",
+			flexDirection: "column",
+			borderRadius: 12,
+			border: `1px solid ${c.border}`,
+			boxShadow: "none",
+			overflow: "hidden",
+			marginBottom: theme.spacing(2),
+		},
+		tableWrap: {
+			flex: 1,
+			minHeight: 0,
+			overflow: "auto",
+			WebkitOverflowScrolling: "touch",
+			...theme.scrollbarStyles,
+		},
+		table: { minWidth: 980 },
+		th: {
+			position: "sticky",
+			top: 0,
+			zIndex: 2,
+			backgroundColor: c.surfaceAlt,
+			color: c.textMuted,
+			fontSize: "0.7rem",
+			fontWeight: 700,
+			textTransform: "uppercase",
+			letterSpacing: "0.06em",
+			padding: theme.spacing(1, 1.5),
+			borderBottom: `1px solid ${c.border}`,
+			whiteSpace: "nowrap",
+		},
+		td: {
+			padding: theme.spacing(0.75, 1.5),
+			borderBottom: `1px solid ${c.border}`,
+			fontSize: "0.84rem",
+			verticalAlign: "middle",
+		},
+		row: {
+			"&:hover": { backgroundColor: c.surfaceAlt },
+			"&:last-child td": { borderBottom: "none" },
+		},
+		rowArchived: { opacity: 0.85 },
+		nameCell: { display: "flex", alignItems: "center", gap: 8, minWidth: 0, maxWidth: 280 },
+		nameText: {
+			fontWeight: 600,
+			overflow: "hidden",
+			textOverflow: "ellipsis",
+			whiteSpace: "nowrap",
+		},
+		nameIcon: { fontSize: 18, color: c.textMuted, flex: "none" },
+		defaultStar: { fontSize: 16, color: theme.palette.primary.main, flex: "none" },
+		proxyIcon: { fontSize: 15, color: c.textMuted, flex: "none" },
+		statusText: {
+			display: "inline-flex",
+			alignItems: "center",
+			gap: 6,
+			fontSize: "0.8rem",
+			fontWeight: 600,
+			color: c.textMuted,
+			whiteSpace: "nowrap",
+		},
+		statusDot: { width: 7, height: 7, borderRadius: "50%", flex: "none" },
+		neutralChip: {
+			display: "inline-block",
+			padding: "1px 8px",
+			borderRadius: 6,
+			fontSize: "0.74rem",
+			fontWeight: 600,
+			color: c.textMuted,
+			backgroundColor: c.surfaceAlt,
+			border: `1px solid ${c.border}`,
+			whiteSpace: "nowrap",
+		},
+		mutedText: { color: c.textMuted, fontSize: "0.8rem", whiteSpace: "nowrap" },
+		rowActions: { display: "flex", alignItems: "center", gap: 2, justifyContent: "flex-end" },
+		sessionActions: { display: "flex", alignItems: "center", gap: 6, flexWrap: "nowrap" },
 
 		// Rich tooltip (status explanations)
 		tooltip: {
@@ -991,28 +1076,9 @@ const Connections = () => {
 		}
 	};
 
-	// Sector colors are data semantics; lighten them in dark mode for contrast.
-	const sectorTint = sector => {
-		const base = getSectorColor(sector);
-		return {
-			fg: isDark ? lighten(base, 0.45) : base,
-			bg: alpha(base, isDark ? 0.22 : 0.1),
-			border: alpha(base, isDark ? 0.5 : 0.35),
-			base,
-		};
-	};
-
-	const renderSectorPill = sector => {
-		const tint = sectorTint(sector);
-		return (
-			<span
-				className={classes.sectorPill}
-				style={{ color: tint.fg, backgroundColor: tint.bg }}
-			>
-				{sector}
-			</span>
-		);
-	};
+	const renderSectorPill = sector => (
+		<span className={classes.neutralChip}>{sector}</span>
+	);
 
 	const renderActionButtons = whatsApp => {
 		if (isArchivedWhatsapp(whatsApp)) {
@@ -1125,11 +1191,9 @@ const Connections = () => {
 					title="Linha / Chamado Arquivado"
 					content="Histórico permanente importado do Digisac. Disponível para consulta no Cofre de Auditoria."
 				>
-					<span>
-						<StatusPill tone="neutral" dot={false} className={clsx(classes.iconPill, classes.archivedPill)}>
-							<ArchiveOutlined />
-							Arquivado
-						</StatusPill>
+					<span className={classes.statusText}>
+						<span className={classes.statusDot} style={{ backgroundColor: theme.custom.textMuted }} />
+						Arquivado
 					</span>
 				</CustomToolTip>
 			);
@@ -1137,10 +1201,14 @@ const Connections = () => {
 
 		const meta = getStatusMeta(whatsApp.status);
 		const pill = (
-			<StatusPill tone={meta.tone} dot={whatsApp.status !== "OPENING"}>
-				{whatsApp.status === "OPENING" && <CircularProgress size={10} thickness={6} color="inherit" />}
+			<span className={classes.statusText}>
+				{whatsApp.status === "OPENING" ? (
+					<CircularProgress size={9} thickness={6} color="inherit" />
+				) : (
+					<span className={classes.statusDot} style={{ backgroundColor: toneColor(theme, meta.tone) }} />
+				)}
 				{meta.label}
-			</StatusPill>
+			</span>
 		);
 
 		if (!meta.tip) return pill;
@@ -1167,11 +1235,9 @@ const Connections = () => {
 		const muted = <span className={classes.timerMuted}>-</span>;
 		const released = chip => (
 			<Tooltip title={`WhatsApp Control CRM (Gestão de celulares): Chip liberado da restrição (${chip.status || "Liberado"})`} arrow>
-				<span>
-					<StatusPill tone="success" dot={false} className={classes.iconPill}>
-						<AccessTime />
-						Liberado
-					</StatusPill>
+				<span className={classes.statusText}>
+					<span className={classes.statusDot} style={{ backgroundColor: toneColor(theme, "success") }} />
+					Liberado
 				</span>
 			</Tooltip>
 		);
@@ -1234,11 +1300,9 @@ const Connections = () => {
 						title={`WhatsApp Control CRM (Gestão de celulares): ${chip.status || "Restrito"}${formattedTarget ? ` • Até ${formattedTarget}` : ""}`}
 						arrow
 					>
-						<span>
-							<StatusPill tone="warning" dot={false} className={clsx(classes.iconPill, classes.timerPill)}>
-								<AccessTime />
-								{label}
-							</StatusPill>
+						<span className={clsx(classes.statusText, classes.timerPill)}>
+							<AccessTime style={{ fontSize: 14, color: toneColor(theme, "warning") }} />
+							{label}
 						</span>
 					</Tooltip>
 				);
@@ -1259,130 +1323,103 @@ const Connections = () => {
 
 	const renderSkeletons = () =>
 		[0, 1, 2, 3, 4, 5].map(i => (
-			<Paper key={i} className={classes.card}>
-				<div className={classes.cardBody}>
-					<div className={classes.cardTop}>
-						<Skeleton variant="rect" width={44} height={44} style={{ borderRadius: 12 }} />
-						<div className={classes.nameBlock}>
-							<Skeleton width="60%" height={22} />
-							<Skeleton width="40%" height={16} />
-						</div>
-					</div>
-					<Skeleton width={160} height={26} style={{ borderRadius: 999 }} />
-					<Skeleton variant="rect" height={38} style={{ borderRadius: 10 }} />
-				</div>
-				<div className={classes.cardFooter}>
-					<Skeleton width={120} height={32} />
-				</div>
-			</Paper>
+			<TableRow key={i}>
+				{[0, 1, 2, 3, 4, 5, 6].map(j => (
+					<TableCell key={j} className={classes.td}>
+						<Skeleton height={20} />
+					</TableCell>
+				))}
+			</TableRow>
 		));
 
-	const renderCard = whatsApp => {
+	const renderRow = whatsApp => {
 		const archived = isArchivedWhatsapp(whatsApp);
-		const meta = getStatusMeta(whatsApp.status);
-		const dotColor = archived ? ARCHIVE_COLOR : toneColor(theme, meta.tone);
 		return (
-			<Paper key={whatsApp.id} className={clsx(classes.card, archived && classes.cardArchived)}>
-				<div className={classes.cardBody}>
-					<div className={classes.cardTop}>
-						<div className={clsx(classes.iconTile, archived && classes.iconTileArchived)}>
-							{archived ? <ArchiveOutlined /> : <WhatsApp />}
-							<span className={classes.liveDot} style={{ backgroundColor: dotColor }} />
-						</div>
-						<div className={classes.nameBlock}>
-							<div className={classes.name} title={whatsApp.name}>
-								{whatsApp.name}
-							</div>
-							<div className={classes.meta}>
-								<Schedule />
-								<span>
-									{i18n.t("connections.table.lastUpdate")}:{" "}
-									{formatDateTime(whatsApp.updatedAt)}
-								</span>
-							</div>
-						</div>
-						<div className={classes.topActions}>
-							<Tooltip title="Editar Configurações do Aparelho" arrow>
-								<IconButton
-									size="small"
-									className={classes.iconBtn}
-									onClick={() => handleEditWhatsApp(whatsApp)}
-								>
-									<Edit />
-								</IconButton>
-							</Tooltip>
-							{archived ? (
-								<Tooltip title="Desarquivar Aparelho (Mover para Ativos)" arrow>
-									<IconButton
-										size="small"
-										className={clsx(classes.iconBtn, classes.unarchiveBtn)}
-										onClick={() => handleToggleArchive(whatsApp)}
-									>
-										<Unarchive />
-									</IconButton>
-								</Tooltip>
-							) : (
-								<Tooltip title="Arquivar Aparelho (Mover para Arquivados)" arrow>
-									<IconButton
-										size="small"
-										className={classes.iconBtn}
-										onClick={() => handleToggleArchive(whatsApp)}
-									>
-										<Archive />
-									</IconButton>
-								</Tooltip>
-							)}
-							<Tooltip title="Excluir Conexão" arrow>
-								<IconButton
-									size="small"
-									className={clsx(classes.iconBtn, classes.deleteBtn)}
-									onClick={e => {
-										handleOpenConfirmationModal("delete", whatsApp.id);
-									}}
-								>
-									<DeleteOutline />
-								</IconButton>
-							</Tooltip>
-						</div>
-					</div>
-					<div className={classes.pills}>
-						{renderStatusToolTips(whatsApp)}
-						{renderSectorPill(whatsApp.sector || "Junior")}
+			<TableRow key={whatsApp.id} className={clsx(classes.row, archived && classes.rowArchived)}>
+				<TableCell className={classes.td}>
+					<div className={classes.nameCell}>
+						{archived ? <ArchiveOutlined className={classes.nameIcon} /> : <WhatsApp className={classes.nameIcon} />}
+						<span className={classes.nameText} title={whatsApp.name}>{whatsApp.name}</span>
 						{whatsApp.isDefault && (
-							<StatusPill tone="primary" dot={false} className={classes.iconPill}>
-								<Star />
-								{i18n.t("connections.table.default")}
-							</StatusPill>
+							<Tooltip title={i18n.t("connections.table.default")} arrow>
+								<Star className={classes.defaultStar} />
+							</Tooltip>
 						)}
 						{whatsApp.proxyUrl && (
 							<Tooltip title="Proxy dedicado ativo (IP isolado)" arrow>
-								<span>
-									<StatusPill tone="success" dot={false} className={classes.iconPill}>
-										<LockOutlined />
-										Proxy
-									</StatusPill>
-								</span>
+								<LockOutlined className={classes.proxyIcon} />
 							</Tooltip>
 						)}
 					</div>
-					<div className={classes.infoRow}>
-						<Tooltip title="Gestão de celulares = Whatsapp control = CRM = Whatsapp Control CRM" arrow>
-							<span className={classes.infoLabel}>
-								Timer CRM <InfoOutlined />
-							</span>
+				</TableCell>
+				<TableCell className={classes.td}>{renderStatusToolTips(whatsApp)}</TableCell>
+				<TableCell className={classes.td}>{renderSectorPill(whatsApp.sector || "Junior")}</TableCell>
+				<TableCell className={classes.td}>{renderTimerCell(whatsApp)}</TableCell>
+				<TableCell className={classes.td}>
+					<span className={classes.mutedText}>{formatDateTime(whatsApp.updatedAt)}</span>
+				</TableCell>
+				<TableCell className={classes.td}>
+					<div className={classes.sessionActions}>{renderActionButtons(whatsApp)}</div>
+				</TableCell>
+				<TableCell className={classes.td} align="right">
+					<div className={classes.rowActions}>
+						<Tooltip title="Editar Configurações do Aparelho" arrow>
+							<IconButton size="small" className={classes.iconBtn} onClick={() => handleEditWhatsApp(whatsApp)}>
+								<Edit />
+							</IconButton>
 						</Tooltip>
-						{renderTimerCell(whatsApp)}
+						{archived ? (
+							<Tooltip title="Desarquivar Aparelho (Mover para Ativos)" arrow>
+								<IconButton size="small" className={classes.iconBtn} onClick={() => handleToggleArchive(whatsApp)}>
+									<Unarchive />
+								</IconButton>
+							</Tooltip>
+						) : (
+							<Tooltip title="Arquivar Aparelho (Mover para Arquivados)" arrow>
+								<IconButton size="small" className={classes.iconBtn} onClick={() => handleToggleArchive(whatsApp)}>
+									<Archive />
+								</IconButton>
+							</Tooltip>
+						)}
+						<Tooltip title="Excluir Conexão" arrow>
+							<IconButton
+								size="small"
+								className={clsx(classes.iconBtn, classes.deleteBtn)}
+								onClick={() => handleOpenConfirmationModal("delete", whatsApp.id)}
+							>
+								<DeleteOutline />
+							</IconButton>
+						</Tooltip>
 					</div>
-				</div>
-				<div className={classes.cardFooter}>
-					<span className={classes.footerLabel}>
-						{i18n.t("connections.table.session")}
-					</span>
-					{renderActionButtons(whatsApp)}
-				</div>
-			</Paper>
+				</TableCell>
+			</TableRow>
 		);
 	};
+
+	const renderTable = rows => (
+		<Paper className={classes.tablePaper}>
+			<div className={classes.tableWrap}>
+				<Table size="small" className={classes.table}>
+					<TableHead>
+						<TableRow>
+							<TableCell className={classes.th}>Nome</TableCell>
+							<TableCell className={classes.th}>Status</TableCell>
+							<TableCell className={classes.th}>Setor</TableCell>
+							<TableCell className={classes.th}>
+								<Tooltip title="Gestão de celulares = Whatsapp control = CRM = Whatsapp Control CRM" arrow>
+									<span className={classes.infoLabel}>Timer CRM <InfoOutlined /></span>
+								</Tooltip>
+							</TableCell>
+							<TableCell className={classes.th}>Última atualização</TableCell>
+							<TableCell className={classes.th}>Sessão</TableCell>
+							<TableCell className={classes.th} align="right">Ações</TableCell>
+						</TableRow>
+					</TableHead>
+					<TableBody>{rows}</TableBody>
+				</Table>
+			</div>
+		</Paper>
+	);
 
 	const totalVisible = activeCount + archivedCount;
 	const connectedCount = (allowedSectors
@@ -1548,7 +1585,6 @@ const Connections = () => {
 					{sectorsList.map(sector => {
 						const count = sectorCounts[sector] || 0;
 						const isSelected = selectedSector === sector;
-						const tint = sectorTint(sector);
 						return (
 							<button
 								type="button"
@@ -1557,11 +1593,14 @@ const Connections = () => {
 								onClick={() => setSelectedSector(sector)}
 								style={
 									isSelected
-										? { color: tint.fg, backgroundColor: tint.bg, borderColor: tint.border }
+										? {
+												color: theme.palette.primary.main,
+												backgroundColor: theme.custom.primarySoft,
+												borderColor: alpha(theme.palette.primary.main, 0.35),
+										  }
 										: undefined
 								}
 							>
-								<span className={classes.filterDot} style={{ backgroundColor: tint.base }} />
 								{sector}
 								<span className={classes.filterCount}>{count}</span>
 							</button>
@@ -1570,13 +1609,11 @@ const Connections = () => {
 				</Paper>
 			)}
 
-			<div className={classes.scroll}>
+			<div className={classes.scroll} style={{ display: "flex", flexDirection: "column" }}>
 				{loading ? (
-					<div className={classes.grid}>{renderSkeletons()}</div>
+					renderTable(renderSkeletons())
 				) : filteredWhatsApps?.length > 0 ? (
-					<div className={classes.grid}>
-						{filteredWhatsApps.map(whatsApp => renderCard(whatsApp))}
-					</div>
+					renderTable(filteredWhatsApps.map(whatsApp => renderRow(whatsApp)))
 				) : (
 					<Paper className={classes.emptyPaper}>
 						<EmptyState
