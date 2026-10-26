@@ -41,6 +41,8 @@ import {
 	Clear as ClearIcon,
 	AccessTime,
 	Sync as SyncIcon,
+	ViewColumn as ViewColumnIcon,
+	ViewList as ViewListIcon,
 } from "@material-ui/icons";
 
 
@@ -66,6 +68,34 @@ const getSectorColor = sector => {
 			return "#6366f1";
 	}
 };
+
+// Exibição do número da linha sempre formatado (REGRAS.md §1)
+const formatPhoneNumber = raw => {
+	const digits = String(raw || "").split("@")[0].split(":")[0].replace(/\D/g, "");
+	if (!digits) return "";
+	let ddi = "";
+	let rest = digits;
+	if (digits.startsWith("55") && digits.length >= 12) {
+		ddi = "+55 ";
+		rest = digits.slice(2);
+	}
+	if (rest.length === 11) return `${ddi}(${rest.slice(0, 2)}) ${rest.slice(2, 7)}-${rest.slice(7)}`;
+	if (rest.length === 10) return `${ddi}(${rest.slice(0, 2)}) ${rest.slice(2, 6)}-${rest.slice(6)}`;
+	return ddi ? `+${digits}` : digits;
+};
+
+const getWhatsAppNumber = whatsApp => {
+	if (!whatsApp) return "";
+	if (whatsApp.number) return formatPhoneNumber(whatsApp.number);
+	if (whatsApp.phone_number) return formatPhoneNumber(whatsApp.phone_number);
+	try {
+		const sess = typeof whatsApp.session === "string" ? JSON.parse(whatsApp.session) : whatsApp.session;
+		if (sess?.me?.id) return formatPhoneNumber(sess.me.id);
+	} catch (e) {}
+	return "";
+};
+
+const VIEW_MODE_STORAGE_KEY = "veritas:connectionsViewMode";
 
 const formatDateTime = dateVal => {
 	if (!dateVal) return "-";
@@ -212,6 +242,117 @@ const useStyles = makeStyles(theme => ({
 		justifyContent: "space-between",
 		borderTop: `1px solid ${theme.palette.type === "dark" ? "rgba(148, 163, 184, 0.1)" : "rgba(0, 0, 0, 0.05)"}`,
 		backgroundColor: theme.palette.type === "dark" ? "rgba(15, 23, 42, 0.4)" : "rgba(248, 250, 252, 0.6)",
+	},
+	viewToggle: {
+		display: "inline-flex",
+		alignItems: "center",
+		height: 38,
+		padding: 3,
+		marginRight: 8,
+		borderRadius: 8,
+		border: `1px solid ${theme.palette.type === "dark" ? "rgba(148, 163, 184, 0.3)" : "#cbd5e1"}`,
+		backgroundColor: theme.palette.type === "dark" ? "#1e293b" : "#fff",
+		flexShrink: 0,
+	},
+	viewToggleBtn: {
+		display: "inline-flex",
+		alignItems: "center",
+		gap: 4,
+		height: 30,
+		padding: "0 9px",
+		border: "none",
+		borderRadius: 6,
+		cursor: "pointer",
+		fontSize: "0.74rem",
+		fontWeight: 700,
+		fontFamily: "inherit",
+		background: "transparent",
+		color: theme.palette.text.secondary,
+		transition: "background-color .15s, color .15s",
+		"&:hover": {
+			color: theme.palette.text.primary,
+		},
+	},
+	viewToggleBtnActive: {
+		backgroundColor: theme.palette.type === "dark" ? "#334155" : "#e0f2fe",
+		color: theme.palette.type === "dark" ? "#f1f5f9" : "#0369a1",
+		"&:hover": {
+			color: theme.palette.type === "dark" ? "#f1f5f9" : "#0369a1",
+		},
+	},
+	board: {
+		flex: 1,
+		minHeight: 0,
+		display: "flex",
+		gap: 10,
+		overflowX: "auto",
+		overflowY: "hidden",
+		paddingBottom: 6,
+		...theme.scrollbarStyles,
+	},
+	boardColumn: {
+		flex: "0 0 272px",
+		width: 272,
+		minHeight: 0,
+		display: "flex",
+		flexDirection: "column",
+		borderRadius: 10,
+		backgroundColor: theme.palette.type === "dark" ? "#111827" : "#f8fafc",
+		border: `1px solid ${theme.palette.type === "dark" ? "rgba(148, 163, 184, 0.18)" : "rgba(0, 0, 0, 0.08)"}`,
+		overflow: "hidden",
+	},
+	boardColumnHeader: {
+		display: "flex",
+		alignItems: "center",
+		gap: 8,
+		padding: "8px 10px",
+		borderBottom: `1px solid ${theme.palette.type === "dark" ? "rgba(148, 163, 184, 0.14)" : "rgba(0, 0, 0, 0.06)"}`,
+		flexShrink: 0,
+	},
+	boardColumnBody: {
+		flex: 1,
+		minHeight: 0,
+		overflowY: "auto",
+		padding: 8,
+		display: "flex",
+		flexDirection: "column",
+		gap: 8,
+		...theme.scrollbarStyles,
+	},
+	boardCard: {
+		flexShrink: 0,
+		borderRadius: 8,
+		padding: "8px 10px",
+		backgroundColor: theme.palette.type === "dark" ? "#1e293b" : "#fff",
+		border: `1px solid ${theme.palette.type === "dark" ? "rgba(148, 163, 184, 0.16)" : "rgba(0, 0, 0, 0.08)"}`,
+		boxShadow: theme.palette.type === "dark" ? "none" : "0 1px 2px rgba(15, 23, 42, 0.05)",
+		display: "flex",
+		flexDirection: "column",
+		gap: 6,
+		"& .MuiButton-root": {
+			minHeight: 26,
+			padding: "2px 8px",
+			fontSize: "0.7rem",
+			borderRadius: 6,
+			textTransform: "none",
+		},
+		"& .MuiIconButton-root": {
+			padding: 4,
+		},
+	},
+	boardCardActions: {
+		display: "flex",
+		alignItems: "center",
+		justifyContent: "space-between",
+		gap: 4,
+		paddingTop: 6,
+		borderTop: `1px solid ${theme.palette.type === "dark" ? "rgba(148, 163, 184, 0.1)" : "rgba(0, 0, 0, 0.05)"}`,
+	},
+	boardEmpty: {
+		padding: "18px 8px",
+		textAlign: "center",
+		fontSize: "0.75rem",
+		color: theme.palette.text.secondary,
 	},
 	customTableCell: {
 		display: "flex",
@@ -374,6 +515,23 @@ const Connections = () => {
 
 	const history = useHistory();
 	const [connectionTab, setConnectionTab] = useState("active"); // "active" | "archived"
+
+	// Visualização: "columns" (uma coluna por setor) | "list" (tabela densa). Preferência salva no navegador.
+	const [viewMode, setViewModeState] = useState(() => {
+		try {
+			const saved = localStorage.getItem(VIEW_MODE_STORAGE_KEY);
+			return saved === "list" || saved === "columns" ? saved : "columns";
+		} catch (e) {
+			return "columns";
+		}
+	});
+
+	const setViewMode = useCallback(mode => {
+		setViewModeState(mode);
+		try {
+			localStorage.setItem(VIEW_MODE_STORAGE_KEY, mode);
+		} catch (e) {}
+	}, []);
 
 	const isArchivedWhatsapp = useCallback(w => {
 		if (!w) return false;
@@ -588,6 +746,33 @@ const Connections = () => {
 			return (a.name || "").localeCompare(b.name || "");
 		});
 	}, [whatsApps, selectedSector, searchParam, getMatchedChip, allowedSectors, connectionTab, isArchivedWhatsapp]);
+
+	// Agrupamento por setor para a visualização em colunas (mantém a ordenação de filteredWhatsApps)
+	const boardColumns = React.useMemo(() => {
+		const groups = new Map();
+		(filteredWhatsApps || []).forEach(w => {
+			const sec = w.sector || "Junior";
+			if (!groups.has(sec)) groups.set(sec, []);
+			groups.get(sec).push(w);
+		});
+
+		let order;
+		if (connectionTab === "archived") {
+			order = Array.from(groups.keys());
+		} else if (selectedSector !== "TODOS") {
+			order = [selectedSector];
+		} else {
+			order = [...(sectorsList || [])];
+			groups.forEach((_, sec) => {
+				if (!order.includes(sec)) order.push(sec);
+			});
+		}
+
+		const hasSearch = searchParam && searchParam.trim() !== "";
+		return order
+			.map(sec => ({ sector: sec, items: groups.get(sec) || [] }))
+			.filter(col => col.items.length > 0 || (!hasSearch && connectionTab === "active"));
+	}, [filteredWhatsApps, connectionTab, selectedSector, sectorsList, searchParam]);
 
 	const handleStartWhatsAppSession = async whatsAppId => {
 		try {
@@ -1116,6 +1301,33 @@ const Connections = () => {
 						</Button>
 					</div>
 
+					{!isMobile && (
+						<div className={classes.viewToggle} role="group" aria-label="Modo de visualização">
+							<Tooltip title="Visualizar em colunas por setor" arrow>
+								<button
+									type="button"
+									aria-pressed={viewMode === "columns"}
+									className={`${classes.viewToggleBtn} ${viewMode === "columns" ? classes.viewToggleBtnActive : ""}`}
+									onClick={() => setViewMode("columns")}
+								>
+									<ViewColumnIcon style={{ fontSize: 17 }} />
+									Colunas
+								</button>
+							</Tooltip>
+							<Tooltip title="Visualizar em lista" arrow>
+								<button
+									type="button"
+									aria-pressed={viewMode === "list"}
+									className={`${classes.viewToggleBtn} ${viewMode === "list" ? classes.viewToggleBtnActive : ""}`}
+									onClick={() => setViewMode("list")}
+								>
+									<ViewListIcon style={{ fontSize: 17 }} />
+									Lista
+								</button>
+							</Tooltip>
+						</div>
+					)}
+
 					<TextField
 						placeholder="Buscar nome, número, setor..."
 						type="search"
@@ -1452,6 +1664,137 @@ const Connections = () => {
 						</Paper>
 					)}
 				</div>
+			) : viewMode === "columns" ? (
+				<div className={classes.board}>
+					{loading ? (
+						<Box display="flex" justifyContent="center" alignItems="center" p={4} flex={1}>
+							<CircularProgress size={32} />
+						</Box>
+					) : boardColumns.length === 0 ? (
+						<Paper variant="outlined" style={{ flex: 1, padding: 24, textAlign: "center", color: "#64748b", borderRadius: 10, alignSelf: "flex-start" }}>
+							<Typography variant="body2" style={{ fontWeight: 500 }}>
+								{searchParam ? (
+									<>Nenhuma conexão encontrada para "<strong>{searchParam}</strong>"{selectedSector !== "TODOS" ? ` no setor ${selectedSector}` : ""}.</>
+								) : connectionTab === "archived" ? (
+									<>Nenhuma linha arquivada.</>
+								) : (
+									<>Nenhum WhatsApp cadastrado no setor <strong>{selectedSector}</strong>.</>
+								)}
+							</Typography>
+						</Paper>
+					) : (
+						boardColumns.map(col => {
+							const sectorColor = getSectorColor(col.sector);
+							const connectedCount = col.items.filter(w => w.status === "CONNECTED").length;
+							return (
+								<div key={col.sector} className={classes.boardColumn} style={{ borderTop: `3px solid ${sectorColor}` }}>
+									<div className={classes.boardColumnHeader}>
+										<span style={{ width: 8, height: 8, borderRadius: "50%", backgroundColor: sectorColor, flexShrink: 0 }} />
+										<Typography
+											variant="body2"
+											style={{ fontWeight: 800, fontSize: "0.8rem", color: theme.palette.text.primary, flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}
+										>
+											{col.sector}
+										</Typography>
+										{connectionTab === "active" && col.items.length > 0 && (
+											<Tooltip title={`${connectedCount} conectado(s) de ${col.items.length}`} arrow>
+												<span style={{ fontSize: "0.68rem", fontWeight: 700, color: "#16a34a" }}>
+													{connectedCount} on
+												</span>
+											</Tooltip>
+										)}
+										<span
+											style={{
+												fontSize: "0.68rem",
+												fontWeight: 800,
+												padding: "1px 7px",
+												borderRadius: 10,
+												backgroundColor: sectorColor,
+												color: "#fff",
+											}}
+										>
+											{col.items.length}
+										</span>
+									</div>
+									<div className={classes.boardColumnBody}>
+										{col.items.length === 0 ? (
+											<div className={classes.boardEmpty}>Nenhuma conexão neste setor.</div>
+										) : (
+											col.items.map(whatsApp => {
+												const phone = getWhatsAppNumber(whatsApp);
+												return (
+													<div key={whatsApp.id} className={classes.boardCard}>
+														<Box display="flex" alignItems="flex-start" justifyContent="space-between" style={{ gap: 6 }}>
+															<Box minWidth={0} flex={1}>
+																<Box display="flex" alignItems="center" style={{ gap: 4 }}>
+																	<Typography
+																		variant="body2"
+																		title={whatsApp.name}
+																		style={{ fontWeight: 700, fontSize: "0.82rem", color: theme.palette.text.primary, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}
+																	>
+																		{whatsApp.name}
+																	</Typography>
+																	{whatsApp.isDefault && (
+																		<Tooltip title={i18n.t("connections.table.default")} arrow>
+																			<CheckCircle style={{ color: green[500], fontSize: 15 }} />
+																		</Tooltip>
+																	)}
+																</Box>
+																<Typography variant="caption" style={{ display: "block", color: "#64748b", fontSize: "0.72rem", fontVariantNumeric: "tabular-nums" }}>
+																	{phone || "—"}
+																	{whatsApp.proxyUrl && (
+																		<span style={{ color: "#16a34a", fontWeight: 700, marginLeft: 6 }}>🔒 Proxy</span>
+																	)}
+																</Typography>
+															</Box>
+															<div style={{ flexShrink: 0 }}>{renderStatusToolTips(whatsApp)}</div>
+														</Box>
+														<Box display="flex" alignItems="center" justifyContent="space-between" style={{ gap: 6 }}>
+															{renderTimerCell(whatsApp)}
+															<Typography variant="caption" style={{ color: "#94a3b8", fontSize: "0.68rem", whiteSpace: "nowrap" }}>
+																{formatDateTime(whatsApp.updatedAt)}
+															</Typography>
+														</Box>
+														<div className={classes.boardCardActions}>
+															<Box display="flex" alignItems="center" flexWrap="wrap" style={{ gap: 4 }}>
+																{renderActionButtons(whatsApp)}
+															</Box>
+															<Box display="flex" alignItems="center" flexShrink={0}>
+																<Tooltip title="Editar Configurações do Aparelho" arrow>
+																	<IconButton size="small" onClick={() => handleEditWhatsApp(whatsApp)}>
+																		<Edit fontSize="small" />
+																	</IconButton>
+																</Tooltip>
+																{isArchivedWhatsapp(whatsApp) ? (
+																	<Tooltip title="Desarquivar Aparelho (Mover para Ativos)" arrow>
+																		<IconButton size="small" onClick={() => handleToggleArchive(whatsApp)} style={{ color: "#0284c7" }}>
+																			<Unarchive fontSize="small" />
+																		</IconButton>
+																	</Tooltip>
+																) : (
+																	<Tooltip title="Arquivar Aparelho (Mover para Arquivados)" arrow>
+																		<IconButton size="small" onClick={() => handleToggleArchive(whatsApp)} style={{ color: "#64748b" }}>
+																			<Archive fontSize="small" />
+																		</IconButton>
+																	</Tooltip>
+																)}
+																<Tooltip title="Excluir Conexão" arrow>
+																	<IconButton size="small" onClick={() => handleOpenConfirmationModal("delete", whatsApp.id)} style={{ color: "#ef4444" }}>
+																		<DeleteOutline fontSize="small" />
+																	</IconButton>
+																</Tooltip>
+															</Box>
+														</div>
+													</div>
+												);
+											})
+										)}
+									</div>
+								</div>
+							);
+						})
+					)}
+				</div>
 			) : (
 				<Paper className={classes.mainPaper} variant="outlined">
 					<Table size="small">
@@ -1459,6 +1802,9 @@ const Connections = () => {
 							<TableRow>
 								<TableCell align="center">
 									{i18n.t("connections.table.name")}
+								</TableCell>
+								<TableCell align="center">
+									Número
 								</TableCell>
 								<TableCell align="center">
 									Setor
@@ -1510,6 +1856,9 @@ const Connections = () => {
 															🔒 Proxy Ativo
 														</Typography>
 													)}
+												</TableCell>
+												<TableCell align="center" style={{ whiteSpace: "nowrap", fontVariantNumeric: "tabular-nums" }}>
+													{getWhatsAppNumber(whatsApp) || "—"}
 												</TableCell>
 												<TableCell align="center">
 													<Chip
@@ -1592,7 +1941,7 @@ const Connections = () => {
 										))}
 									{filteredWhatsApps?.length === 0 && (
 										<TableRow>
-											<TableCell colSpan={8} align="center">
+											<TableCell colSpan={9} align="center">
 												<Typography variant="body2" style={{ padding: "28px 0", color: "#64748b", fontWeight: 500 }}>
 													{searchParam ? (
 														<>Nenhuma conexão encontrada para "<strong>{searchParam}</strong>"{selectedSector !== "TODOS" ? ` no setor ${selectedSector}` : ""}.</>

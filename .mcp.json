@@ -1,0 +1,16 @@
+﻿{
+  "mcpServers": {
+    "obsidian": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@modelcontextprotocol/server-obsidian"
+      ],
+      "env": {
+        "OBSIDIAN_URL": "https://127.0.0.1:27124",
+        "OBSIDIAN_API_KEY": "95a4be5454dd9d40ad51678bca3e562cd88326b1b565d6d36e1f3a8777a330d3",
+        "NODE_TLS_REJECT_UNAUTHORIZED": "0"
+      }
+    }
+  }
+}
