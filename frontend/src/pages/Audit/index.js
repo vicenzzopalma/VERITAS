@@ -1018,6 +1018,8 @@ const Audit = () => {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
   const [mobileFiltersExpanded, setMobileFiltersExpanded] = useState(false);
+  // Faixa de setores/aparelhos recolhida por padrão: o destaque é a conversa.
+  const [showDeviceBar, setShowDeviceBar] = useState(false);
   // Indicadores ficam ocultos por padrão para a conversa ganhar espaço.
   const [showKpis, setShowKpis] = useState(() => {
     try {
@@ -1763,6 +1765,17 @@ const Audit = () => {
           <SecurityIcon />
           {isMobile ? "Auditoria" : "Cofre de Auditoria"}
         </div>
+        <Button
+          size="small"
+          variant={showDeviceBar ? "contained" : "outlined"}
+          onClick={() => setShowDeviceBar((v) => !v)}
+          aria-pressed={showDeviceBar}
+          startIcon={<PhoneAndroidIcon style={{ fontSize: 16 }} />}
+        >
+          {showDeviceBar
+            ? "Ocultar aparelhos"
+            : `${selectedDevice?.name || "Aparelhos"} · ${selectedSector === "TODOS" ? "Todos" : selectedSector}`}
+        </Button>
         {!isMobile && (
           <Button
             size="small"
@@ -1778,15 +1791,6 @@ const Audit = () => {
             <RefreshIcon fontSize="small" />
           </IconButton>
         </Tooltip>
-        <Button
-          variant="contained"
-          color="primary"
-          size="small"
-          startIcon={<GetAppIcon />}
-          onClick={() => setExportModalOpen(true)}
-        >
-          {isMobile ? "Exportar" : "Exportar laudo"}
-        </Button>
       </div>
 
       {/* 2. KPIs (só quando o usuário pede) */}
@@ -1962,6 +1966,8 @@ const Audit = () => {
           </div>
         </ClickAwayListener>
 
+        {(showDeviceBar || !selectedDevice) && (
+        <>
         {/* Barra de Filtro de Setor Sincronizada (Audit <-> Conexões <-> CRM) */}
         <div className={classes.ribbonRow}>
           <span className={classes.ribbonLabel}>Setor</span>
@@ -2079,6 +2085,8 @@ const Audit = () => {
             )}
           </div>
         </div>
+        </>
+        )}
       </Paper>
 
       {/* 4. Área Principal: conversas + timeline */}
@@ -2301,6 +2309,26 @@ const Audit = () => {
               </div>
 
               <div className={classes.convActions}>
+                {!isMobile ? (
+                  <Button
+                    size="small"
+                    variant="contained"
+                    color="primary"
+                    startIcon={<GetAppIcon style={{ fontSize: 16 }} />}
+                    onClick={() => setExportModalOpen(true)}
+                  >
+                    Exportar laudo
+                  </Button>
+                ) : (
+                  <IconButton
+                    size="small"
+                    onClick={() => setExportModalOpen(true)}
+                    className={classes.iconOutlined}
+                    title="Exportar laudo"
+                  >
+                    <GetAppIcon fontSize="small" />
+                  </IconButton>
+                )}
                 {!isMobile ? (
                   <Button
                     size="small"
