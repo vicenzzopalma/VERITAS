@@ -68,6 +68,7 @@ import PictureAsPdfIcon from "@material-ui/icons/PictureAsPdf";
 import { AuthContext } from "../../context/Auth/AuthContext";
 import api from "../../services/api";
 import openSocket from "../../services/socket-io";
+import { toast } from "react-toastify";
 import toastError from "../../errors/toastError";
 import ExportAuditModal from "../../components/ExportAuditModal";
 import MediaViewerModal from "../../components/MediaViewerModal";
