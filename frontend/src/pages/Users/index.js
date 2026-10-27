@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useReducer, useContext } from "react";
+import React, { useState, useEffect, useReducer } from "react";
 import { toast } from "react-toastify";
 import openSocket from "../../services/socket-io";
 
@@ -11,29 +11,23 @@ import TableCell from "@material-ui/core/TableCell";
 import TableHead from "@material-ui/core/TableHead";
 import TableRow from "@material-ui/core/TableRow";
 import IconButton from "@material-ui/core/IconButton";
-import SearchIcon from "@material-ui/icons/Search";
-import TextField from "@material-ui/core/TextField";
-import InputAdornment from "@material-ui/core/InputAdornment";
-import Chip from "@material-ui/core/Chip";
-import Typography from "@material-ui/core/Typography";
-import Dialog from "@material-ui/core/Dialog";
-import DialogTitle from "@material-ui/core/DialogTitle";
-import DialogContent from "@material-ui/core/DialogContent";
-import DialogActions from "@material-ui/core/DialogActions";
-import FormControl from "@material-ui/core/FormControl";
-import InputLabel from "@material-ui/core/InputLabel";
-import Select from "@material-ui/core/Select";
-import MenuItem from "@material-ui/core/MenuItem";
 import Tooltip from "@material-ui/core/Tooltip";
+import Avatar from "@material-ui/core/Avatar";
 
 import DeleteOutlineIcon from "@material-ui/icons/DeleteOutline";
-import EditIcon from "@material-ui/icons/Edit";
-import CheckCircleIcon from "@material-ui/icons/CheckCircle";
+import EditOutlinedIcon from "@material-ui/icons/EditOutlined";
+import CheckCircleOutlineIcon from "@material-ui/icons/CheckCircleOutline";
+import AddIcon from "@material-ui/icons/Add";
+import PeopleAltOutlinedIcon from "@material-ui/icons/PeopleAltOutlined";
+import WhatsAppIcon from "@material-ui/icons/WhatsApp";
 
 import MainContainer from "../../components/MainContainer";
-import MainHeader from "../../components/MainHeader";
-import MainHeaderButtonsWrapper from "../../components/MainHeaderButtonsWrapper";
-import Title from "../../components/Title";
+import {
+  PageHeader,
+  SearchField,
+  StatusPill,
+  EmptyState,
+} from "../../components/ui";
 
 import api from "../../services/api";
 import { i18n } from "../../translate/i18n";
@@ -41,7 +35,6 @@ import TableRowSkeleton from "../../components/TableRowSkeleton";
 import UserModal from "../../components/UserModal";
 import ConfirmationModal from "../../components/ConfirmationModal";
 import toastError from "../../errors/toastError";
-import { AuthContext } from "../../context/Auth/AuthContext";
 
 const reducer = (state, action) => {
   if (action.type === "LOAD_USERS") {
@@ -87,12 +80,70 @@ const reducer = (state, action) => {
   }
 };
 
+const PROFILE_LABELS = {
+  admin_master: "Administrador Master",
+  admin_operational: "Administrador Operacional",
+  admin: "Admin",
+  operator: "Operador WhatsApp",
+  whatsapp_control: "Gestor WhatsApp Control (Baixo)",
+  whatsapp_control_high: "Gestor WhatsApp Control (Alto)",
+};
+
+const PROFILE_TONES = {
+  admin_master: "accent",
+  master: "accent",
+  admin_operational: "primary",
+  admin: "primary",
+  operator: "info",
+  whatsapp_control: "warning",
+  whatsapp_control_high: "warning",
+  user: "neutral",
+};
+
+const getProfileLabel = (profile) =>
+  PROFILE_LABELS[profile] || profile || "User";
+
+const getInitials = (name = "") =>
+  name
+    .trim()
+    .split(/\s+/)
+    .slice(0, 2)
+    .map((part) => part.charAt(0).toUpperCase())
+    .join("") || "?";
+
 const useStyles = makeStyles((theme) => ({
-  mainPaper: {
+  tableCard: {
     flex: 1,
-    padding: theme.spacing(1),
-    overflowY: "scroll",
+    minHeight: 0,
+    borderRadius: 16,
+    overflowY: "auto",
     ...theme.scrollbarStyles,
+  },
+  person: {
+    display: "flex",
+    alignItems: "center",
+    gap: theme.spacing(1.5),
+    minWidth: 0,
+  },
+  avatar: { width: 34, height: 34, fontSize: "0.8rem" },
+  name: { fontWeight: 600, color: theme.palette.text.primary },
+  muted: { color: theme.palette.text.secondary },
+  connection: {
+    display: "inline-flex",
+    alignItems: "center",
+    gap: 6,
+    color: theme.palette.text.primary,
+    "& svg": { fontSize: 16, color: theme.palette.success.main },
+  },
+  actions: {
+    whiteSpace: "nowrap",
+    "& > *:not(:first-child)": { marginLeft: 4 },
+  },
+  approveBtn: {
+    color: theme.palette.success.main,
+  },
+  deleteBtn: {
+    "&:hover": { color: theme.palette.error.main },
   },
 }));
 
@@ -230,53 +281,39 @@ const Users = () => {
         aria-labelledby="form-dialog-title"
         userId={selectedUser && selectedUser.id}
       />
-      <MainHeader>
-        <Title>{i18n.t("users.title")}</Title>
-        <MainHeaderButtonsWrapper>
-          <TextField
-            placeholder={i18n.t("contacts.searchPlaceholder")}
-            type="search"
-            value={searchParam}
-            onChange={handleSearch}
-            InputProps={{
-              startAdornment: (
-                <InputAdornment position="start">
-                  <SearchIcon style={{ color: "gray" }} />
-                </InputAdornment>
-              ),
-            }}
-          />
-          <Button
-            variant="contained"
-            color="primary"
-            onClick={handleOpenUserModal}
-          >
-            {i18n.t("users.buttons.add")}
-          </Button>
-        </MainHeaderButtonsWrapper>
-      </MainHeader>
-      <Paper
-        className={classes.mainPaper}
-        variant="outlined"
-        onScroll={handleScroll}
-      >
-        <Table size="small">
+      <PageHeader
+        icon={<PeopleAltOutlinedIcon />}
+        title={i18n.t("users.title")}
+        subtitle="Gerencie atendentes, perfis de acesso, aprovações e conexões padrão."
+        actions={
+          <>
+            <SearchField
+              placeholder={i18n.t("contacts.searchPlaceholder")}
+              type="search"
+              value={searchParam}
+              onChange={handleSearch}
+            />
+            <Button
+              variant="contained"
+              color="primary"
+              startIcon={<AddIcon />}
+              onClick={handleOpenUserModal}
+            >
+              {i18n.t("users.buttons.add")}
+            </Button>
+          </>
+        }
+      />
+      <Paper className={classes.tableCard} onScroll={handleScroll}>
+        <Table size="small" stickyHeader>
           <TableHead>
             <TableRow>
-              <TableCell align="center">{i18n.t("users.table.name")}</TableCell>
-              <TableCell align="center">
-                {i18n.t("users.table.email")}
-              </TableCell>
-              <TableCell align="center">
-                {i18n.t("users.table.profile")}
-              </TableCell>
-              <TableCell align="center">
-                {i18n.t("users.table.whatsapp")}
-              </TableCell>
-              <TableCell align="center">
-                {i18n.t("users.table.status") || "Status"}
-              </TableCell>
-              <TableCell align="center">
+              <TableCell>{i18n.t("users.table.name")}</TableCell>
+              <TableCell>{i18n.t("users.table.email")}</TableCell>
+              <TableCell>{i18n.t("users.table.profile")}</TableCell>
+              <TableCell>{i18n.t("users.table.whatsapp")}</TableCell>
+              <TableCell>{i18n.t("users.table.status") || "Status"}</TableCell>
+              <TableCell align="right">
                 {i18n.t("users.table.actions")}
               </TableCell>
             </TableRow>
@@ -284,86 +321,113 @@ const Users = () => {
           <TableBody>
             <>
               {users.map((user) => (
-                <TableRow key={user.id}>
-                  <TableCell align="center">{user.name}</TableCell>
-                  <TableCell align="center">{user.email}</TableCell>
-                  <TableCell align="center">
-                    {user.profile === "admin_master"
-                      ? "Administrador Master"
-                      : user.profile === "admin_operational"
-                      ? "Administrador Operacional"
-                      : user.profile === "admin"
-                      ? "Admin"
-                      : user.profile === "operator"
-                      ? "Operador WhatsApp"
-                      : user.profile === "whatsapp_control"
-                      ? "Gestor WhatsApp Control (Baixo)"
-                      : user.profile === "whatsapp_control_high"
-                      ? "Gestor WhatsApp Control (Alto)"
-                      : user.profile || "User"}
+                <TableRow key={user.id} hover>
+                  <TableCell>
+                    <div className={classes.person}>
+                      <Avatar className={classes.avatar}>
+                        {getInitials(user.name)}
+                      </Avatar>
+                      <span className={classes.name}>{user.name}</span>
+                    </div>
                   </TableCell>
-                  <TableCell align="center">{user.whatsapp?.name || "-"}</TableCell>
-                  <TableCell align="center">
-                    {user.status === "pending" ? (
-                      <Chip
-                        size="small"
-                        label="Pendente"
-                        style={{
-                          backgroundColor: "#f59e0b",
-                          color: "#fff",
-                          fontWeight: 600,
-                          fontSize: "0.75rem",
-                        }}
-                      />
+                  <TableCell className={classes.muted}>{user.email}</TableCell>
+                  <TableCell>
+                    <StatusPill
+                      tone={PROFILE_TONES[user.profile] || "neutral"}
+                      dot={false}
+                    >
+                      {getProfileLabel(user.profile)}
+                    </StatusPill>
+                  </TableCell>
+                  <TableCell>
+                    {user.whatsapp?.name ? (
+                      <span className={classes.connection}>
+                        <WhatsAppIcon />
+                        {user.whatsapp.name}
+                      </span>
                     ) : (
-                      <Chip
-                        size="small"
-                        label="Ativo"
-                        style={{
-                          backgroundColor: "#10b981",
-                          color: "#fff",
-                          fontWeight: 600,
-                          fontSize: "0.75rem",
-                        }}
-                      />
+                      <span className={classes.muted}>-</span>
                     )}
                   </TableCell>
-                  <TableCell align="center">
+                  <TableCell>
+                    {user.status === "pending" ? (
+                      <StatusPill tone="warning">Pendente</StatusPill>
+                    ) : (
+                      <StatusPill tone="success">Ativo</StatusPill>
+                    )}
+                  </TableCell>
+                  <TableCell align="right" className={classes.actions}>
                     {user.status === "pending" && (
                       <Tooltip title={i18n.t("users.buttons.approve") || "Aprovar Conta"}>
                         <IconButton
                           size="small"
-                          style={{ color: "#10b981", marginRight: 4 }}
+                          className={classes.approveBtn}
                           onClick={() => handleApproveUser(user)}
                         >
-                          <CheckCircleIcon />
+                          <CheckCircleOutlineIcon fontSize="small" />
                         </IconButton>
                       </Tooltip>
                     )}
-
-                    <IconButton
-                      size="small"
-                      onClick={() => handleEditUser(user)}
-                    >
-                      <EditIcon />
-                    </IconButton>
-
-                    <IconButton
-                      size="small"
-                      onClick={(e) => {
-                        setConfirmModalOpen(true);
-                        setDeletingUser(user);
-                      }}
-                    >
-                      <DeleteOutlineIcon />
-                    </IconButton>
+                    <Tooltip title="Editar">
+                      <IconButton
+                        size="small"
+                        onClick={() => handleEditUser(user)}
+                      >
+                        <EditOutlinedIcon fontSize="small" />
+                      </IconButton>
+                    </Tooltip>
+                    <Tooltip title="Excluir">
+                      <IconButton
+                        size="small"
+                        className={classes.deleteBtn}
+                        onClick={(e) => {
+                          setConfirmModalOpen(true);
+                          setDeletingUser(user);
+                        }}
+                      >
+                        <DeleteOutlineIcon fontSize="small" />
+                      </IconButton>
+                    </Tooltip>
                   </TableCell>
                 </TableRow>
               ))}
-              {loading && <TableRowSkeleton columns={6} />}
+              {loading && (
+                <TableRowSkeleton
+                  avatar
+                  columns={5}
+                  rows={users.length ? 1 : 5}
+                />
+              )}
             </>
           </TableBody>
         </Table>
+        {!loading && users.length === 0 && (
+          <EmptyState
+            icon={<PeopleAltOutlinedIcon />}
+            title={
+              searchParam
+                ? "Nenhum usuário encontrado"
+                : "Nenhum usuário cadastrado"
+            }
+            description={
+              searchParam
+                ? "Tente buscar por outro nome ou e-mail."
+                : "Adicione atendentes para distribuir os tickets entre a equipe."
+            }
+            action={
+              !searchParam && (
+                <Button
+                  variant="contained"
+                  color="primary"
+                  startIcon={<AddIcon />}
+                  onClick={handleOpenUserModal}
+                >
+                  {i18n.t("users.buttons.add")}
+                </Button>
+              )
+            }
+          />
+        )}
       </Paper>
     </MainContainer>
   );

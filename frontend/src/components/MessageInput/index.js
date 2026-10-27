@@ -4,11 +4,11 @@ import { useParams } from "react-router-dom";
 import { Picker } from "emoji-mart";
 import clsx from "clsx";
 
-import { makeStyles } from "@material-ui/core/styles";
+import { makeStyles, alpha, useTheme } from "@material-ui/core/styles";
 import Paper from "@material-ui/core/Paper";
 import InputBase from "@material-ui/core/InputBase";
 import CircularProgress from "@material-ui/core/CircularProgress";
-import { green } from "@material-ui/core/colors";
+import InsertDriveFileOutlinedIcon from "@material-ui/icons/InsertDriveFileOutlined";
 import AttachFileIcon from "@material-ui/icons/AttachFile";
 import IconButton from "@material-ui/core/IconButton";
 import MoreVert from "@material-ui/icons/MoreVert";
@@ -51,173 +51,273 @@ const initRecorder = async () => {
   return Mp3Recorder;
 };
 
-const useStyles = makeStyles(theme => ({
-  mainWrapper: {
-    background: theme.palette.type === "dark" ? "#202c33" : "#eee",
-    display: "flex",
-    flexDirection: "column",
-    alignItems: "center",
-    borderTop: `1px solid ${theme.palette.type === "dark" ? "rgba(148, 163, 184, 0.18)" : "rgba(0, 0, 0, 0.12)"}`,
-    [theme.breakpoints.down("sm")]: {
-      position: "sticky",
-      bottom: "auto",
-      width: "100%",
-      paddingBottom: "calc(7px + env(safe-area-inset-bottom))",
-      zIndex: 3,
+const useStyles = makeStyles(theme => {
+  const c = theme.custom;
+  return {
+    mainWrapper: {
+      position: "relative",
+      background: c.surface,
+      display: "flex",
+      flexDirection: "column",
+      alignItems: "center",
+      borderTop: `1px solid ${c.border}`,
+      padding: theme.spacing(1.25, 1.5),
+      [theme.breakpoints.down("sm")]: {
+        position: "sticky",
+        bottom: "auto",
+        width: "100%",
+        zIndex: 3,
+        padding: theme.spacing(1),
+        paddingBottom: "calc(8px + env(safe-area-inset-bottom))",
+      },
     },
-  },
 
-  newMessageBox: {
-    background: theme.palette.type === "dark" ? "#202c33" : "#eee",
-    width: "100%",
-    display: "flex",
-    padding: "7px",
-    paddingBottom: "max(7px, env(safe-area-inset-bottom))",
-    alignItems: "center",
-  },
+    newMessageBox: {
+      width: "100%",
+      display: "flex",
+      alignItems: "flex-end",
+      gap: 2,
+      padding: 4,
+      borderRadius: 16,
+      backgroundColor: c.surfaceAlt,
+      border: `1px solid ${c.border}`,
+      transition: "border-color .15s, box-shadow .15s",
+      "&:focus-within": {
+        borderColor: theme.palette.primary.main,
+        boxShadow: `0 0 0 3px ${c.primarySoft}`,
+      },
+    },
 
-  messageInputWrapper: {
-    padding: 6,
-    marginRight: 7,
-    background: theme.palette.type === "dark" ? "#2a3942" : "#fff",
-    display: "flex",
-    borderRadius: 20,
-    flex: 1,
-    position: "relative",
-  },
+    messageInputWrapper: {
+      padding: "8px 6px",
+      display: "flex",
+      flex: 1,
+      minWidth: 0,
+      position: "relative",
+      alignSelf: "center",
+    },
 
-  messageInput: {
-    paddingLeft: 10,
-    flex: 1,
-    border: "none",
-  },
+    messageInput: {
+      paddingLeft: 4,
+      flex: 1,
+      border: "none",
+      fontSize: "0.92rem",
+      lineHeight: 1.45,
+      color: c.text,
+    },
 
-  sendMessageIcons: {
-    color: theme.palette.type === "dark" ? "#cbd5e1" : "grey",
-  },
+    sendMessageIcons: {
+      color: c.textMuted,
+    },
 
-  uploadInput: {
-    display: "none",
-  },
+    iconButton: {
+      width: 40,
+      height: 40,
+      padding: 0,
+      borderRadius: 12,
+    },
 
-  viewMediaInputWrapper: {
-    display: "flex",
-    padding: "10px 13px",
-    position: "relative",
-    justifyContent: "space-between",
-    alignItems: "center",
-    backgroundColor: theme.palette.type === "dark" ? "#202c33" : "#eee",
-    borderTop: `1px solid ${theme.palette.type === "dark" ? "rgba(148, 163, 184, 0.18)" : "rgba(0, 0, 0, 0.12)"}`,
-  },
+    sendButton: {
+      width: 40,
+      height: 40,
+      padding: 0,
+      borderRadius: 12,
+      color: theme.palette.primary.contrastText,
+      backgroundColor: theme.palette.primary.main,
+      boxShadow: `0 4px 12px -4px ${alpha(theme.palette.primary.main, 0.6)}`,
+      "&:hover": { backgroundColor: theme.palette.primary.dark },
+      "&.Mui-disabled": {
+        color: theme.palette.primary.contrastText,
+        backgroundColor: alpha(theme.palette.primary.main, 0.45),
+      },
+    },
 
-  emojiBox: {
-    position: "absolute",
-    bottom: 63,
-    width: 40,
-    borderTop: "1px solid #e8e8e8",
-  },
+    sendIcon: {
+      fontSize: 19,
+      color: "inherit",
+    },
 
-  circleLoading: {
-    color: green[500],
-    opacity: "70%",
-    position: "absolute",
-    top: "20%",
-    left: "50%",
-    marginLeft: -12,
-  },
+    uploadInput: {
+      display: "none",
+    },
 
-  audioLoading: {
-    color: green[500],
-    opacity: "70%",
-  },
+    signLabel: {
+      marginLeft: 4,
+      marginRight: 8,
+      alignSelf: "center",
+      "& .MuiFormControlLabel-label": {
+        fontSize: "0.76rem",
+        fontWeight: 600,
+        color: c.textMuted,
+        whiteSpace: "nowrap",
+      },
+    },
 
-  recorderWrapper: {
-    display: "flex",
-    alignItems: "center",
-    alignContent: "middle",
-  },
+    viewMediaInputWrapper: {
+      display: "flex",
+      gap: theme.spacing(1),
+      padding: theme.spacing(1.25, 1.5),
+      position: "relative",
+      justifyContent: "space-between",
+      alignItems: "center",
+      backgroundColor: c.surface,
+      borderTop: `1px solid ${c.border}`,
+    },
 
-  cancelAudioIcon: {
-    color: "red",
-  },
+    mediaFile: {
+      flex: 1,
+      minWidth: 0,
+      display: "flex",
+      alignItems: "center",
+      gap: 8,
+      padding: "8px 14px",
+      borderRadius: 12,
+      backgroundColor: c.surfaceAlt,
+      border: `1px solid ${c.border}`,
+      color: c.text,
+      fontSize: "0.86rem",
+      fontWeight: 500,
+      overflow: "hidden",
+      whiteSpace: "nowrap",
+      textOverflow: "ellipsis",
+      "& svg": { fontSize: 18, color: theme.palette.primary.main, flex: "none" },
+    },
 
-  sendAudioIcon: {
-    color: "green",
-  },
+    emojiBox: {
+      position: "absolute",
+      bottom: "calc(100% + 6px)",
+      left: 12,
+      zIndex: 10,
+      "& .emoji-mart": {
+        borderRadius: 14,
+        border: `1px solid ${c.border}`,
+        boxShadow: c.shadowLg,
+      },
+    },
 
-  replyginMsgWrapper: {
-    display: "flex",
-    width: "100%",
-    alignItems: "center",
-    justifyContent: "center",
-    paddingTop: 8,
-    paddingLeft: 73,
-    paddingRight: 7,
-  },
+    circleLoading: {
+      color: theme.palette.primary.main,
+      opacity: "80%",
+      position: "absolute",
+      top: "20%",
+      left: "50%",
+      marginLeft: -12,
+    },
 
-  replyginMsgContainer: {
-    flex: 1,
-    marginRight: 5,
-    overflowY: "hidden",
-    backgroundColor: theme.palette.type === "dark" ? "rgba(148, 163, 184, 0.12)" : "rgba(0, 0, 0, 0.05)",
-    borderRadius: "7.5px",
-    display: "flex",
-    position: "relative",
-  },
+    audioLoading: {
+      color: theme.palette.primary.main,
+      opacity: "80%",
+    },
 
-  replyginMsgBody: {
-    padding: 10,
-    height: "auto",
-    display: "block",
-    whiteSpace: "pre-wrap",
-    overflow: "hidden",
-  },
+    recorderWrapper: {
+      display: "flex",
+      alignItems: "center",
+      alignContent: "middle",
+      gap: 2,
+      padding: "0 2px 0 4px",
+      borderRadius: 12,
+      color: theme.palette.error.main,
+      fontWeight: 600,
+      fontVariantNumeric: "tabular-nums",
+      backgroundColor: alpha(theme.palette.error.main, 0.08),
+    },
 
-  replyginContactMsgSideColor: {
-    flex: "none",
-    width: "4px",
-    backgroundColor: "#35cd96",
-  },
+    cancelAudioIcon: {
+      color: theme.palette.error.main,
+    },
 
-  replyginSelfMsgSideColor: {
-    flex: "none",
-    width: "4px",
-    backgroundColor: "#6bcbef",
-  },
+    sendAudioIcon: {
+      color: theme.palette.success.main,
+    },
 
-  messageContactName: {
-    display: "flex",
-    color: "#6bcbef",
-    fontWeight: 500,
-  },
-  messageQuickAnswersWrapper: {
-    margin: 0,
-    position: "absolute",
-    bottom: "50px",
-    background: theme.palette.type === "dark" ? "#1e293b" : "#ffffff",
-    padding: "2px",
-    border: `1px solid ${theme.palette.type === "dark" ? "#475569" : "#CCC"}`,
-    left: 0,
-    width: "100%",
-    "& li": {
-      listStyle: "none",
-      "& a": {
-        display: "block",
-        padding: "8px",
-        textOverflow: "ellipsis",
-        overflow: "hidden",
-        maxHeight: "32px",
-        "&:hover": {
-          background: theme.palette.type === "dark" ? "#334155" : "#F1F1F1",
-          cursor: "pointer",
+    replyginMsgWrapper: {
+      display: "flex",
+      width: "100%",
+      alignItems: "center",
+      justifyContent: "center",
+      gap: theme.spacing(1),
+      paddingBottom: theme.spacing(1),
+    },
+
+    replyginMsgContainer: {
+      flex: 1,
+      minWidth: 0,
+      overflowY: "hidden",
+      backgroundColor: c.surfaceAlt,
+      border: `1px solid ${c.border}`,
+      borderRadius: 12,
+      display: "flex",
+      position: "relative",
+      fontSize: "0.84rem",
+      color: c.textMuted,
+    },
+
+    replyginMsgBody: {
+      padding: "8px 12px",
+      height: "auto",
+      maxHeight: 96,
+      display: "block",
+      whiteSpace: "pre-wrap",
+      overflow: "hidden",
+    },
+
+    replyginContactMsgSideColor: {
+      flex: "none",
+      width: "3px",
+      backgroundColor: theme.palette.primary.main,
+    },
+
+    replyginSelfMsgSideColor: {
+      flex: "none",
+      width: "3px",
+      backgroundColor: theme.palette.secondary.main,
+    },
+
+    messageContactName: {
+      display: "flex",
+      color: theme.palette.secondary.main,
+      fontWeight: 650,
+    },
+
+    messageQuickAnswersWrapper: {
+      margin: 0,
+      position: "absolute",
+      bottom: "calc(100% + 10px)",
+      left: -6,
+      width: "calc(100% + 12px)",
+      maxHeight: 260,
+      overflowY: "auto",
+      background: c.surface,
+      padding: 6,
+      border: `1px solid ${c.border}`,
+      borderRadius: 12,
+      boxShadow: c.shadowLg,
+      zIndex: 10,
+      ...theme.scrollbarStyles,
+      "& li": {
+        listStyle: "none",
+        "& a": {
+          display: "block",
+          padding: "8px 10px",
+          borderRadius: 8,
+          fontSize: "0.85rem",
+          color: c.text,
+          textOverflow: "ellipsis",
+          whiteSpace: "nowrap",
+          overflow: "hidden",
+          "&:hover": {
+            background: c.surfaceHover,
+            cursor: "pointer",
+          },
         },
       },
     },
-  },
-}));
+  };
+});
 
 const MessageInput = ({ ticketStatus }) => {
   const classes = useStyles();
+  const theme = useTheme();
   const { ticketId } = useParams();
 
   const [medias, setMedias] = useState([]);
@@ -454,10 +554,11 @@ const MessageInput = ({ ticketStatus }) => {
 
         {loading ? (
           <div>
-            <CircularProgress className={classes.circleLoading} />
+            <CircularProgress size={24} className={classes.circleLoading} />
           </div>
         ) : (
-          <span>
+          <span className={classes.mediaFile}>
+            <InsertDriveFileOutlinedIcon />
             {medias[0]?.name}
             {/* <img src={media.preview} alt=""></img> */}
           </span>
@@ -465,10 +566,11 @@ const MessageInput = ({ ticketStatus }) => {
         <IconButton
           aria-label="send-upload"
           component="span"
+          className={classes.sendButton}
           onClick={handleUploadMedia}
           disabled={loading}
         >
-          <SendIcon className={classes.sendMessageIcons} />
+          <SendIcon className={classes.sendIcon} />
         </IconButton>
       </Paper>
     );
@@ -481,6 +583,7 @@ const MessageInput = ({ ticketStatus }) => {
             <IconButton
               aria-label="emojiPicker"
               component="span"
+              className={classes.iconButton}
               disabled={loading || recording || ticketStatus !== "open"}
               onClick={e => setShowEmoji(prevState => !prevState)}
             >
@@ -491,6 +594,7 @@ const MessageInput = ({ ticketStatus }) => {
                 <ClickAwayListener onClickAway={e => setShowEmoji(false)}>
                   <Picker
                     perLine={16}
+                    theme={theme.palette.type === "dark" ? "dark" : "light"}
                     showPreview={false}
                     showSkinTones={false}
                     onSelect={handleAddEmoji}
@@ -511,13 +615,14 @@ const MessageInput = ({ ticketStatus }) => {
               <IconButton
                 aria-label="upload"
                 component="span"
+                className={classes.iconButton}
                 disabled={loading || recording || ticketStatus !== "open"}
               >
                 <AttachFileIcon className={classes.sendMessageIcons} />
               </IconButton>
             </label>
             <FormControlLabel
-              style={{ marginRight: 7, color: "gray" }}
+              className={classes.signLabel}
               label={i18n.t("messagesInput.signMessage")}
               labelPlacement="start"
               control={
@@ -537,9 +642,10 @@ const MessageInput = ({ ticketStatus }) => {
             <IconButton
               aria-controls="simple-menu"
               aria-haspopup="true"
+              className={classes.iconButton}
               onClick={handleOpenMenuClick}
             >
-              <MoreVert></MoreVert>
+              <MoreVert className={classes.sendMessageIcons}></MoreVert>
             </IconButton>
             <Menu
               id="simple-menu"
@@ -579,7 +685,7 @@ const MessageInput = ({ ticketStatus }) => {
               </MenuItem>
               <MenuItem onClick={handleMenuItemClick}>
                 <FormControlLabel
-                  style={{ marginRight: 7, color: "gray" }}
+                  className={classes.signLabel}
                   label={i18n.t("messagesInput.signMessage")}
                   labelPlacement="start"
                   control={
@@ -648,10 +754,11 @@ const MessageInput = ({ ticketStatus }) => {
             <IconButton
               aria-label="sendMessage"
               component="span"
+              className={classes.sendButton}
               onClick={handleSendMessage}
               disabled={loading}
             >
-              <SendIcon className={classes.sendMessageIcons} />
+              <SendIcon className={classes.sendIcon} />
             </IconButton>
           ) : recording ? (
             <div className={classes.recorderWrapper}>
@@ -666,7 +773,7 @@ const MessageInput = ({ ticketStatus }) => {
               </IconButton>
               {loading ? (
                 <div>
-                  <CircularProgress className={classes.audioLoading} />
+                  <CircularProgress size={24} className={classes.audioLoading} />
                 </div>
               ) : (
                 <RecordingTimer />
@@ -685,6 +792,7 @@ const MessageInput = ({ ticketStatus }) => {
             <IconButton
               aria-label="showRecorder"
               component="span"
+              className={classes.iconButton}
               disabled={loading || ticketStatus !== "open"}
               onClick={handleStartRecording}
             >

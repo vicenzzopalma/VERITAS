@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef, useContext, useMemo, useCallback } from "react";
+import clsx from "clsx";
 import {
   makeStyles,
   useTheme,
@@ -10,22 +11,18 @@ import {
   Box,
   TextField,
   InputAdornment,
+  InputBase,
   IconButton,
   Chip,
   Avatar,
-  Divider,
   CircularProgress,
   Button,
-  FormControlLabel,
-  Switch,
+  ButtonBase,
   Select,
   MenuItem,
   FormControl,
   InputLabel,
   Tooltip,
-  Badge,
-  Card,
-  CardActionArea,
   Popper,
   ClickAwayListener,
   List,
@@ -33,6 +30,8 @@ import {
   ListItemAvatar,
   ListItemText,
 } from "@material-ui/core";
+import { alpha } from "@material-ui/core/styles";
+import Skeleton from "@material-ui/lab/Skeleton";
 import {
   Search as SearchIcon,
   Security as SecurityIcon,
@@ -43,12 +42,8 @@ import {
   Description as DocumentIcon,
   Videocam as VideoIcon,
   Clear as ClearIcon,
-  CheckCircle as OnlineIcon,
-  RadioButtonUnchecked as OfflineIcon,
-  Phone as PhoneIcon,
   Done as DoneIcon,
   DoneAll as DoneAllIcon,
-  DateRange as DateRangeIcon,
   FilterList as FilterListIcon,
   Refresh as RefreshIcon,
   Smartphone as PhoneAndroidIcon,
@@ -56,10 +51,16 @@ import {
   ArrowBack as ArrowBackIcon,
   CropFree as QrCodeIcon,
   Person as PersonIcon,
-  SyncAlt as SyncAltIcon,
   History as HistoryIcon,
   Visibility as VisibilityIcon,
   OpenInNew as OpenInNewIcon,
+  Forum as ForumIcon,
+  FindInPage as FindInPageIcon,
+  WifiTethering as OnlineDevicesIcon,
+  ContactPhone as VcardIcon,
+  ChatBubbleOutline as ChatIcon,
+  Group as GroupIcon,
+  Assessment as AssessmentIcon,
 } from "@material-ui/icons";
 import { format, parseISO } from "date-fns";
 import { useHistory, useLocation } from "react-router-dom";
@@ -72,577 +73,841 @@ import ExportAuditModal from "../../components/ExportAuditModal";
 import MediaViewerModal from "../../components/MediaViewerModal";
 import ContactDrawer from "../../components/ContactDrawer";
 import { getContactDisplayName, formatPhoneNumber, isPendingResolution, PENDING_TOOLTIP } from "../../helpers/contactHelper";
-import whatsBackground from "../../assets/wa-background.png";
+import { StatCard, StatusPill, EmptyState } from "../../components/ui";
 
-const useStyles = makeStyles((theme) => ({
-  root: {
-    display: "flex",
-    flexDirection: "column",
-    height: "calc(100vh - 48px)",
-    [theme.breakpoints.down("sm")]: {
-      height: "calc(100dvh - 56px)",
-      maxHeight: "calc(100dvh - 56px)",
-    },
-    backgroundColor: theme.palette.background.default,
-    overflow: "hidden",
-  },
-  headerBar: {
-    backgroundColor: theme.palette.background.paper,
-    borderBottom: "1px solid rgba(0, 0, 0, 0.12)",
-    padding: theme.spacing(0.45, 1.5),
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "space-between",
-    gap: theme.spacing(0.7),
-    zIndex: 10,
-    [theme.breakpoints.down("sm")]: {
-      flexWrap: "wrap",
-      padding: theme.spacing(0.6, 1),
-      gap: theme.spacing(0.4),
-    },
-  },
-  headerTitle: {
-    display: "flex",
-    alignItems: "center",
-    gap: theme.spacing(0.7),
-    fontWeight: 600,
-    fontSize: "1rem",
-    color: theme.palette.text.primary,
-    flexShrink: 0,
-  },
-  headerIcon: {
-    color: theme.palette.primary.main,
-    fontSize: 21,
-  },
-  globalSearchContainer: {
-    position: "relative",
-    flexGrow: 1,
-    maxWidth: 420,
-    [theme.breakpoints.down("sm")]: {
-      order: 3,
-      width: "100%",
-      maxWidth: "100%",
-      marginTop: 2,
-    },
-  },
-  globalSearchField: {
-    width: "100%",
-    "& .MuiOutlinedInput-root": {
-      borderRadius: 30,
+const useStyles = makeStyles((theme) => {
+  const c = theme.custom;
+  const isDark = theme.palette.type === "dark";
+  const err = theme.palette.error.main;
+
+  return {
+    root: {
+      display: "flex",
+      flexDirection: "column",
+      flex: 1,
+      minHeight: 0,
+      height: "100%",
       backgroundColor: theme.palette.background.default,
-      fontSize: "0.85rem",
-      paddingRight: 6,
-    },
-    "& .MuiOutlinedInput-input": {
-      padding: "6px 10px",
-    },
-  },
-  popperPaper: {
-    width: 460,
-    maxHeight: 380,
-    overflowY: "auto",
-    borderRadius: 8,
-    boxShadow: "0 8px 24px rgba(0,0,0,0.15)",
-    border: "1px solid rgba(0, 0, 0, 0.12)",
-    zIndex: 1400,
-    marginTop: 4,
-    [theme.breakpoints.down("sm")]: {
-      width: "calc(100vw - 20px) !important",
-      maxWidth: "calc(100vw - 20px) !important",
-      position: "relative",
-    },
-  },
-  globalResultItem: {
-    padding: theme.spacing(1, 1.5),
-    borderBottom: "1px solid rgba(0, 0, 0, 0.05)",
-    cursor: "pointer",
-    transition: "background 0.15s ease",
-    "&:hover": {
-      backgroundColor: "rgba(2, 132, 199, 0.08)",
-    },
-  },
-  deviceBadge: {
-    backgroundColor: "#e0f2fe",
-    color: "#0369a1",
-    fontWeight: 700,
-    fontSize: "0.72rem",
-    padding: "2px 8px",
-    borderRadius: 12,
-    display: "inline-flex",
-    alignItems: "center",
-    gap: 4,
-  },
-  headerStats: {
-    display: "flex",
-    alignItems: "center",
-    gap: theme.spacing(1.2),
-    flexShrink: 0,
-    [theme.breakpoints.down("sm")]: {
-      gap: theme.spacing(0.5),
-      "& $statBadge": {
-        padding: "2px 5px",
-        fontSize: "0.68rem",
+      padding: theme.spacing(0, 3, 3),
+      overflow: "hidden",
+      [theme.breakpoints.down("sm")]: {
+        height: "auto",
+        overflow: "visible",
+        padding: theme.spacing(0, 1.5, 1.5),
       },
     },
-  },
-  statBadge: {
-    backgroundColor: theme.palette.background.default,
-    border: "1px solid rgba(0, 0, 0, 0.08)",
-    borderRadius: 6,
-    padding: "2px 8px",
-    display: "flex",
-    alignItems: "center",
-    gap: 6,
-    fontSize: "0.74rem",
-    color: theme.palette.text.secondary,
-  },
-  sectorFilter: {
-    backgroundColor: theme.palette.background.paper,
-    borderBottom: "1px solid rgba(0, 0, 0, 0.08)",
-    padding: theme.spacing(0.4, 1.5),
-    display: "flex",
-    alignItems: "center",
-    gap: theme.spacing(0.8),
-    overflowX: "auto",
-    whiteSpace: "nowrap",
-    WebkitOverflowScrolling: "touch",
-    flexShrink: 0,
-    [theme.breakpoints.down("sm")]: {
-      padding: theme.spacing(0.3, 0.8),
-      gap: theme.spacing(0.5),
+    kpiRow: {
+      marginBottom: theme.spacing(2),
+      flex: "none",
     },
-    "&::-webkit-scrollbar": {
-      height: 3,
+    kpiCard: {
+      padding: theme.spacing(1.75, 2),
+      gap: theme.spacing(1),
+      "& > div:nth-child(3)": { fontSize: "1.55rem" },
     },
-    "&::-webkit-scrollbar-thumb": {
-      backgroundColor: "#cbd5e1",
-      borderRadius: 2,
+
+    // ---------- Omnisearch / setores / aparelhos ----------
+    consoleCard: {
+      flex: "none",
+      borderRadius: 12,
+      padding: theme.spacing(0.75, 1),
+      marginTop: theme.spacing(1),
+      marginBottom: theme.spacing(1),
+      display: "flex",
+      flexDirection: "column",
+      gap: theme.spacing(0.75),
     },
-  },
-  deviceRibbon: {
-    backgroundColor: theme.palette.background.paper,
-    borderBottom: "1px solid rgba(0, 0, 0, 0.08)",
-    padding: theme.spacing(0.45, 1.5),
-    display: "flex",
-    gap: theme.spacing(0.7),
-    overflowX: "auto",
-    whiteSpace: "nowrap",
-    WebkitOverflowScrolling: "touch",
-    flexShrink: 0,
-    [theme.breakpoints.down("sm")]: {
-      padding: theme.spacing(0.4, 0.8),
-      gap: theme.spacing(0.5),
+    topRow: {
+      display: "flex",
+      alignItems: "center",
+      gap: theme.spacing(1),
+      minWidth: 0,
+      [theme.breakpoints.down("sm")]: { flexWrap: "wrap" },
     },
-    "&::-webkit-scrollbar": {
-      height: 4,
+    topActions: {
+      display: "flex",
+      alignItems: "center",
+      gap: 4,
+      flex: "none",
     },
-    "&::-webkit-scrollbar-thumb": {
-      backgroundColor: "#cbd5e1",
-      borderRadius: 3,
+    globalSearchContainer: {
+      position: "relative",
+      width: 300,
+      flex: "none",
+      minWidth: 0,
+      [theme.breakpoints.down("sm")]: { width: "100%" },
     },
-  },
-  deviceCard: {
-    minWidth: 150,
-    maxWidth: 190,
-    flexShrink: 0,
-    border: "1px solid rgba(0, 0, 0, 0.08)",
-    borderRadius: 6,
-    transition: "all 0.2s ease-in-out",
-    cursor: "pointer",
-    backgroundColor: theme.palette.background.paper,
-    [theme.breakpoints.down("sm")]: {
-      minWidth: 130,
-      maxWidth: 155,
+    omniField: {
+      display: "flex",
+      alignItems: "center",
+      gap: 8,
+      height: 32,
+      padding: "0 4px 0 10px",
+      borderRadius: 8,
+      border: `1px solid ${c.border}`,
+      backgroundColor: c.surfaceAlt,
+      transition: "border-color .15s, box-shadow .15s, background-color .15s",
+      "&:focus-within": {
+        borderColor: theme.palette.primary.main,
+        backgroundColor: c.surface,
+        boxShadow: `0 0 0 3px ${c.primarySoft}`,
+      },
     },
-    "&:hover": {
+    omniIcon: { color: theme.palette.primary.main, fontSize: 18 },
+    omniInput: { flex: 1, fontSize: "0.85rem", minWidth: 0 },
+    omniHint: {
+      display: "none",
+      fontSize: "0.72rem",
+      fontWeight: 600,
+      color: c.textSubtle,
+      border: `1px solid ${c.border}`,
+      borderRadius: 6,
+      padding: "1px 6px",
+      whiteSpace: "nowrap",
+      [theme.breakpoints.down("xs")]: { display: "none" },
+    },
+    popperPaper: {
+      maxHeight: 400,
+      overflowY: "auto",
+      borderRadius: 14,
+      boxShadow: c.shadowLg,
+      border: `1px solid ${c.border}`,
+      marginTop: 6,
+      ...theme.scrollbarStyles,
+    },
+    popperHeader: {
+      padding: theme.spacing(1, 2),
+      backgroundColor: c.surfaceAlt,
+      borderBottom: `1px solid ${c.border}`,
+      fontSize: "0.7rem",
+      fontWeight: 700,
+      letterSpacing: "0.04em",
+      textTransform: "uppercase",
+      color: c.textMuted,
+      position: "sticky",
+      top: 0,
+      zIndex: 1,
+    },
+    globalResultItem: {
+      padding: theme.spacing(1.25, 2),
+      borderBottom: `1px solid ${c.border}`,
+      cursor: "pointer",
+      transition: "background 0.15s ease",
+      "&:last-child": { borderBottom: 0 },
+      "&:hover": { backgroundColor: c.surfaceHover },
+    },
+    resultAvatar: {
+      width: 34,
+      height: 34,
+      fontSize: "0.85rem",
+      fontWeight: 700,
+      color: theme.palette.primary.main,
+      backgroundColor: c.primarySoft,
+    },
+    deviceBadge: {
+      backgroundColor: alpha(theme.palette.info.main, isDark ? 0.16 : 0.1),
+      color: theme.palette.info.main,
+      fontWeight: 650,
+      fontSize: "0.7rem",
+      padding: "2px 8px",
+      borderRadius: 999,
+      display: "inline-flex",
+      alignItems: "center",
+      gap: 4,
+      whiteSpace: "nowrap",
+      flex: "none",
+      "& svg": { fontSize: 13 },
+    },
+    popperState: {
+      padding: theme.spacing(3, 2),
+      textAlign: "center",
+      color: c.textMuted,
+    },
+
+    ribbonRow: {
+      display: "flex",
+      alignItems: "center",
+      gap: theme.spacing(1.5),
+      minWidth: 0,
+    },
+    sectorRibbon: {
+      display: "flex",
+      alignItems: "center",
+      gap: theme.spacing(0.75),
+      overflowX: "auto",
+      whiteSpace: "nowrap",
+      WebkitOverflowScrolling: "touch",
+      paddingBottom: 2,
+      minWidth: 0,
+      flex: 1,
+      ...theme.scrollbarStyles,
+    },
+    sectorChip: {
+      display: "inline-flex",
+      alignItems: "center",
+      gap: 6,
+      flex: "none",
+      height: 24,
+      padding: "0 8px",
+      borderRadius: 999,
+      border: "1px solid",
+      fontSize: "0.74rem",
+      fontWeight: 650,
+      whiteSpace: "nowrap",
+      transition: "background-color .15s, color .15s, border-color .15s",
+    },
+    sectorCount: {
+      fontSize: "0.68rem",
+      fontWeight: 700,
+      padding: "0 6px",
+      borderRadius: 999,
+      lineHeight: "16px",
+      fontVariantNumeric: "tabular-nums",
+    },
+    deviceRibbon: {
+      display: "flex",
+      gap: theme.spacing(1),
+      overflowX: "auto",
+      WebkitOverflowScrolling: "touch",
+      paddingBottom: 2,
+      minWidth: 0,
+      flex: 1,
+      ...theme.scrollbarStyles,
+    },
+    ribbonEmpty: {
+      fontSize: "0.82rem",
+      color: c.textMuted,
+      padding: theme.spacing(1.25, 0.5),
+    },
+    deviceCard: {
+      flex: "none",
+      minWidth: 176,
+      maxWidth: 230,
+      display: "flex",
+      alignItems: "center",
+      gap: 8,
+      padding: "3px 10px 3px 5px",
+      borderRadius: 10,
+      border: `1px solid ${c.border}`,
+      backgroundColor: c.surface,
+      textAlign: "left",
+      transition: "border-color .15s, background-color .15s, box-shadow .15s",
+      "&:hover": { borderColor: c.borderStrong, backgroundColor: c.surfaceHover },
+      [theme.breakpoints.down("sm")]: { minWidth: 150, maxWidth: 180 },
+    },
+    deviceCardSelected: {
       borderColor: theme.palette.primary.main,
-      boxShadow: "0 2px 6px rgba(0, 0, 0, 0.08)",
+      backgroundColor: c.primarySoft,
+      boxShadow: `0 0 0 1px ${theme.palette.primary.main}`,
+      "&:hover": { borderColor: theme.palette.primary.main, backgroundColor: c.primarySoft },
     },
-  },
-  deviceCardSelected: {
-    borderColor: `${theme.palette.primary.main} !important`,
-    backgroundColor: "rgba(2, 132, 199, 0.06) !important",
-    boxShadow: `0 0 0 1px ${theme.palette.primary.main} !important`,
-  },
-  deviceCardContent: {
-    padding: "6px 10px !important",
-    width: "100%",
-    boxSizing: "border-box",
-    "& svg": {
-      flexShrink: 0,
+    deviceIcon: {
+      position: "relative",
+      width: 26,
+      height: 26,
+      borderRadius: 8,
+      display: "grid",
+      placeItems: "center",
+      flex: "none",
+      color: c.textMuted,
+      backgroundColor: c.surfaceAlt,
+      border: `1px solid ${c.border}`,
+      "& > svg": { fontSize: 17 },
     },
-  },
-  deviceName: {
-    minWidth: 0,
-    flex: 1,
-    overflow: "hidden",
-    textOverflow: "ellipsis",
-    whiteSpace: "nowrap",
-    display: "block",
-    lineHeight: 1.25,
-    paddingRight: 6,
-  },
-  mainContent: {
-    display: "flex",
-    flexGrow: 1,
-    minHeight: 0,
-    height: "100%",
-    overflow: "hidden",
-  },
-  // Painel Esquerdo: Lista de Conversas
-  chatsPanel: {
-    width: 320,
-    minWidth: 280,
-    borderRight: "1px solid rgba(0, 0, 0, 0.08)",
-    backgroundColor: theme.palette.background.paper,
-    display: "flex",
-    flexDirection: "column",
-    height: "100%",
-    [theme.breakpoints.down("sm")]: {
+    deviceIconSelected: {
+      color: theme.palette.primary.main,
+      backgroundColor: c.surface,
+      borderColor: "transparent",
+    },
+    statusDot: {
+      position: "absolute",
+      right: -3,
+      bottom: -3,
+      width: 11,
+      height: 11,
+      borderRadius: "50%",
+      border: `2px solid ${c.surface}`,
+      display: "grid",
+      placeItems: "center",
+    },
+    dotOnline: { backgroundColor: theme.palette.success.main },
+    dotOpening: { backgroundColor: theme.palette.warning.main },
+    dotQr: { backgroundColor: theme.palette.info.main },
+    dotOffline: { backgroundColor: err },
+    deviceName: {
+      fontWeight: 650,
+      fontSize: "0.83rem",
+      lineHeight: 1.25,
+      whiteSpace: "nowrap",
+      overflow: "hidden",
+      textOverflow: "ellipsis",
+    },
+    deviceMeta: {
+      display: "flex",
+      alignItems: "center",
+      gap: 6,
+      fontSize: "0.72rem",
+      color: c.textMuted,
+      marginTop: 1,
+      whiteSpace: "nowrap",
+    },
+    deviceSector: {
+      fontSize: "0.62rem",
+      fontWeight: 700,
+      padding: "0 6px",
+      borderRadius: 999,
+      lineHeight: "16px",
+      overflow: "hidden",
+      textOverflow: "ellipsis",
+      maxWidth: 80,
+    },
+    deviceDeleted: { color: err, fontWeight: 700, display: "inline-flex", alignItems: "center", gap: 2 },
+
+    // ---------- Workspace ----------
+    workspace: {
+      display: "flex",
+      flex: 1,
+      minHeight: 0,
+      borderRadius: 16,
+      overflow: "hidden",
+      position: "relative",
+      [theme.breakpoints.down("sm")]: {
+        flex: "none",
+        height: "calc(100dvh - 88px)",
+        minHeight: 480,
+      },
+    },
+    chatsPanel: {
+      width: 340,
+      minWidth: 280,
+      borderRight: `1px solid ${c.border}`,
+      display: "flex",
+      flexDirection: "column",
+      minHeight: 0,
+      height: "100%",
+      [theme.breakpoints.down("sm")]: {
+        width: "100%",
+        minWidth: "100%",
+        borderRight: 0,
+      },
+    },
+    panelHead: {
+      padding: theme.spacing(1.5, 1.5, 1.25),
+      borderBottom: `1px solid ${c.border}`,
+      display: "flex",
+      flexDirection: "column",
+      gap: theme.spacing(1),
+    },
+    panelTitleRow: {
+      display: "flex",
+      alignItems: "center",
+      justifyContent: "space-between",
+      gap: 8,
+      padding: theme.spacing(0, 0.5),
+    },
+    panelTitle: {
+      fontWeight: 700,
+      fontSize: "0.88rem",
+      whiteSpace: "nowrap",
+      overflow: "hidden",
+      textOverflow: "ellipsis",
+    },
+    countBadge: {
+      fontSize: "0.72rem",
+      fontWeight: 700,
+      color: c.textMuted,
+      backgroundColor: c.surfaceAlt,
+      border: `1px solid ${c.border}`,
+      borderRadius: 999,
+      padding: "1px 8px",
+      flex: "none",
+    },
+    compactSearch: {
+      display: "flex",
+      alignItems: "center",
+      gap: 6,
+      height: 36,
+      padding: "0 6px 0 10px",
+      borderRadius: 10,
+      border: `1px solid ${c.border}`,
+      backgroundColor: c.surfaceAlt,
+      transition: "border-color .15s, box-shadow .15s",
+      "&:focus-within": {
+        borderColor: theme.palette.primary.main,
+        boxShadow: `0 0 0 3px ${c.primarySoft}`,
+      },
+      "& > svg": { fontSize: 18, color: c.textSubtle },
+    },
+    compactInput: { flex: 1, fontSize: "0.84rem" },
+    chatsList: {
+      flexGrow: 1,
+      overflowY: "auto",
+      padding: theme.spacing(0.75),
+      ...theme.scrollbarStyles,
+    },
+    chatItem: {
+      padding: theme.spacing(1.1, 1.25),
+      borderRadius: 12,
+      display: "flex",
+      alignItems: "center",
+      gap: theme.spacing(1.25),
+      cursor: "pointer",
+      position: "relative",
+      transition: "background 0.15s ease",
+      "&:hover": { backgroundColor: c.surfaceHover },
+    },
+    chatItemSelected: {
+      backgroundColor: `${c.primarySoft} !important`,
+      "&::before": {
+        content: '""',
+        position: "absolute",
+        left: 0,
+        top: 10,
+        bottom: 10,
+        width: 3,
+        borderRadius: 3,
+        backgroundColor: theme.palette.primary.main,
+      },
+    },
+    chatAvatar: {
+      width: 40,
+      height: 40,
+      fontSize: "0.95rem",
+      fontWeight: 700,
+      color: theme.palette.primary.main,
+      backgroundColor: c.primarySoft,
+      transition: "transform 0.15s ease, box-shadow 0.15s ease",
+      "&:hover": { transform: "scale(1.06)", boxShadow: c.shadow },
+    },
+    chatInfo: { flexGrow: 1, overflow: "hidden", minWidth: 0 },
+    chatName: {
+      fontWeight: 650,
+      fontSize: "0.86rem",
+      color: theme.palette.text.primary,
+      whiteSpace: "nowrap",
+      overflow: "hidden",
+      textOverflow: "ellipsis",
+    },
+    chatLastMsg: {
+      fontSize: "0.78rem",
+      color: c.textMuted,
+      whiteSpace: "nowrap",
+      overflow: "hidden",
+      textOverflow: "ellipsis",
+      marginTop: 2,
+    },
+    chatDate: {
+      fontSize: "0.7rem",
+      color: c.textSubtle,
+      whiteSpace: "nowrap",
+      marginLeft: 8,
+      fontVariantNumeric: "tabular-nums",
+    },
+    miniPill: {
+      display: "inline-flex",
+      alignItems: "center",
+      gap: 3,
+      marginTop: 5,
+      padding: "1px 7px",
+      borderRadius: 999,
+      fontSize: "0.66rem",
+      fontWeight: 700,
+      color: err,
+      backgroundColor: alpha(err, isDark ? 0.16 : 0.1),
+      "& svg": { fontSize: 11 },
+    },
+    loadMoreBtn: { fontSize: "0.78rem", borderRadius: 10 },
+
+    // ---------- Timeline ----------
+    timelinePanel: {
+      flexGrow: 1,
+      display: "flex",
+      flexDirection: "column",
+      minWidth: 0,
+      minHeight: 0,
+      height: "100%",
+      overflow: "hidden",
+      [theme.breakpoints.down("sm")]: { width: "100%", minWidth: "100%" },
+    },
+    convHeader: {
+      display: "flex",
+      alignItems: "center",
+      gap: theme.spacing(1.5),
+      padding: theme.spacing(1.25, 2),
+      borderBottom: `1px solid ${c.border}`,
+      minHeight: 60,
+      [theme.breakpoints.down("sm")]: {
+        gap: theme.spacing(1),
+        padding: theme.spacing(1, 1.25),
+      },
+    },
+    convIdentity: {
+      display: "flex",
+      alignItems: "center",
+      gap: theme.spacing(1.5),
+      minWidth: 0,
+      cursor: "pointer",
+      [theme.breakpoints.down("sm")]: { gap: theme.spacing(1) },
+    },
+    convName: {
+      fontWeight: 700,
+      fontSize: "0.92rem",
+      whiteSpace: "nowrap",
+      overflow: "hidden",
+      textOverflow: "ellipsis",
+    },
+    convSub: {
+      display: "flex",
+      alignItems: "center",
+      gap: 6,
+      fontSize: "0.76rem",
+      color: c.textMuted,
+      whiteSpace: "nowrap",
+      "& svg": { fontSize: 13, color: c.textSubtle },
+    },
+    convActions: {
+      display: "flex",
+      gap: 8,
+      alignItems: "center",
+      marginLeft: "auto",
+      flex: "none",
+    },
+    iconOutlined: {
+      border: `1px solid ${c.border}`,
+      borderRadius: 10,
+      padding: 6,
+    },
+    filterToolbar: {
+      padding: theme.spacing(1.25, 2),
+      borderBottom: `1px solid ${c.border}`,
+      backgroundColor: c.surfaceAlt,
+      display: "flex",
+      alignItems: "center",
+      gap: theme.spacing(1),
+      flexWrap: "wrap",
+      "& .MuiOutlinedInput-root": { backgroundColor: c.surface, borderRadius: 10 },
+      [theme.breakpoints.down("sm")]: { padding: theme.spacing(1, 1.25) },
+    },
+    mobileFilterRow: {
+      display: "flex",
+      alignItems: "center",
       width: "100%",
-      minWidth: "100%",
-      borderRight: "none",
+      gap: 6,
     },
-  },
-  chatSearchBox: {
-    padding: theme.spacing(0.65),
-    borderBottom: "1px solid rgba(0, 0, 0, 0.08)",
-    backgroundColor: theme.palette.background.default,
-  },
-  chatsList: {
-    flexGrow: 1,
-    overflowY: "auto",
-    "&::-webkit-scrollbar": {
-      width: 5,
+    filterToggleActive: {
+      color: theme.palette.primary.main,
+      borderColor: alpha(theme.palette.primary.main, 0.5),
+      backgroundColor: c.primarySoft,
     },
-    "&::-webkit-scrollbar-thumb": {
-      backgroundColor: "#cbd5e1",
-      borderRadius: 3,
+    filterSearch: { flex: "1 1 220px", minWidth: 200 },
+    filterItem: {
+      width: 150,
+      [theme.breakpoints.down("xs")]: { width: "calc(50% - 4px)" },
     },
-  },
-  chatItem: {
-    padding: theme.spacing(0.85, 1.1),
-    borderBottom: "1px solid rgba(0, 0, 0, 0.04)",
-    display: "flex",
-    alignItems: "center",
-    gap: theme.spacing(0.85),
-    cursor: "pointer",
-    transition: "background 0.15s ease",
-    "&:hover": {
-      backgroundColor: "rgba(0, 0, 0, 0.02)",
+    filterSelect: {
+      minWidth: 170,
+      [theme.breakpoints.down("xs")]: { minWidth: 0, width: "100%" },
     },
-  },
-  chatItemSelected: {
-    backgroundColor: "rgba(2, 132, 199, 0.08) !important",
-    borderLeft: `4px solid ${theme.palette.primary.main}`,
-  },
-  chatAvatar: {
-    backgroundColor: theme.palette.primary.main,
-    width: 36,
-    height: 36,
-    fontSize: "0.88rem",
-    fontWeight: 600,
-    transition: "transform 0.15s ease, box-shadow 0.15s ease",
-    "&:hover": {
-      transform: "scale(1.08)",
-      boxShadow: "0 2px 8px rgba(0,0,0,0.15)",
+    menuIcon: { fontSize: 17, marginRight: 10, color: c.textMuted, verticalAlign: "middle" },
+    deletedChip: {
+      height: 36,
+      borderRadius: 10,
+      fontWeight: 650,
+      backgroundColor: c.surface,
+      border: `1px solid ${c.border}`,
+      color: c.textMuted,
+      "& .MuiChip-icon": { color: "inherit", fontSize: 17 },
     },
-  },
-  chatInfo: {
-    flexGrow: 1,
-    overflow: "hidden",
-  },
-  chatName: {
-    fontWeight: 600,
-    fontSize: "0.84rem",
-    color: theme.palette.text.primary,
-    whiteSpace: "nowrap",
-    overflow: "hidden",
-    textOverflow: "ellipsis",
-  },
-  chatLastMsg: {
-    fontSize: "0.74rem",
-    color: theme.palette.text.secondary,
-    whiteSpace: "nowrap",
-    overflow: "hidden",
-    textOverflow: "ellipsis",
-    marginTop: 2,
-  },
-  chatDate: {
-    fontSize: "0.7rem",
-    color: theme.palette.text.secondary,
-    whiteSpace: "nowrap",
-  },
-  // Painel Direito: Timeline de Mensagens & Filtros
-  timelinePanel: {
-    flexGrow: 1,
-    display: "flex",
-    flexDirection: "column",
-    height: "100%",
-    backgroundColor: theme.palette.type === "dark" ? "#0b141a" : "#efeae2",
-    backgroundImage: theme.palette.type === "dark"
-      ? `linear-gradient(rgba(11, 20, 26, 0.88), rgba(11, 20, 26, 0.88)), url(${whatsBackground})`
-      : `url(${whatsBackground})`,
-    backgroundRepeat: "repeat",
-    overflow: "hidden",
-    [theme.breakpoints.down("sm")]: {
+    deletedChipActive: {
+      color: `${err} !important`,
+      borderColor: `${alpha(err, 0.5)} !important`,
+      backgroundColor: `${alpha(err, isDark ? 0.16 : 0.08)} !important`,
+    },
+    clearBtn: { height: 36, borderRadius: 10, color: c.textMuted },
+
+    messagesScrollArea: {
+      flexGrow: 1,
+      padding: theme.spacing(2.5, 3),
+      overflowY: "auto",
+      display: "flex",
+      flexDirection: "column",
+      gap: theme.spacing(1),
+      ...c.dotGrid,
+      ...theme.scrollbarStyles,
+      [theme.breakpoints.down("sm")]: {
+        padding: theme.spacing(1.5, 1),
+        gap: theme.spacing(0.75),
+      },
+    },
+    loadOlderCard: {
+      alignSelf: "center",
+      maxWidth: 560,
       width: "100%",
-      minWidth: "100%",
+      textAlign: "center",
+      padding: theme.spacing(1.5, 2),
+      margin: theme.spacing(0.5, 0, 1.5),
+      borderRadius: 14,
+      border: `1px solid ${c.border}`,
+      backgroundColor: c.surface,
+      boxShadow: c.shadow,
     },
-  },
-  activeChatHeader: {
-    backgroundColor: theme.palette.background.paper,
-    padding: theme.spacing(0.75, 1.4),
-    borderBottom: `1px solid ${theme.palette.type === "dark" ? "rgba(148, 163, 184, 0.18)" : "rgba(0, 0, 0, 0.08)"}`,
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "space-between",
-    zIndex: 6,
-    boxShadow: theme.palette.type === "dark" ? "0 1px 2px rgba(0,0,0,0.28)" : "0 1px 2px rgba(0,0,0,0.03)",
-    [theme.breakpoints.down("sm")]: {
-      padding: theme.spacing(0.6, 1),
+    loadOlderText: {
+      display: "flex",
+      alignItems: "center",
+      justifyContent: "center",
+      gap: 6,
+      fontSize: "0.78rem",
+      fontWeight: 650,
+      color: c.textMuted,
+      marginBottom: theme.spacing(1),
+      "& svg": { fontSize: 16, color: c.textSubtle },
     },
-  },
-  activeChatAvatar: {
-    backgroundColor: theme.palette.primary.main,
-    width: 38,
-    height: 38,
-    fontSize: "0.95rem",
-    fontWeight: 700,
-    transition: "transform 0.15s ease, box-shadow 0.15s ease",
-    "&:hover": {
-      transform: "scale(1.08)",
-      boxShadow: "0 3px 10px rgba(0,0,0,0.2)",
+    dailyTimestampContainer: {
+      display: "flex",
+      justifyContent: "center",
+      alignItems: "center",
+      margin: "12px 0 6px",
+      width: "100%",
     },
-  },
-  filterToolbar: {
-    backgroundColor: theme.palette.background.paper,
-    padding: theme.spacing(0.45, 1.1),
-    borderBottom: `1px solid ${theme.palette.type === "dark" ? "rgba(148, 163, 184, 0.18)" : "rgba(0, 0, 0, 0.08)"}`,
-    display: "flex",
-    alignItems: "center",
-    gap: theme.spacing(0.7),
-    flexWrap: "wrap",
-    boxShadow: theme.palette.type === "dark" ? "0 1px 3px rgba(0,0,0,0.24)" : "0 1px 3px rgba(0,0,0,0.04)",
-    zIndex: 5,
-    [theme.breakpoints.down("sm")]: {
-      padding: theme.spacing(0.5, 0.8),
-      gap: theme.spacing(0.4),
+    dailyTimestampBadge: {
+      backgroundColor: c.surface,
+      color: c.textMuted,
+      border: `1px solid ${c.border}`,
+      padding: "3px 12px",
+      borderRadius: 999,
+      fontSize: "0.72rem",
+      fontWeight: 650,
+      boxShadow: c.shadow,
+      fontVariantNumeric: "tabular-nums",
+      userSelect: "none",
     },
-  },
-  mobileFilterRow: {
-    display: "flex",
-    alignItems: "center",
-    width: "100%",
-    gap: 6,
-  },
-  filterItem: {
-    minWidth: 116,
-  },
-  deletedSwitch: {
-    color: "#dc2626 !important",
-    "&.Mui-checked": {
-      color: "#dc2626 !important",
+    messageBubble: {
+      maxWidth: "68%",
+      minWidth: 180,
+      padding: "8px 12px 6px",
+      borderRadius: 14,
+      boxShadow: c.shadow,
+      position: "relative",
+      wordBreak: "break-word",
+      fontSize: "0.88rem",
+      border: `1px solid ${c.border}`,
+      [theme.breakpoints.down("sm")]: {
+        maxWidth: "88%",
+        minWidth: 140,
+        fontSize: "0.84rem",
+        padding: "6px 10px 5px",
+      },
     },
-    "&.Mui-checked + .MuiSwitch-track": {
-      backgroundColor: "#ef4444 !important",
+    messageOperator: {
+      alignSelf: "flex-end",
+      backgroundColor: isDark ? alpha(theme.palette.primary.main, 0.18) : c.primarySoft,
+      borderColor: alpha(theme.palette.primary.main, isDark ? 0.3 : 0.18),
+      color: theme.palette.text.primary,
+      borderTopRightRadius: 4,
     },
-  },
-  messagesScrollArea: {
-    flexGrow: 1,
-    padding: theme.spacing(2, 2.5),
-    overflowY: "auto",
-    display: "flex",
-    flexDirection: "column",
-    gap: theme.spacing(1),
-    [theme.breakpoints.down("sm")]: {
-      padding: theme.spacing(1, 0.8),
-      gap: theme.spacing(0.7),
+    messageClient: {
+      alignSelf: "flex-start",
+      backgroundColor: c.surface,
+      color: theme.palette.text.primary,
+      borderTopLeftRadius: 4,
     },
-    "&::-webkit-scrollbar": {
-      width: 6,
+    messageDeleted: {
+      borderColor: alpha(err, 0.45),
+      boxShadow: `0 0 0 1px ${alpha(err, 0.15)}`,
     },
-    "&::-webkit-scrollbar-thumb": {
-      backgroundColor: theme.palette.type === "dark" ? "rgba(148,163,184,0.28)" : "rgba(0,0,0,0.2)",
-      borderRadius: 3,
+    senderName: {
+      fontWeight: 700,
+      display: "block",
+      marginBottom: 3,
+      fontSize: "0.76rem",
     },
-  },
-  dailyTimestampContainer: {
-    display: "flex",
-    justifyContent: "center",
-    alignItems: "center",
-    margin: "12px 0 8px 0",
-    width: "100%",
-  },
-  dailyTimestampBadge: {
-    backgroundColor: "rgba(17, 27, 33, 0.88)",
-    color: "#e9edef",
-    padding: "4px 12px",
-    borderRadius: 8,
-    fontSize: "0.75rem",
-    fontWeight: 600,
-    boxShadow: "0 1px 2px rgba(0,0,0,0.3)",
-    display: "inline-block",
-    textAlign: "center",
-    letterSpacing: "0.3px",
-    userSelect: "none",
-  },
-  messageBubble: {
-    maxWidth: "68%",
-    minWidth: 140,
-    padding: "7px 11px 5px 11px",
-    borderRadius: 7.5,
-    boxShadow: "0 1px 2px rgba(0,0,0,0.12)",
-    position: "relative",
-    wordBreak: "break-word",
-    fontSize: "0.88rem",
-    [theme.breakpoints.down("sm")]: {
-      maxWidth: "88%",
-      fontSize: "0.84rem",
-      padding: "6px 9px 4px 9px",
+    deletedBanner: {
+      display: "inline-flex",
+      alignItems: "center",
+      gap: 4,
+      padding: "2px 8px",
+      marginBottom: 6,
+      borderRadius: 999,
+      fontSize: "0.68rem",
+      fontWeight: 750,
+      letterSpacing: "0.03em",
+      color: err,
+      backgroundColor: alpha(err, isDark ? 0.18 : 0.1),
     },
-  },
-  messageOperator: {
-    alignSelf: "flex-end",
-    backgroundColor: theme.palette.type === "dark" ? "#005c4b" : "#dcf8c6",
-    color: theme.palette.type === "dark" ? "#e9edef" : "#111827",
-    borderTopRightRadius: 0,
-  },
-  messageClient: {
-    alignSelf: "flex-start",
-    backgroundColor: theme.palette.type === "dark" ? "#202c33" : "#ffffff",
-    color: theme.palette.type === "dark" ? "#e9edef" : "#111827",
-    borderTopLeftRadius: 0,
-  },
-  deletedBanner: {
-    backgroundColor: "#fef2f2",
-    border: "1px solid #f87171",
-    color: "#b91c1c",
-    padding: "3px 7px",
-    borderRadius: 5,
-    fontSize: "0.74rem",
-    fontWeight: 700,
-    display: "flex",
-    alignItems: "center",
-    gap: 4,
-    marginBottom: 5,
-  },
-  quotedMsgBox: {
-    backgroundColor: theme.palette.type === "dark" ? "rgba(148,163,184,0.12)" : "rgba(0,0,0,0.05)",
-    borderLeft: "3px solid #0284c7",
-    borderRadius: 4,
-    padding: "3px 7px",
-    marginBottom: 5,
-    fontSize: "0.78rem",
-    color: theme.palette.type === "dark" ? "#cbd5db" : "#475569",
-  },
-  mediaPreview: {
-    maxWidth: "100%",
-    maxHeight: 260,
-    borderRadius: 5,
-    cursor: "pointer",
-    marginTop: 4,
-    marginBottom: 4,
-    objectFit: "cover",
-  },
-  pdfCard: {
-    backgroundColor: theme.palette.type === "dark" ? "#1e293b" : "#f8fafc",
-    border: `1px solid ${theme.palette.type === "dark" ? "#334155" : "#cbd5e1"}`,
-    borderRadius: 8,
-    overflow: "hidden",
-    marginTop: 6,
-    marginBottom: 6,
-    cursor: "pointer",
-    transition: "all 0.2s ease-in-out",
-    maxWidth: 320,
-    width: "100%",
-    boxShadow: "0 1px 3px rgba(0,0,0,0.06)",
-    "&:hover": {
-      borderColor: "#0284c7",
-      boxShadow: "0 4px 12px rgba(2, 132, 199, 0.15)",
+    quotedMsgBox: {
+      backgroundColor: alpha(theme.palette.text.primary, isDark ? 0.06 : 0.04),
+      borderLeft: `3px solid ${theme.palette.primary.main}`,
+      borderRadius: 8,
+      padding: "4px 8px",
+      marginBottom: 6,
+      fontSize: "0.78rem",
+      color: c.textMuted,
     },
-  },
-  pdfCardHeader: {
-    display: "flex",
-    alignItems: "center",
-    padding: "8px 12px",
-    backgroundColor: theme.palette.type === "dark" ? "#0f172a" : "#ffffff",
-    borderBottom: `1px solid ${theme.palette.type === "dark" ? "#334155" : "#e2e8f0"}`,
-  },
-  docCardActions: {
-    display: "flex",
-    alignItems: "center",
-    gap: 6,
-    padding: "6px 10px",
-    backgroundColor: theme.palette.type === "dark" ? "#0f172a" : "#f1f5f9",
-    borderTop: `1px solid ${theme.palette.type === "dark" ? "#334155" : "#e2e8f0"}`,
-  },
-  docActionBtn: {
-    textTransform: "none",
-    fontSize: "0.72rem",
-    fontWeight: 600,
-    padding: "2px 8px",
-    borderRadius: 6,
-  },
-  docActionBtnSec: {
-    textTransform: "none",
-    fontSize: "0.72rem",
-    fontWeight: 600,
-    padding: "2px 8px",
-    borderRadius: 6,
-    color: "#0284c7",
-    borderColor: "#0284c7",
-  },
-  pdfPreviewWrapper: {
-    position: "relative",
-    height: 160,
-    width: "100%",
-    backgroundColor: "#475569",
-    overflow: "hidden",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  pdfMiniIframe: {
-    width: "100%",
-    height: "100%",
-    border: "none",
-    pointerEvents: "none",
-  },
-  pdfOverlayHover: {
-    position: "absolute",
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    backgroundColor: "rgba(0,0,0,0.12)",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    transition: "background 0.2s ease",
-    "&:hover": {
-      backgroundColor: "rgba(0,0,0,0.38)",
+    quotedAuthor: { fontWeight: 700, color: theme.palette.primary.main, display: "block" },
+    mediaPreview: {
+      maxWidth: "100%",
+      maxHeight: 260,
+      borderRadius: 10,
+      cursor: "pointer",
+      marginTop: 4,
+      marginBottom: 4,
+      objectFit: "cover",
+      display: "block",
     },
-  },
-  metaFooter: {
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "flex-end",
-    gap: 4,
-    marginTop: 3,
-    fontSize: "0.7rem",
-    color: "#64748b",
-  },
-  noChatSelected: {
-    flexGrow: 1,
-    display: "flex",
-    flexDirection: "column",
-    alignItems: "center",
-    justifyContent: "center",
-    color: "#64748b",
-    gap: theme.spacing(1.5),
-  },
-}));
+    imageFallback: {
+      display: "none",
+      alignItems: "center",
+      gap: 8,
+      padding: "8px 12px",
+      backgroundColor: c.primarySoft,
+      color: theme.palette.primary.main,
+      borderRadius: 10,
+      cursor: "pointer",
+      marginTop: 4,
+    },
+    pdfCard: {
+      backgroundColor: c.surface,
+      border: `1px solid ${c.border}`,
+      borderRadius: 12,
+      overflow: "hidden",
+      marginTop: 6,
+      marginBottom: 6,
+      cursor: "pointer",
+      transition: "border-color .15s, box-shadow .15s",
+      maxWidth: 320,
+      width: "100%",
+      "&:hover": {
+        borderColor: theme.palette.primary.main,
+        boxShadow: `0 0 0 3px ${c.primarySoft}`,
+      },
+    },
+    pdfCardHeader: {
+      display: "flex",
+      alignItems: "center",
+      gap: 10,
+      padding: "10px 12px",
+    },
+    pdfIcon: {
+      width: 36,
+      height: 36,
+      borderRadius: 10,
+      display: "grid",
+      placeItems: "center",
+      flex: "none",
+      color: err,
+      backgroundColor: alpha(err, isDark ? 0.16 : 0.1),
+      "& svg": { fontSize: 20 },
+    },
+    docCardActions: {
+      display: "flex",
+      alignItems: "center",
+      gap: 6,
+      padding: "6px 10px",
+      backgroundColor: c.surfaceAlt,
+      borderTop: `1px solid ${c.border}`,
+    },
+    docActionBtn: {
+      fontSize: "0.72rem",
+      fontWeight: 650,
+      padding: "2px 10px",
+      borderRadius: 8,
+    },
+    metaFooter: {
+      display: "flex",
+      alignItems: "center",
+      justifyContent: "flex-end",
+      gap: 6,
+      marginTop: 4,
+      fontSize: "0.68rem",
+      color: c.textSubtle,
+      fontVariantNumeric: "tabular-nums",
+      "& svg": { fontSize: 14 },
+    },
+    directionTag: {
+      marginRight: "auto",
+      fontWeight: 700,
+      textTransform: "uppercase",
+      letterSpacing: "0.04em",
+      fontSize: "0.62rem",
+    },
+    ackRead: { color: theme.palette.info.main },
+    centerState: {
+      flexGrow: 1,
+      display: "flex",
+      alignItems: "center",
+      justifyContent: "center",
+    },
+    stateCard: {
+      borderRadius: 16,
+      maxWidth: 420,
+      width: "100%",
+      boxShadow: c.shadow,
+    },
+    skeletonBubble: { borderRadius: 14 },
+  };
+});
+
+const ListSkeleton = () => (
+  <Box p={0.5}>
+    {[0, 1, 2, 3, 4, 5].map((i) => (
+      <Box key={i} display="flex" alignItems="center" px={1.25} py={1.1}>
+        <Skeleton variant="circle" width={40} height={40} />
+        <Box flex={1} ml={1.25}>
+          <Skeleton variant="text" width="60%" height={18} />
+          <Skeleton variant="text" width="85%" height={16} />
+        </Box>
+      </Box>
+    ))}
+  </Box>
+);
+
+const TimelineSkeleton = ({ className }) => (
+  <>
+    {[220, 300, 180, 260, 320, 200].map((w, i) => (
+      <Box key={i} alignSelf={i % 2 ? "flex-end" : "flex-start"} maxWidth="80%">
+        <Skeleton variant="rect" width={w} height={i % 3 === 1 ? 72 : 48} className={className} />
+      </Box>
+    ))}
+  </>
+);
+
+// Mesmo critério de status usado na faixa de aparelhos (conectado / sincronizando / QR / desconectado)
+const getDeviceConnState = (device) => {
+  const normalizedStatus = String(
+    device?.status || device?.sessionStatus || device?.connectionStatus || ""
+  ).trim().toUpperCase();
+  const isDisconnected = [
+    "DISCONNECTED",
+    "DISCONNECT",
+    "OFFLINE",
+    "CLOSED",
+    "LOGGED_OUT",
+    "ERROR",
+    "FAILED",
+  ].includes(normalizedStatus);
+  const isConnected =
+    !isDisconnected &&
+    !["OPENING", "PAIRING", "CONNECTING", "QRCODE"].includes(normalizedStatus);
+  const isOpening = ["OPENING", "PAIRING", "CONNECTING"].includes(normalizedStatus);
+  const isQrCode = normalizedStatus === "QRCODE";
+  return { isConnected, isOpening, isQrCode };
+};
+
+const MEDIA_FILTER_OPTIONS = [
+  { value: "all", label: "Todas as mensagens", Icon: ChatIcon },
+  { value: "audio", label: "Áudios & voz", Icon: AudioIcon },
+  { value: "image", label: "Fotos & imagens", Icon: ImageIcon },
+  { value: "document", label: "Documentos & boletos", Icon: DocumentIcon },
+  { value: "video", label: "Vídeos", Icon: VideoIcon },
+  { value: "vcard", label: "Contatos (vCard)", Icon: VcardIcon },
+];
+
+const MEDIA_ICONS = {
+  image: ImageIcon,
+  audio: AudioIcon,
+  video: VideoIcon,
+  document: DocumentIcon,
+};
 
 const resolveMediaCategory = (msg) => {
   if (!msg || !msg.mediaUrl) return "none";
@@ -730,6 +995,25 @@ const Audit = () => {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
   const [mobileFiltersExpanded, setMobileFiltersExpanded] = useState(false);
+  // Indicadores ficam ocultos por padrão para a conversa ganhar espaço.
+  const [showKpis, setShowKpis] = useState(() => {
+    try {
+      return localStorage.getItem("veritas:audit-kpis") === "1";
+    } catch (e) {
+      return false;
+    }
+  });
+  const toggleKpis = () => {
+    setShowKpis((prev) => {
+      const next = !prev;
+      try {
+        localStorage.setItem("veritas:audit-kpis", next ? "1" : "0");
+      } catch (e) {
+        // ignore
+      }
+      return next;
+    });
+  };
   const { user } = useContext(AuthContext);
   const history = useHistory();
   const location = useLocation();
@@ -1380,62 +1664,159 @@ const Audit = () => {
     return null;
   }
 
+  const visibleDevicesForKpi = allowedSectors
+    ? safeTotalDevices.filter((d) => allowedSectors.includes(d.sector || "Junior"))
+    : safeTotalDevices;
+  const onlineDevices = visibleDevicesForKpi.filter((d) => getDeviceConnState(d).isConnected).length;
+  const hasActiveFilters = Boolean(searchTerm || startDate || endDate || onlyDeleted || mediaType !== "all");
+  const fmtNum = (n) => (n || 0).toLocaleString("pt-BR");
+
+  const sectorChipStyle = (color, isSelected) => ({
+    backgroundColor: isSelected ? color : "transparent",
+    borderColor: isSelected ? color : alpha(color, 0.45),
+    color: isSelected ? "#fff" : color,
+  });
+  const sectorCountStyle = (color, isSelected) => ({
+    backgroundColor: isSelected ? "rgba(255,255,255,0.22)" : alpha(color, 0.12),
+  });
+
+  const handleRefreshAll = () => {
+    fetchDevices();
+    fetchChats();
+    fetchMessages();
+  };
+
+  const renderMediaSelect = (fullWidth) => (
+    <FormControl
+      size="small"
+      variant="outlined"
+      className={fullWidth ? undefined : classes.filterSelect}
+      style={fullWidth ? { flex: 1, minWidth: 0 } : undefined}
+    >
+      <InputLabel>Tipo Mídia</InputLabel>
+      <Select value={mediaType} onChange={(e) => setMediaType(e.target.value)} label="Tipo Mídia">
+        {MEDIA_FILTER_OPTIONS.map(({ value, label, Icon }) => (
+          <MenuItem key={value} value={value}>
+            <Icon className={classes.menuIcon} />
+            {label}
+          </MenuItem>
+        ))}
+      </Select>
+    </FormControl>
+  );
+
+  const renderDeletedChip = (label) => (
+    <Chip
+      clickable
+      icon={<BlockIcon />}
+      label={label}
+      onClick={() => setOnlyDeleted(!onlyDeleted)}
+      onDelete={onlyDeleted ? () => setOnlyDeleted(false) : undefined}
+      className={clsx(classes.deletedChip, onlyDeleted && classes.deletedChipActive)}
+      aria-pressed={onlyDeleted}
+    />
+  );
+
+  const renderSearchTermAdornments = {
+    startAdornment: (
+      <InputAdornment position="start">
+        <SearchIcon color="action" fontSize="small" />
+      </InputAdornment>
+    ),
+    endAdornment: searchTermInput && (
+      <InputAdornment position="end">
+        <IconButton size="small" onClick={() => { setSearchTermInput(""); setSearchTerm(""); }}>
+          <ClearIcon fontSize="small" />
+        </IconButton>
+      </InputAdornment>
+    ),
+  };
+
   return (
     <div className={classes.root}>
-      {/* 1. Header Bar de Auditoria */}
-      <Paper elevation={0} square className={classes.headerBar}>
-        <div className={classes.headerTitle}>
-          <SecurityIcon className={classes.headerIcon} />
-          <Typography variant="h6" style={{ fontWeight: 600, fontSize: "1.15rem" }}>
-            Auditoria
-          </Typography>
-        </div>
+      {/* KPIs (só quando o usuário pede) */}
+      {!isMobile && showKpis && (
+        <Grid container spacing={2} className={classes.kpiRow}>
+          <Grid item xs={6} md={3}>
+            <StatCard
+              className={classes.kpiCard}
+              label="Aparelhos"
+              value={loadingDevices ? <Skeleton width={48} /> : fmtNum(sectorCounts.TODOS)}
+              icon={<PhoneAndroidIcon />}
+              tone="primary"
+            />
+          </Grid>
+          <Grid item xs={6} md={3}>
+            <StatCard
+              className={classes.kpiCard}
+              label="Online agora"
+              value={loadingDevices ? <Skeleton width={48} /> : fmtNum(onlineDevices)}
+              icon={<OnlineDevicesIcon />}
+              tone="success"
+            />
+          </Grid>
+          <Grid item xs={6} md={3}>
+            <StatCard
+              className={classes.kpiCard}
+              label="Mensagens arquivadas"
+              value={loadingDevices ? <Skeleton width={80} /> : fmtNum(totalArchived)}
+              icon={<ForumIcon />}
+              tone="info"
+            />
+          </Grid>
+          <Grid item xs={6} md={3}>
+            <StatCard
+              className={classes.kpiCard}
+              label="Apagadas recuperadas"
+              value={loadingDevices ? <Skeleton width={64} /> : fmtNum(totalDeletedCount)}
+              icon={<BlockIcon />}
+              tone="error"
+            />
+          </Grid>
+        </Grid>
+      )}
 
+      {/* Barra compacta: busca + setores + ações / aparelhos */}
+      <Paper className={classes.consoleCard}>
+        <div className={classes.topRow}>
         {/* Balão de Busca Global: Localiza o número e em qual celular está */}
         <ClickAwayListener onClickAway={() => setGlobalPopperOpen(false)}>
           <div className={classes.globalSearchContainer} ref={globalSearchRef}>
-            <TextField
-              size="small"
-              variant="outlined"
-              placeholder="🔍 Buscar palavra, número ou contato..."
-              value={globalSearchInput}
-              onChange={handleGlobalSearchChange}
-              onKeyDown={(e) => {
-                if (e.key === "Enter") {
-                  if (globalSearchTimeout.current) clearTimeout(globalSearchTimeout.current);
-                  executeGlobalSearch(globalSearchInput);
-                }
-              }}
-              onFocus={() => {
-                if (globalSearchInput.trim().length > 0) setGlobalPopperOpen(true);
-              }}
-              className={classes.globalSearchField}
-              InputProps={{
-                startAdornment: (
-                  <InputAdornment position="start">
-                    <SearchIcon style={{ color: "#0284c7" }} fontSize="small" />
-                  </InputAdornment>
-                ),
-                endAdornment: (
-                  <InputAdornment position="end">
-                    {globalLoading ? (
-                      <CircularProgress size={16} />
-                    ) : globalSearchInput ? (
-                      <IconButton
-                        size="small"
-                        onClick={() => {
-                          setGlobalSearchInput("");
-                          setGlobalResults([]);
-                          setGlobalPopperOpen(false);
-                        }}
-                      >
-                        <ClearIcon fontSize="small" />
-                      </IconButton>
-                    ) : null}
-                  </InputAdornment>
-                ),
-              }}
-            />
+            <div className={classes.omniField}>
+              <SearchIcon className={classes.omniIcon} />
+              <InputBase
+                className={classes.omniInput}
+                placeholder="Buscar palavra, número ou contato..."
+                value={globalSearchInput}
+                onChange={handleGlobalSearchChange}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    if (globalSearchTimeout.current) clearTimeout(globalSearchTimeout.current);
+                    executeGlobalSearch(globalSearchInput);
+                  }
+                }}
+                onFocus={() => {
+                  if (globalSearchInput.trim().length > 0) setGlobalPopperOpen(true);
+                }}
+                inputProps={{ "aria-label": "Buscar palavra, número ou contato em todos os aparelhos" }}
+              />
+              {globalLoading ? (
+                <CircularProgress size={16} style={{ marginRight: 8 }} />
+              ) : globalSearchInput ? (
+                <IconButton
+                  size="small"
+                  onClick={() => {
+                    setGlobalSearchInput("");
+                    setGlobalResults([]);
+                    setGlobalPopperOpen(false);
+                  }}
+                >
+                  <ClearIcon fontSize="small" />
+                </IconButton>
+              ) : (
+                <span className={classes.omniHint}>Todos os aparelhos</span>
+              )}
+            </div>
 
             <Popper
               open={Boolean(globalPopperOpen && globalSearchInput.trim().length > 0)}
@@ -1444,75 +1825,65 @@ const Audit = () => {
               disablePortal
               style={{ zIndex: 1400, width: "100%" }}
             >
-              <Paper elevation={6} className={classes.popperPaper}>
+              <Paper className={classes.popperPaper}>
                 {globalLoading ? (
-                  <Box p={2.5} textAlign="center" display="flex" flexDirection="column" alignItems="center" justifyContent="center">
-                    <CircularProgress size={22} style={{ color: "#0284c7" }} />
-                    <Typography variant="caption" style={{ marginTop: 8, color: "#64748b", fontWeight: 600 }}>
+                  <div className={classes.popperState}>
+                    <CircularProgress size={22} />
+                    <Typography variant="body2" style={{ marginTop: 8, fontWeight: 600 }}>
                       Buscando em todos os aparelhos e mensagens...
                     </Typography>
-                  </Box>
+                  </div>
                 ) : globalResults.length === 0 ? (
-                  <Box p={2.5} textAlign="center" color="#64748b">
-                    <Typography variant="body2" style={{ fontWeight: 600 }}>
-                      Nenhum resultado encontrado nos aparelhos.
-                    </Typography>
-                    <Typography variant="caption" color="textSecondary">
-                      Tente outra palavra, número, contato ou nome de aparelho.
-                    </Typography>
-                  </Box>
+                  <EmptyState
+                    icon={<FindInPageIcon />}
+                    tone="neutral"
+                    title="Nenhum resultado encontrado nos aparelhos"
+                    description="Tente outra palavra, número, contato ou nome de aparelho."
+                  />
                 ) : (
                   <List disablePadding>
-                    <Box px={2} py={1} bgcolor="#f8fafc" borderBottom="1px solid #e2e8f0">
-                      <Typography variant="caption" style={{ fontWeight: 700, color: "#64748b" }}>
-                        ENCONTRADO EM {globalResults.length} APARELHO(S) - CLIQUE PARA ABRIR:
-                      </Typography>
-                    </Box>
+                    <div className={classes.popperHeader}>
+                      Encontrado em {globalResults.length} aparelho(s) · clique para abrir
+                    </div>
                     {globalResults.map((res) => (
                       <ListItem
                         key={`${res.whatsappId}-${res.ticketId}`}
                         className={classes.globalResultItem}
                         onClick={() => handleSelectGlobalResult(res)}
                       >
-                        <ListItemAvatar style={{ minWidth: 44 }}>
-                          <Avatar style={{ width: 34, height: 34, backgroundColor: "#0284c7", fontSize: "0.85rem" }}>
+                        <ListItemAvatar style={{ minWidth: 46 }}>
+                          <Avatar className={classes.resultAvatar}>
                             {getContactDisplayName(res.contact).charAt(0).toUpperCase()}
                           </Avatar>
                         </ListItemAvatar>
                         <ListItemText
+                          disableTypography
                           primary={
-                            <Box display="flex" justifyContent="space-between" alignItems="center">
-                              <Typography variant="subtitle2" style={{ fontWeight: 700, color: "#0f172a" }}>
+                            <Box display="flex" justifyContent="space-between" alignItems="center" style={{ gap: 8 }}>
+                              <Typography variant="subtitle2" noWrap style={{ fontWeight: 700, minWidth: 0 }}>
                                 {getContactDisplayName(res.contact)}
                               </Typography>
                               <span className={classes.deviceBadge}>
-                                📱 {res.deviceName}
+                                <PhoneAndroidIcon />
+                                {res.deviceName}
                               </span>
                             </Box>
                           }
                           secondary={
-                            <Box display="flex" justifyContent="space-between" alignItems="center" mt={0.3}>
-                              <Typography variant="caption" style={{ color: "#64748b", maxWidth: 220, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                            <Box display="flex" justifyContent="space-between" alignItems="center" mt={0.4} style={{ gap: 8 }}>
+                              <Typography variant="caption" color="textSecondary" noWrap style={{ minWidth: 0 }}>
                                 {res.lastMessage || "Conversa iniciada"}
                               </Typography>
-                              <Box display="flex" alignItems="center" gap={0.5}>
-                                <Typography variant="caption" style={{ color: "#94a3b8", fontSize: "0.7rem" }}>
+                              <Box display="flex" alignItems="center" flex="none" style={{ gap: 6 }}>
+                                <Typography variant="caption" color="textSecondary" style={{ fontSize: "0.7rem" }}>
                                   {res.totalMessages} msgs
                                 </Typography>
                                 {res.deletedMessages > 0 && (
-                                  <Chip
-                                    size="small"
-                                    label={`🚫 ${res.deletedMessages}`}
-                                    style={{
-                                      height: 15,
-                                      fontSize: "0.6rem",
-                                      backgroundColor: "#fee2e2",
-                                      color: "#991b1b",
-                                      fontWeight: 700,
-                                    }}
-                                  />
+                                  <StatusPill tone="error" dot={false}>
+                                    <BlockIcon style={{ fontSize: 11 }} /> {res.deletedMessages}
+                                  </StatusPill>
                                 )}
-                                <ArrowForwardIcon style={{ fontSize: 14, color: "#0284c7" }} />
+                                <ArrowForwardIcon color="primary" style={{ fontSize: 15 }} />
                               </Box>
                             </Box>
                           }
@@ -1526,220 +1897,153 @@ const Audit = () => {
           </div>
         </ClickAwayListener>
 
-        <div className={classes.headerStats}>
-          <div className={classes.statBadge}>
-            {!isMobile && <span>Mensagens:</span>}
-            <strong style={{ color: "#0284c7" }}>{totalArchived.toLocaleString("pt-BR")}</strong>
+        {/* Barra de Filtro de Setor Sincronizada (Audit <-> Conexões <-> CRM) */}
+          <div className={classes.sectorRibbon}>
+            {(() => {
+              const isSelected = selectedSector === "TODOS";
+              const col = theme.palette.primary.main;
+              return (
+                <ButtonBase
+                  className={classes.sectorChip}
+                  style={sectorChipStyle(col, isSelected)}
+                  onClick={() => setSelectedSector("TODOS")}
+                  aria-pressed={isSelected}
+                >
+                  Todos
+                  <span className={classes.sectorCount} style={sectorCountStyle(col, isSelected)}>
+                    {sectorCounts.TODOS || 0}
+                  </span>
+                </ButtonBase>
+              );
+            })()}
+            {sectorsList.map((sector) => {
+              const count = sectorCounts[sector] || 0;
+              const isSelected = selectedSector === sector;
+              const sectorColor = getSectorColor(sector);
+              return (
+                <ButtonBase
+                  key={sector}
+                  className={classes.sectorChip}
+                  style={sectorChipStyle(sectorColor, isSelected)}
+                  onClick={() => setSelectedSector(sector)}
+                  aria-pressed={isSelected}
+                >
+                  {sector}
+                  <span className={classes.sectorCount} style={sectorCountStyle(sectorColor, isSelected)}>
+                    {count}
+                  </span>
+                </ButtonBase>
+              );
+            })}
           </div>
 
-          <div className={classes.statBadge}>
-            <BlockIcon style={{ color: "#ef4444", fontSize: isMobile ? 13 : 15 }} />
-            {!isMobile && <span>Apagadas:</span>}
-            <strong style={{ color: "#ef4444" }}>{totalDeletedCount.toLocaleString("pt-BR")}</strong>
+          <div className={classes.topActions}>
+            {isMobile ? (
+              <>
+                <StatusPill tone="info" dot={false}>
+                  <ForumIcon style={{ fontSize: 13 }} /> {fmtNum(totalArchived)}
+                </StatusPill>
+                <StatusPill tone="error" dot={false}>
+                  <BlockIcon style={{ fontSize: 13 }} /> {fmtNum(totalDeletedCount)}
+                </StatusPill>
+              </>
+            ) : (
+              <Tooltip title={showKpis ? "Ocultar indicadores" : "Mostrar indicadores"}>
+                <IconButton
+                  size="small"
+                  onClick={toggleKpis}
+                  aria-pressed={showKpis}
+                  color={showKpis ? "primary" : "default"}
+                >
+                  <AssessmentIcon fontSize="small" />
+                </IconButton>
+              </Tooltip>
+            )}
+            <Tooltip title="Atualizar dados">
+              <IconButton size="small" onClick={handleRefreshAll}>
+                <RefreshIcon fontSize="small" />
+              </IconButton>
+            </Tooltip>
           </div>
+        </div>
 
-          <Button
-            variant="outlined"
-            color="primary"
-            size="small"
-            startIcon={<GetAppIcon style={{ fontSize: isMobile ? 15 : 18 }} />}
-            onClick={() => setExportModalOpen(true)}
-            style={{
-              textTransform: "none",
-              borderRadius: 6,
-              padding: isMobile ? "2px 6px" : "4px 10px",
-              minWidth: isMobile ? "auto" : undefined,
-              fontSize: isMobile ? "0.72rem" : "0.8125rem",
-              height: isMobile ? 26 : undefined,
-            }}
-          >
-            Exportar
-          </Button>
+        {/* Seletor Visual dos Celulares (sempre visível) */}
+        <div className={classes.ribbonRow}>
+          <div className={classes.deviceRibbon}>
+            {loadingDevices ? (
+              [0, 1, 2, 3].map((i) => (
+                <Skeleton key={i} variant="rect" width={176} height={46} style={{ borderRadius: 12, flex: "none" }} />
+              ))
+            ) : filteredDevices.length === 0 ? (
+              <span className={classes.ribbonEmpty}>
+                Nenhum celular encontrado com "{globalSearchInput}"
+              </span>
+            ) : (
+              filteredDevices.map((device) => {
+                const isSelected = selectedDevice?.id === device.id;
+                const { isConnected, isOpening, isQrCode } = getDeviceConnState(device);
+                const statusTitle = isConnected
+                  ? "Conectado e Operando"
+                  : isOpening
+                  ? "Conectando / Sincronizando..."
+                  : isQrCode
+                  ? "Aguardando Leitura de QR Code"
+                  : "Desconectado";
+                const dotClass = isConnected
+                  ? classes.dotOnline
+                  : isOpening
+                  ? classes.dotOpening
+                  : isQrCode
+                  ? classes.dotQr
+                  : classes.dotOffline;
+                const sectorColor = device.sector ? getSectorColor(device.sector) : null;
 
-          <Tooltip title="Atualizar dados">
-            <IconButton
-              size="small"
-              onClick={() => {
-                fetchDevices();
-                fetchChats();
-                fetchMessages();
-              }}
-              style={{ padding: isMobile ? 4 : 6 }}
-            >
-              <RefreshIcon fontSize="small" />
-            </IconButton>
-          </Tooltip>
+                return (
+                  <ButtonBase
+                    key={device.id}
+                    className={clsx(classes.deviceCard, isSelected && classes.deviceCardSelected)}
+                    onClick={() => handleSelectDevice(device)}
+                  >
+                    <div className={clsx(classes.deviceIcon, isSelected && classes.deviceIconSelected)}>
+                      {isQrCode ? <QrCodeIcon /> : <PhoneAndroidIcon />}
+                      <Tooltip title={statusTitle}>
+                        <span className={clsx(classes.statusDot, dotClass)}>
+                          {isOpening && <CircularProgress size={7} thickness={7} style={{ color: "#fff" }} />}
+                        </span>
+                      </Tooltip>
+                    </div>
+                    <Box minWidth={0} flex={1}>
+                      <Tooltip title={device.name || "Dispositivo"} placement="top">
+                        <div className={classes.deviceName}>{device.name}</div>
+                      </Tooltip>
+                      <div className={classes.deviceMeta}>
+                        <span>{device.totalMessages || 0} msgs</span>
+                        {device.sector && (
+                          <span
+                            className={classes.deviceSector}
+                            style={{ color: sectorColor, backgroundColor: alpha(sectorColor, 0.12) }}
+                          >
+                            {device.sector}
+                          </span>
+                        )}
+                        {device.deletedMessages > 0 && (
+                          <span className={classes.deviceDeleted}>
+                            <BlockIcon style={{ fontSize: 11 }} />
+                            {device.deletedMessages}
+                          </span>
+                        )}
+                      </div>
+                    </Box>
+                  </ButtonBase>
+                );
+              })
+            )}
+          </div>
         </div>
       </Paper>
 
-      {/* 2. Barra de Filtro de Setor Sincronizada (Audit <-> Conexões <-> CRM) */}
-      <div className={classes.sectorFilter}>
-        <Typography
-          variant="body2"
-          style={{
-            fontWeight: 800,
-            color: theme.palette.type === "dark" ? "#cbd5e1" : "#334155",
-            marginRight: 6,
-            textTransform: "uppercase",
-            fontSize: "0.68rem",
-            letterSpacing: "0.6px",
-            flexShrink: 0,
-          }}
-        >
-          Setor:
-        </Typography>
-        <Chip
-          label={`TODOS (${sectorCounts.TODOS || 0})`}
-          size="small"
-          color={selectedSector === "TODOS" ? "primary" : "default"}
-          variant={selectedSector === "TODOS" ? "default" : "outlined"}
-          onClick={() => setSelectedSector("TODOS")}
-          style={{
-            fontWeight: 700,
-            cursor: "pointer",
-            borderRadius: 6,
-            height: 24,
-            fontSize: "0.68rem",
-            flexShrink: 0,
-          }}
-        />
-        {sectorsList.map((sector) => {
-          const count = sectorCounts[sector] || 0;
-          const isSelected = selectedSector === sector;
-          const sectorColor = getSectorColor(sector);
-          return (
-            <Chip
-              key={sector}
-              label={`${sector} (${count})`}
-              size="small"
-              onClick={() => setSelectedSector(sector)}
-              variant={isSelected ? "default" : "outlined"}
-              style={{
-                fontWeight: 700,
-                cursor: "pointer",
-                borderRadius: 6,
-                height: 24,
-                fontSize: "0.68rem",
-                flexShrink: 0,
-                backgroundColor: isSelected ? sectorColor : "transparent",
-                borderColor: sectorColor,
-                color: isSelected ? "#fff" : sectorColor,
-              }}
-            />
-          );
-        })}
-      </div>
-
-      {/* 3. Seletor Visual dos Celulares (Ribbon Superior) */}
-      <div className={classes.deviceRibbon}>
-        {loadingDevices ? (
-          <CircularProgress size={20} style={{ margin: "auto" }} />
-        ) : filteredDevices.length === 0 ? (
-          <Typography variant="body2" style={{ color: "#64748b", margin: "auto", padding: "10px" }}>
-            Nenhum celular encontrado com "{globalSearchInput}"
-          </Typography>
-        ) : (
-          filteredDevices.map((device) => {
-            const isSelected = selectedDevice?.id === device.id;
-            const normalizedStatus = String(
-              device.status || device.sessionStatus || device.connectionStatus || ""
-            ).trim().toUpperCase();
-            const isDisconnected = [
-              "DISCONNECTED",
-              "DISCONNECT",
-              "OFFLINE",
-              "CLOSED",
-              "LOGGED_OUT",
-              "ERROR",
-              "FAILED",
-            ].includes(normalizedStatus);
-            const isConnected =
-              !isDisconnected &&
-              !["OPENING", "PAIRING", "CONNECTING", "QRCODE"].includes(normalizedStatus);
-            const isOpening = ["OPENING", "PAIRING", "CONNECTING"].includes(normalizedStatus);
-            const isQrCode = normalizedStatus === "QRCODE";
-
-            return (
-              <Card
-                key={device.id}
-                className={`${classes.deviceCard} ${isSelected ? classes.deviceCardSelected : ""}`}
-                onClick={() => handleSelectDevice(device)}
-              >
-                <CardActionArea className={classes.deviceCardContent}>
-                  <Box display="flex" alignItems="center" width="100%" minWidth={0}>
-                    <Tooltip title={device.name || "Dispositivo"} placement="top">
-                      <Typography
-                        variant="subtitle2"
-                        className={classes.deviceName}
-                        style={{ fontWeight: 600, color: isSelected ? "#0284c7" : "inherit" }}
-                      >
-                        📱 {device.name}
-                      </Typography>
-                    </Tooltip>
-                    {isConnected ? (
-                      <Tooltip title="Conectado e Operando">
-                        <OnlineIcon style={{ color: "#10b981", fontSize: 16 }} />
-                      </Tooltip>
-                    ) : isOpening ? (
-                      <Tooltip title="Conectando / Sincronizando...">
-                        <CircularProgress size={13} style={{ color: "#eab308" }} />
-                      </Tooltip>
-                    ) : isQrCode ? (
-                      <Tooltip title="Aguardando Leitura de QR Code">
-                        <QrCodeIcon style={{ color: "#0284c7", fontSize: 16 }} />
-                      </Tooltip>
-                    ) : (
-                      <Tooltip title="Desconectado">
-                        <OfflineIcon style={{ color: "#ef4444", fontSize: 16 }} />
-                      </Tooltip>
-                    )}
-                  </Box>
-
-                  <Box display="flex" alignItems="center" justifyContent="space-between" mt={0.3}>
-                    <Typography variant="caption" color="textSecondary">
-                      {device.totalMessages || 0} msgs
-                    </Typography>
-                    {device.sector && (
-                      <span
-                        style={{
-                          fontSize: "0.62rem",
-                          color: getSectorColor(device.sector),
-                          fontWeight: 700,
-                          backgroundColor: `${getSectorColor(device.sector)}15`,
-                          padding: "1px 5px",
-                          borderRadius: 4,
-                        }}
-                      >
-                        {device.sector}
-                      </span>
-                    )}
-                    {device.deletedMessages > 0 && (
-                      <Chip
-                        size="small"
-                        label={`🚫 ${device.deletedMessages}`}
-                        style={{
-                          height: 16,
-                          fontSize: "0.65rem",
-                          backgroundColor: "#fee2e2",
-                          color: "#991b1b",
-                          fontWeight: 700,
-                        }}
-                      />
-                    )}
-                  </Box>
-                </CardActionArea>
-              </Card>
-            );
-          })
-        )}
-      </div>
-
-      {/* 3. Área Principal: Divisão em 2 Painéis */}
-      <div
-        className={classes.mainContent}
-        id="audit-drawer-container"
-        style={{ position: "relative", overflow: "hidden" }}
-      >
+      {/* 4. Área Principal: conversas + timeline */}
+      <Paper className={classes.workspace} id="audit-drawer-container">
         {/* Painel Esquerdo: Lista de Conversas do Celular */}
         <div
           className={classes.chatsPanel}
@@ -1747,29 +2051,33 @@ const Audit = () => {
             display: isMobile && selectedChat ? "none" : "flex",
           }}
         >
-          <div className={classes.chatSearchBox}>
-            <TextField
-              fullWidth
-              size="small"
-              placeholder="Buscar no celular selecionado..."
-              variant="outlined"
-              value={chatSearchInput}
-              onChange={handleChatSearchChange}
-              InputProps={{
-                startAdornment: (
-                  <InputAdornment position="start">
-                    <SearchIcon style={{ color: "#94a3b8" }} fontSize="small" />
-                  </InputAdornment>
-                ),
-                endAdornment: chatSearchInput && (
-                  <InputAdornment position="end">
-                    <IconButton size="small" onClick={() => { setChatSearchInput(""); setChatSearch(""); }}>
-                      <ClearIcon fontSize="small" />
-                    </IconButton>
-                  </InputAdornment>
-                ),
-              }}
-            />
+          <div className={classes.panelHead}>
+            <div className={classes.panelTitleRow}>
+              <span className={classes.panelTitle}>
+                Conversas{selectedDevice?.name ? ` · ${selectedDevice.name}` : ""}
+              </span>
+              {!loadingChats && (
+                <span className={classes.countBadge}>
+                  {chats.length}
+                  {hasMoreChats ? "+" : ""}
+                </span>
+              )}
+            </div>
+            <div className={classes.compactSearch}>
+              <SearchIcon />
+              <InputBase
+                className={classes.compactInput}
+                placeholder="Buscar no celular selecionado..."
+                value={chatSearchInput}
+                onChange={handleChatSearchChange}
+                inputProps={{ "aria-label": "Buscar no celular selecionado" }}
+              />
+              {chatSearchInput && (
+                <IconButton size="small" onClick={() => { setChatSearchInput(""); setChatSearch(""); }}>
+                  <ClearIcon fontSize="small" />
+                </IconButton>
+              )}
+            </div>
           </div>
 
           <div
@@ -1787,18 +2095,21 @@ const Audit = () => {
             }}
           >
             {loadingChats ? (
-              <Box display="flex" justifyContent="center" p={4}>
-                <CircularProgress size={24} />
-              </Box>
+              <ListSkeleton />
             ) : chats.length === 0 ? (
-              <Box p={3} textAlign="center" color="#64748b">
-                <Typography variant="body2">Nenhuma conversa encontrada neste celular.</Typography>
-                {chatSearchInput && (
-                  <Button size="small" color="primary" onClick={() => { setChatSearchInput(""); setChatSearch(""); }} style={{ marginTop: 8 }}>
-                    Limpar Busca
-                  </Button>
-                )}
-              </Box>
+              <EmptyState
+                icon={<ChatIcon />}
+                tone="neutral"
+                title="Nenhuma conversa"
+                description="Nenhuma conversa encontrada neste celular."
+                action={
+                  chatSearchInput && (
+                    <Button size="small" color="primary" onClick={() => { setChatSearchInput(""); setChatSearch(""); }}>
+                      Limpar Busca
+                    </Button>
+                  )
+                }
+              />
             ) : (
               <>
                 {chats.map((chat) => {
@@ -1806,7 +2117,7 @@ const Audit = () => {
                   return (
                     <div
                       key={chat.ticketId}
-                      className={`${classes.chatItem} ${isSelected ? classes.chatItemSelected : ""}`}
+                      className={clsx(classes.chatItem, isSelected && classes.chatItemSelected)}
                       onClick={() => setSelectedChat(chat)}
                     >
                       <Tooltip
@@ -1848,22 +2159,12 @@ const Audit = () => {
                           {chat.lastMessage || "Conversa iniciada"}
                         </Typography>
 
-                        <Box display="flex" gap={1} mt={0.3}>
-                          {chat.deletedMessages > 0 && (
-                            <span
-                              style={{
-                                backgroundColor: "#fee2e2",
-                                color: "#b91c1c",
-                                padding: "1px 5px",
-                                borderRadius: 6,
-                                fontSize: "0.65rem",
-                                fontWeight: 700,
-                              }}
-                            >
-                              🚫 {chat.deletedMessages} apagadas
-                            </span>
-                          )}
-                        </Box>
+                        {chat.deletedMessages > 0 && (
+                          <span className={classes.miniPill}>
+                            <BlockIcon />
+                            {chat.deletedMessages} apagadas
+                          </span>
+                        )}
                       </div>
                     </div>
                   );
@@ -1880,11 +2181,11 @@ const Audit = () => {
                     <Button
                       size="small"
                       color="primary"
-                      variant="text"
+                      variant="outlined"
                       onClick={() => fetchChats(false, chatsPage + 1)}
-                      style={{ fontSize: "0.75rem", textTransform: "none", color: "#0284c7" }}
+                      className={classes.loadMoreBtn}
                     >
-                      ▼ Carregar mais conversas anteriores...
+                      Carregar mais conversas anteriores
                     </Button>
                   </Box>
                 )}
@@ -1902,29 +2203,23 @@ const Audit = () => {
         >
           {/* Cabeçalho da Conversa Selecionada */}
           {selectedChat && (
-            <div className={classes.activeChatHeader}>
-              <Box
-                display="flex"
-                alignItems="center"
-                gap={isMobile ? 0.75 : 1.5}
-                minWidth={0}
-              >
-                {isMobile && (
-                  <IconButton
-                    size="small"
-                    onClick={() => setSelectedChat(null)}
-                    style={{ marginRight: 2, padding: 4 }}
-                    aria-label="Voltar para a lista de conversas"
-                  >
-                    <ArrowBackIcon fontSize="small" />
-                  </IconButton>
-                )}
+            <div className={classes.convHeader}>
+              {isMobile && (
+                <IconButton
+                  size="small"
+                  onClick={() => setSelectedChat(null)}
+                  aria-label="Voltar para a lista de conversas"
+                >
+                  <ArrowBackIcon fontSize="small" />
+                </IconButton>
+              )}
+              <div className={classes.convIdentity}>
                 <Tooltip
                   title={selectedChat.contact?.profilePicUrl ? "Clique para ampliar a foto do perfil" : ""}
                   placement="bottom"
                 >
                   <Avatar
-                    className={classes.activeChatAvatar}
+                    className={classes.chatAvatar}
                     src={selectedChat.contact?.profilePicUrl}
                     onClick={(e) => {
                       if (selectedChat.contact?.profilePicUrl) {
@@ -1940,62 +2235,57 @@ const Audit = () => {
                     }}
                     style={{
                       cursor: "pointer",
-                      width: isMobile ? 34 : 38,
-                      height: isMobile ? 34 : 38,
+                      width: isMobile ? 34 : 40,
+                      height: isMobile ? 34 : 40,
                     }}
                   >
                     {getContactDisplayName(selectedChat.contact).charAt(0).toUpperCase()}
                   </Avatar>
                 </Tooltip>
 
-                <Box
-                  onClick={() => setContactDrawerOpen(true)}
-                  style={{ cursor: "pointer", minWidth: 0 }}
-                >
-                  <Typography
-                    variant="subtitle1"
-                    style={{
-                      fontWeight: 700,
-                      color: "#0f172a",
-                      lineHeight: 1.2,
-                      fontSize: isMobile ? "0.85rem" : "0.95rem",
-                      whiteSpace: "nowrap",
-                      overflow: "hidden",
-                      textOverflow: "ellipsis",
-                      maxWidth: isMobile ? 140 : 260,
-                    }}
-                  >
+                <Box onClick={() => setContactDrawerOpen(true)} minWidth={0}>
+                  <div className={classes.convName} style={{ maxWidth: isMobile ? 140 : 320 }}>
                     {getContactDisplayName(selectedChat.contact)}
-                  </Typography>
-                  <Box display="flex" alignItems="center" gap={0.5} mt={0.3}>
-                    <Typography variant="caption" style={{ color: "#64748b", fontSize: "0.68rem" }}>
-                      📱 <strong>{selectedDevice?.name || "Dispositivo"}</strong>
-                    </Typography>
+                  </div>
+                  <div className={classes.convSub}>
+                    <PhoneAndroidIcon />
+                    <span style={{ overflow: "hidden", textOverflow: "ellipsis" }}>
+                      {selectedDevice?.name || "Dispositivo"}
+                    </span>
                     {selectedChat.contact?.isGroup && (
-                      <Chip
-                        label="👥 Grupo"
-                        size="small"
-                        style={{ height: 16, fontSize: "0.6rem", backgroundColor: "#e2e8f0" }}
-                      />
+                      <StatusPill tone="neutral" dot={false}>
+                        <GroupIcon style={{ fontSize: 12 }} /> Grupo
+                      </StatusPill>
                     )}
-                  </Box>
+                  </div>
                 </Box>
-              </Box>
+              </div>
 
-              <Box display="flex" alignItems="center" gap={0.8} flexShrink={0}>
+              <div className={classes.convActions}>
+                {!isMobile ? (
+                  <Button
+                    size="small"
+                    variant="contained"
+                    color="primary"
+                    startIcon={<GetAppIcon style={{ fontSize: 16 }} />}
+                    onClick={() => setExportModalOpen(true)}
+                  >
+                    Exportar laudo
+                  </Button>
+                ) : (
+                  <IconButton
+                    size="small"
+                    onClick={() => setExportModalOpen(true)}
+                    className={classes.iconOutlined}
+                    title="Exportar laudo"
+                  >
+                    <GetAppIcon fontSize="small" />
+                  </IconButton>
+                )}
                 {!isMobile ? (
                   <Button
                     size="small"
                     variant="outlined"
-                    style={{
-                      borderColor: "#52658C",
-                      color: "#52658C",
-                      textTransform: "none",
-                      fontWeight: 700,
-                      borderRadius: 8,
-                      height: 28,
-                      fontSize: "0.78rem",
-                    }}
                     startIcon={<PersonIcon style={{ fontSize: 16 }} />}
                     onClick={() => setContactDrawerOpen(true)}
                   >
@@ -2005,33 +2295,18 @@ const Audit = () => {
                   <IconButton
                     size="small"
                     onClick={() => setContactDrawerOpen(true)}
-                    style={{
-                      border: "1px solid rgba(82, 101, 140, 0.3)",
-                      borderRadius: 6,
-                      padding: 4,
-                      color: "#52658C",
-                    }}
+                    className={classes.iconOutlined}
                     title="Ver Perfil"
                   >
                     <PersonIcon fontSize="small" />
                   </IconButton>
                 )}
-                <Chip
-                  label={
-                    messagesTotalCount > messages.length
-                      ? `${messages.length}/${messagesTotalCount} msgs`
-                      : `${messages.length} msgs`
-                  }
-                  size="small"
-                  style={{
-                    backgroundColor: messagesTotalCount > messages.length ? "#fef3c7" : "#e0f2fe",
-                    color: messagesTotalCount > messages.length ? "#b45309" : "#0369a1",
-                    fontWeight: 700,
-                    height: 24,
-                    fontSize: "0.68rem",
-                  }}
-                />
-              </Box>
+                <StatusPill tone={messagesTotalCount > messages.length ? "warning" : "primary"} dot={false}>
+                  {messagesTotalCount > messages.length
+                    ? `${messages.length}/${messagesTotalCount} msgs`
+                    : `${messages.length} msgs`}
+                </StatusPill>
+              </div>
             </div>
           )}
 
@@ -2047,41 +2322,25 @@ const Audit = () => {
                     value={searchTermInput}
                     onChange={handleSearchTermChange}
                     style={{ flex: 1, minWidth: 0 }}
-                    InputProps={{
-                      startAdornment: (
-                        <InputAdornment position="start">
-                          <SearchIcon style={{ color: "#94a3b8" }} fontSize="small" />
-                        </InputAdornment>
-                      ),
-                      endAdornment: searchTermInput && (
-                        <InputAdornment position="end">
-                          <IconButton size="small" onClick={() => { setSearchTermInput(""); setSearchTerm(""); }}>
-                            <ClearIcon fontSize="small" />
-                          </IconButton>
-                        </InputAdornment>
-                      ),
-                    }}
+                    InputProps={renderSearchTermAdornments}
                   />
                   <IconButton
                     size="small"
-                    color={mobileFiltersExpanded || startDate || endDate || onlyDeleted || mediaType !== "all" ? "primary" : "default"}
                     onClick={() => setMobileFiltersExpanded(!mobileFiltersExpanded)}
-                    style={{
-                      border: "1px solid rgba(0,0,0,0.12)",
-                      borderRadius: 6,
-                      padding: 6,
-                      backgroundColor: mobileFiltersExpanded ? "rgba(2, 132, 199, 0.1)" : "transparent",
-                    }}
+                    className={clsx(
+                      classes.iconOutlined,
+                      (mobileFiltersExpanded || startDate || endDate || onlyDeleted || mediaType !== "all") &&
+                        classes.filterToggleActive
+                    )}
                     title="Mais Filtros"
                   >
                     <FilterListIcon fontSize="small" />
                   </IconButton>
-                  {(searchTerm || startDate || endDate || onlyDeleted || mediaType !== "all") && (
+                  {hasActiveFilters && (
                     <IconButton
                       size="small"
-                      color="secondary"
                       onClick={clearFilters}
-                      style={{ border: "1px solid rgba(239,68,68,0.2)", borderRadius: 6, padding: 6 }}
+                      className={classes.iconOutlined}
                       title="Limpar Filtros"
                     >
                       <ClearIcon fontSize="small" />
@@ -2090,8 +2349,8 @@ const Audit = () => {
                 </div>
 
                 <Collapse in={mobileFiltersExpanded}>
-                  <Box display="flex" flexDirection="column" gap={0.8} pt={0.8}>
-                    <Box display="flex" gap={1}>
+                  <Box display="flex" flexDirection="column" pt={1} style={{ gap: 8 }}>
+                    <Box display="flex" style={{ gap: 8 }}>
                       <TextField
                         size="small"
                         type="date"
@@ -2113,37 +2372,9 @@ const Audit = () => {
                         onChange={(e) => setEndDate(e.target.value)}
                       />
                     </Box>
-                    <Box display="flex" gap={1} alignItems="center">
-                      <FormControl size="small" variant="outlined" style={{ flex: 1 }}>
-                        <InputLabel>Tipo Mídia</InputLabel>
-                        <Select
-                          value={mediaType}
-                          onChange={(e) => setMediaType(e.target.value)}
-                          label="Tipo Mídia"
-                        >
-                          <MenuItem value="all">Todas as Mensagens</MenuItem>
-                          <MenuItem value="audio">🎵 Áudios & Voz</MenuItem>
-                          <MenuItem value="image">🖼️ Fotos & Imagens</MenuItem>
-                          <MenuItem value="document">📄 Documentos & Boletos</MenuItem>
-                          <MenuItem value="video">🎥 Vídeos</MenuItem>
-                          <MenuItem value="vcard">👤 Contatos (vCard)</MenuItem>
-                        </Select>
-                      </FormControl>
-                      <FormControlLabel
-                        control={
-                          <Switch
-                            size="small"
-                            checked={onlyDeleted}
-                            onChange={(e) => setOnlyDeleted(e.target.checked)}
-                            className={classes.deletedSwitch}
-                          />
-                        }
-                        label={
-                          <Typography variant="caption" style={{ color: onlyDeleted ? "#dc2626" : "inherit", fontWeight: onlyDeleted ? 700 : 400 }}>
-                            🚫 Apagadas
-                          </Typography>
-                        }
-                      />
+                    <Box display="flex" alignItems="center" style={{ gap: 8 }}>
+                      {renderMediaSelect(true)}
+                      {renderDeletedChip("Apagadas")}
                     </Box>
                   </Box>
                 </Collapse>
@@ -2156,21 +2387,8 @@ const Audit = () => {
                   variant="outlined"
                   value={searchTermInput}
                   onChange={handleSearchTermChange}
-                  style={{ minWidth: 200, flexGrow: 1 }}
-                  InputProps={{
-                    startAdornment: (
-                      <InputAdornment position="start">
-                        <SearchIcon style={{ color: "#94a3b8" }} fontSize="small" />
-                      </InputAdornment>
-                    ),
-                    endAdornment: searchTermInput && (
-                      <InputAdornment position="end">
-                        <IconButton size="small" onClick={() => { setSearchTermInput(""); setSearchTerm(""); }}>
-                          <ClearIcon fontSize="small" />
-                        </IconButton>
-                      </InputAdornment>
-                    ),
-                  }}
+                  className={classes.filterSearch}
+                  InputProps={renderSearchTermAdornments}
                 />
 
                 <TextField
@@ -2195,45 +2413,16 @@ const Audit = () => {
                   className={classes.filterItem}
                 />
 
-                <FormControl size="small" variant="outlined" className={classes.filterItem}>
-                  <InputLabel>Tipo Mídia</InputLabel>
-                  <Select
-                    value={mediaType}
-                    onChange={(e) => setMediaType(e.target.value)}
-                    label="Tipo Mídia"
-                  >
-                    <MenuItem value="all">Todas as Mensagens</MenuItem>
-                    <MenuItem value="audio">🎵 Áudios & Voz</MenuItem>
-                    <MenuItem value="image">🖼️ Fotos & Imagens</MenuItem>
-                    <MenuItem value="document">📄 Documentos & Boletos</MenuItem>
-                    <MenuItem value="video">🎥 Vídeos</MenuItem>
-                    <MenuItem value="vcard">👤 Contatos (vCard)</MenuItem>
-                  </Select>
-                </FormControl>
+                {renderMediaSelect(false)}
 
-                <FormControlLabel
-                  control={
-                    <Switch
-                      size="small"
-                      checked={onlyDeleted}
-                      onChange={(e) => setOnlyDeleted(e.target.checked)}
-                      className={classes.deletedSwitch}
-                    />
-                  }
-                  label={
-                    <Typography variant="body2" style={{ color: onlyDeleted ? "#dc2626" : "inherit", fontWeight: onlyDeleted ? 700 : 400 }}>
-                      🚫 Apenas Apagadas
-                    </Typography>
-                  }
-                />
+                {renderDeletedChip("Apenas Apagadas")}
 
-                {(searchTerm || startDate || endDate || onlyDeleted || mediaType !== "all") && (
+                {hasActiveFilters && (
                   <Button
                     size="small"
-                    variant="outlined"
-                    color="secondary"
                     startIcon={<ClearIcon />}
                     onClick={clearFilters}
+                    className={classes.clearBtn}
                   >
                     Limpar
                   </Button>
@@ -2245,78 +2434,79 @@ const Audit = () => {
           {/* Área de Mensagens (Timeline) */}
           <div ref={messagesContainerRef} className={classes.messagesScrollArea}>
             {loadingMessages ? (
-              <Box display="flex" justifyContent="center" alignItems="center" height="100%">
-                <CircularProgress />
-              </Box>
+              <TimelineSkeleton className={classes.skeletonBubble} />
             ) : !selectedChat && !searchTerm ? (
-              <div className={classes.noChatSelected}>
-                <SecurityIcon style={{ fontSize: 48, opacity: 0.3 }} />
-                <Typography variant="h6">Selecione uma conversa para auditar</Typography>
-                <Typography variant="body2">
-                  Você pode usar o balão de busca acima para localizar qualquer número em todos os celulares.
-                </Typography>
+              <div className={classes.centerState}>
+                <Paper className={classes.stateCard}>
+                  <EmptyState
+                    icon={<SecurityIcon />}
+                    title="Selecione uma conversa para auditar"
+                    description="Você pode usar o balão de busca acima para localizar qualquer número em todos os celulares."
+                  />
+                </Paper>
               </div>
             ) : messages.length === 0 ? (
-              <Box textAlign="center" p={4} color="#64748b">
-                <Typography variant="body1" style={{ fontWeight: 600 }}>
-                  Nenhum registro encontrado para os filtros selecionados.
-                </Typography>
-              </Box>
+              <div className={classes.centerState}>
+                <Paper className={classes.stateCard}>
+                  <EmptyState
+                    icon={<FindInPageIcon />}
+                    tone="neutral"
+                    title="Nenhum registro encontrado"
+                    description="Nenhum registro encontrado para os filtros selecionados."
+                    action={
+                      hasActiveFilters && (
+                        <Button size="small" variant="outlined" color="primary" onClick={clearFilters}>
+                          Limpar filtros
+                        </Button>
+                      )
+                    }
+                  />
+                </Paper>
+              </div>
             ) : (
               <>
                 {hasMoreMessages && (
-                  <Box
-                    textAlign="center"
-                    py={1.5}
-                    px={2}
-                    my={1.5}
-                    mx="auto"
-                    style={{
-                      maxWidth: 520,
-                      backgroundColor: "rgba(255, 255, 255, 0.94)",
-                      borderRadius: 10,
-                      border: "1px solid #cbd5e1",
-                      boxShadow: "0 2px 8px rgba(0,0,0,0.06)",
-                    }}
-                  >
-                    <Typography variant="caption" style={{ color: "#334155", fontWeight: 700, display: "block", marginBottom: 6 }}>
-                      📜 Existem mensagens anteriores neste aparelho ({messagesTotalCount - messages.length} mais antigas gravadas)
-                    </Typography>
-                    <Box display="flex" justifyContent="center" gap={1}>
+                  <div className={classes.loadOlderCard}>
+                    <div className={classes.loadOlderText}>
+                      <HistoryIcon />
+                      Existem mensagens anteriores neste aparelho ({messagesTotalCount - messages.length} mais antigas gravadas)
+                    </div>
+                    <Box display="flex" justifyContent="center" flexWrap="wrap" style={{ gap: 8 }}>
                       <Button
                         size="small"
                         variant="contained"
                         color="primary"
                         disabled={loadingMoreMessages}
                         onClick={() => handleLoadOlderMessages(false)}
-                        style={{ textTransform: "none", fontSize: "0.75rem", fontWeight: 700 }}
                         startIcon={loadingMoreMessages ? <CircularProgress size={14} color="inherit" /> : <HistoryIcon style={{ fontSize: 16 }} />}
                       >
-                        ⬆️ Carregar +2.000 mensagens anteriores
+                        Carregar +2.000 mensagens anteriores
                       </Button>
                       <Button
                         size="small"
                         variant="outlined"
+                        color="primary"
                         disabled={loadingMoreMessages}
                         onClick={() => handleLoadOlderMessages(true)}
-                        style={{ textTransform: "none", fontSize: "0.75rem", fontWeight: 700, borderColor: "#0284c7", color: "#0284c7" }}
                       >
                         Carregar todo o histórico ({messagesTotalCount})
                       </Button>
                     </Box>
-                  </Box>
+                  </div>
                 )}
                 {messages.map((message, index) => {
                 const isOp = message.fromMe;
                 const isGroup = selectedChat?.contact?.isGroup;
                 const senderName = isOp
-                  ? `📱 ${selectedDevice?.name || "Operador"}`
+                  ? (selectedDevice?.name || "Operador")
                   : (message.contact ? getContactDisplayName(message.contact) : "Participante");
-                const senderColor = isOp ? "#0284c7" : getParticipantColor(senderName);
+                const senderColor = isOp ? undefined : getParticipantColor(senderName);
 
                 const currentDate = message.createdAt ? format(parseISO(message.createdAt), "dd/MM/yyyy") : null;
                 const prevDate = index > 0 && messages[index - 1]?.createdAt ? format(parseISO(messages[index - 1].createdAt), "dd/MM/yyyy") : null;
                 const showDateSeparator = currentDate && currentDate !== prevDate;
+                const footerMediaCategory = resolveMediaCategory(message);
+                const FooterMediaIcon = MEDIA_ICONS[footerMediaCategory] || null;
 
                 return (
                   <React.Fragment key={message.id || index}>
@@ -2328,21 +2518,19 @@ const Audit = () => {
                       </div>
                     )}
                     <div
-                      className={`${classes.messageBubble} ${
-                        isOp ? classes.messageOperator : classes.messageClient
-                      }`}
+                      className={clsx(
+                        classes.messageBubble,
+                        isOp ? classes.messageOperator : classes.messageClient,
+                        message.isDeleted && classes.messageDeleted
+                      )}
                     >
                       {/* Header do Remetente em Grupo */}
                       {isGroup && (
                         <Typography
                           variant="caption"
-                          style={{
-                            fontWeight: 700,
-                            color: senderColor,
-                            display: "block",
-                            marginBottom: 3,
-                            fontSize: "0.76rem",
-                          }}
+                          className={classes.senderName}
+                          color={isOp ? "primary" : undefined}
+                          style={senderColor ? { color: senderColor } : undefined}
                         >
                           {senderName}
                         </Typography>
@@ -2351,7 +2539,7 @@ const Audit = () => {
                       {/* Banner de Mensagem Apagada */}
                       {message.isDeleted && (
                         <div className={classes.deletedBanner}>
-                          <BlockIcon style={{ fontSize: 14 }} />
+                          <BlockIcon style={{ fontSize: 12 }} />
                           <span>MENSAGEM APAGADA NO WHATSAPP</span>
                         </div>
                       )}
@@ -2359,9 +2547,9 @@ const Audit = () => {
                       {/* Mensagem Respondida (Quoted) */}
                       {message.quotedMsg && (
                         <div className={classes.quotedMsgBox}>
-                          <Typography variant="caption" style={{ fontWeight: 700, color: "#0284c7", display: "block" }}>
+                          <Typography variant="caption" className={classes.quotedAuthor}>
                             {message.quotedMsg.fromMe
-                              ? `📱 ${selectedDevice?.name || "Operador"}`
+                              ? (selectedDevice?.name || "Operador")
                               : (message.quotedMsg.contact ? getContactDisplayName(message.quotedMsg.contact) : "Participante")}
                           </Typography>
                           <Typography variant="caption" style={{ whiteSpace: "pre-wrap", display: "block" }}>
@@ -2390,20 +2578,11 @@ const Audit = () => {
                                 }}
                               />
                               <div
-                                style={{
-                                  display: "none",
-                                  alignItems: "center",
-                                  gap: 8,
-                                  padding: "8px 12px",
-                                  backgroundColor: "rgba(2, 132, 199, 0.08)",
-                                  borderRadius: 8,
-                                  cursor: "pointer",
-                                  marginTop: 4
-                                }}
+                                className={classes.imageFallback}
                                 onClick={() => handleOpenMediaModal(message.mediaUrl, "image", cleanMediaName)}
                               >
-                                <ImageIcon style={{ color: "#0284c7" }} />
-                                <Typography variant="caption" style={{ fontWeight: 600, color: "#0284c7" }}>
+                                <ImageIcon />
+                                <Typography variant="caption" style={{ fontWeight: 600 }}>
                                   {cleanMediaName} • Clique para visualizar foto
                                 </Typography>
                               </div>
@@ -2431,7 +2610,7 @@ const Audit = () => {
                               <video
                                 src={message.mediaUrl}
                                 controls
-                                style={{ maxWidth: "100%", maxHeight: 240, borderRadius: 8 }}
+                                style={{ maxWidth: "100%", maxHeight: 240, borderRadius: 10 }}
                                 onClick={() => handleOpenMediaModal(message.mediaUrl, "video", cleanMediaName)}
                               />
                             </div>
@@ -2445,12 +2624,14 @@ const Audit = () => {
                                 className={classes.pdfCardHeader}
                                 onClick={() => handleOpenMediaModal(message.mediaUrl, "application/pdf", cleanMediaName)}
                               >
-                                <PictureAsPdfIcon style={{ color: "#ef4444", fontSize: 30, marginRight: 8, flexShrink: 0 }} />
+                                <div className={classes.pdfIcon}>
+                                  <PictureAsPdfIcon />
+                                </div>
                                 <div style={{ overflow: "hidden", flexGrow: 1 }}>
-                                  <Typography variant="subtitle2" noWrap style={{ fontWeight: 600, fontSize: "0.83rem" }}>
+                                  <Typography variant="subtitle2" noWrap style={{ fontWeight: 650, fontSize: "0.83rem" }}>
                                     {cleanMediaName}
                                   </Typography>
-                                  <Typography variant="caption" style={{ color: "#64748b", fontSize: "0.72rem", display: "block" }}>
+                                  <Typography variant="caption" color="textSecondary" style={{ fontSize: "0.72rem", display: "block" }}>
                                     Documento / Comprovante • Clique para expandir
                                   </Typography>
                                 </div>
@@ -2472,12 +2653,13 @@ const Audit = () => {
                                 <Button
                                   size="small"
                                   variant="outlined"
+                                  color="primary"
                                   startIcon={<OpenInNewIcon style={{ fontSize: 15 }} />}
                                   onClick={(e) => {
                                     e.stopPropagation();
                                     window.open(message.mediaUrl, "_blank");
                                   }}
-                                  className={classes.docActionBtnSec}
+                                  className={classes.docActionBtn}
                                 >
                                   Nova Aba
                                 </Button>
@@ -2494,7 +2676,7 @@ const Audit = () => {
                                     link.click();
                                     document.body.removeChild(link);
                                   }}
-                                  style={{ color: "#475569", marginLeft: "auto" }}
+                                  style={{ marginLeft: "auto" }}
                                 >
                                   <GetAppIcon fontSize="small" />
                                 </IconButton>
@@ -2512,24 +2694,28 @@ const Audit = () => {
                         !message.body.endsWith(".pdf") &&
                         !message.body.endsWith(".ogg") &&
                         !message.body.startsWith(".kfKTb") && (
-                          <Typography variant="body2" style={{ whiteSpace: "pre-wrap", lineHeight: 1.4, marginTop: 4 }}>
+                          <Typography variant="body2" style={{ whiteSpace: "pre-wrap", lineHeight: 1.45, marginTop: 4 }}>
                             {message.body}
                           </Typography>
                         )}
 
-                      {/* Rodapé: Horário & Status */}
+                      {/* Rodapé: direção, mídia, horário & status */}
                       <div className={classes.metaFooter}>
+                        <span className={classes.directionTag}>
+                          {isOp ? "Enviada" : "Recebida"}
+                        </span>
+                        {FooterMediaIcon && <FooterMediaIcon />}
                         <span>
                           {message.createdAt ? format(parseISO(message.createdAt), "dd/MM/yyyy HH:mm") : ""}
                         </span>
                         {isOp && (
-                          <span>
+                          <span style={{ display: "inline-flex" }}>
                             {message.ack === 3 ? (
-                              <DoneAllIcon style={{ fontSize: 14, color: "#38bdf8" }} />
+                              <DoneAllIcon className={classes.ackRead} />
                             ) : message.ack === 2 ? (
-                              <DoneAllIcon style={{ fontSize: 14 }} />
+                              <DoneAllIcon />
                             ) : (
-                              <DoneIcon style={{ fontSize: 14 }} />
+                              <DoneIcon />
                             )}
                           </span>
                         )}
@@ -2553,7 +2739,7 @@ const Audit = () => {
           deviceName={selectedDevice?.name}
           containerId="audit-drawer-container"
         />
-      </div>
+      </Paper>
 
       {/* Modal de Exportação */}
       <ExportAuditModal

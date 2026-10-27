@@ -1,21 +1,31 @@
 import React from "react";
 
-import { Card, Button } from "@material-ui/core";
+import { IconButton } from "@material-ui/core";
 import { makeStyles } from "@material-ui/core/styles";
 import TicketHeaderSkeleton from "../TicketHeaderSkeleton";
-import ArrowBackIos from "@material-ui/icons/ArrowBackIos";
+import ArrowBack from "@material-ui/icons/ArrowBack";
 import { useHistory } from "react-router-dom";
 
 const useStyles = makeStyles((theme) => ({
   ticketHeader: {
     display: "flex",
-    backgroundColor: theme.palette.type === "dark" ? "#202c33" : "#eee",
-    color: theme.palette.type === "dark" ? "#e9edef" : undefined,
+    alignItems: "center",
+    gap: theme.spacing(1),
     flex: "none",
-    borderBottom: `1px solid ${theme.palette.type === "dark" ? "rgba(148, 163, 184, 0.18)" : "rgba(0, 0, 0, 0.12)"}`,
+    minHeight: 68,
+    padding: theme.spacing(1, 1.5, 1, 1),
+    backgroundColor: theme.custom.surface,
+    color: theme.custom.text,
+    borderBottom: `1px solid ${theme.custom.border}`,
     [theme.breakpoints.down("sm")]: {
       flexWrap: "wrap",
     },
+  },
+  backButton: {
+    flex: "none",
+    width: 36,
+    height: 36,
+    padding: 0,
   },
 }));
 
@@ -31,12 +41,18 @@ const TicketHeader = ({ loading, children }) => {
       {loading ? (
         <TicketHeaderSkeleton />
       ) : (
-        <Card square id="ticket-header" className={classes.ticketHeader}>
-          <Button id="ticket-header-back-button" color="primary" onClick={handleBack} aria-label="Voltar">
-            <ArrowBackIos />
-          </Button>
+        <div id="ticket-header" className={classes.ticketHeader}>
+          <IconButton
+            id="ticket-header-back-button"
+            size="small"
+            className={classes.backButton}
+            onClick={handleBack}
+            aria-label="Voltar"
+          >
+            <ArrowBack fontSize="small" />
+          </IconButton>
           {children}
-        </Card>
+        </div>
       )}
     </>
   );

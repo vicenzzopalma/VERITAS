@@ -32,192 +32,251 @@ import clsx from "clsx";
 
 const drawerWidth = 360;
 
-const useStyles = makeStyles(theme => ({
-  drawer: {
-    width: drawerWidth,
-    flexShrink: 0,
-    zIndex: 7,
-  },
-  drawerClosed: {
-    display: "none !important",
-    width: "0px !important",
-    pointerEvents: "none !important",
-  },
-  drawerPaper: {
-    width: drawerWidth,
-    display: "flex",
-    flexDirection: "column",
-    backgroundColor: theme.palette.type === "dark" ? "#0f172a" : "#f8fafc",
-    borderLeft: `1px solid ${theme.palette.type === "dark" ? "rgba(148, 163, 184, 0.18)" : "#e2e8f0"}`,
-    boxShadow: theme.palette.type === "dark" ? "-8px 0 24px rgba(0, 0, 0, 0.28)" : "-4px 0 16px rgba(0, 0, 0, 0.04)",
-  },
-  header: {
-    display: "flex",
-    backgroundColor: "#52658C",
-    color: "#ffffff",
-    alignItems: "center",
-    justifyContent: "space-between",
-    padding: theme.spacing(1.5, 2),
-    minHeight: 56,
-  },
-  headerTitle: {
-    fontWeight: 700,
-    fontSize: "0.95rem",
-    letterSpacing: "0.3px",
-  },
-  content: {
-    display: "flex",
-    flexDirection: "column",
-    gap: theme.spacing(1.5),
-    padding: theme.spacing(2),
-    height: "100%",
-    overflowY: "auto",
-    ...theme.scrollbarStyles,
-  },
-  profileCard: {
-    padding: theme.spacing(2.5, 2),
-    display: "flex",
-    flexDirection: "column",
-    alignItems: "center",
-    textAlign: "center",
-    borderRadius: 12,
-    border: "1px solid #e2e8f0",
-    backgroundColor: "#ffffff",
-    boxShadow: "0 1px 3px rgba(0,0,0,0.02)",
-  },
-  avatarWrapper: {
-    position: "relative",
-    display: "inline-flex",
-    borderRadius: "50%",
-    marginBottom: theme.spacing(1.5),
-    transition: "transform 0.2s ease",
-    "&:hover": {
-      transform: "scale(1.03)",
+const useStyles = makeStyles(theme => {
+  const c = theme.custom;
+  const success = theme.palette.success.main;
+  return {
+    drawer: {
+      width: drawerWidth,
+      flexShrink: 0,
+      zIndex: 7,
     },
-  },
-  avatar: {
-    width: 94,
-    height: 94,
-    border: "3px solid #52658C",
-    boxShadow: "0 4px 10px rgba(82, 101, 140, 0.2)",
-    fontSize: "2.1rem",
-    fontWeight: 700,
-    backgroundColor: "#52658C",
-    transition: "all 0.2s ease",
-  },
-  avatarClickable: {
-    cursor: "pointer",
-    "&:hover": {
-      boxShadow: "0 6px 18px rgba(2, 132, 199, 0.35)",
-      borderColor: "#0284c7",
+    drawerClosed: {
+      display: "none !important",
+      width: "0px !important",
+      pointerEvents: "none !important",
     },
-  },
-  avatarHoverOverlay: {
-    position: "absolute",
-    top: 0,
-    left: 0,
-    width: "100%",
-    height: "100%",
-    borderRadius: "50%",
-    backgroundColor: "rgba(0, 0, 0, 0.42)",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    opacity: 0,
-    cursor: "pointer",
-    transition: "opacity 0.2s ease",
-    "&:hover": {
-      opacity: 1,
+    drawerPaper: {
+      width: drawerWidth,
+      maxWidth: "100%",
+      height: "100%",
+      display: "flex",
+      flexDirection: "column",
+      backgroundColor: c.surface,
+      border: "none",
+      borderLeft: `1px solid ${c.border}`,
+      boxShadow: c.shadowLg,
+      overflow: "hidden",
     },
-  },
-  contactName: {
-    fontWeight: 800,
-    fontSize: "1.15rem",
-    color: theme.palette.type === "dark" ? "#f8fafc" : "#0f172a",
-    marginBottom: 4,
-    lineHeight: 1.3,
-  },
-  phoneCard: {
-    width: "100%",
-    marginTop: theme.spacing(1.5),
-    padding: theme.spacing(1.5),
-    backgroundColor: theme.palette.type === "dark" ? "#1e293b" : "#f1f5f9",
-    borderRadius: 8,
-    border: `1px solid ${theme.palette.type === "dark" ? "rgba(148, 163, 184, 0.2)" : "#e2e8f0"}`,
-  },
-  phoneLabel: {
-    fontSize: "0.72rem",
-    fontWeight: 700,
-    textTransform: "uppercase",
-    color: theme.palette.type === "dark" ? "#94a3b8" : "#64748b",
-    letterSpacing: "0.5px",
-    marginBottom: 2,
-  },
-  phoneNumberText: {
-    fontSize: "1.05rem",
-    fontWeight: 800,
-    color: theme.palette.type === "dark" ? "#e2e8f0" : "#1e293b",
-    letterSpacing: "0.5px",
-    fontFamily: "'Inter', monospace",
-  },
-  actionsRow: {
-    display: "flex",
-    gap: theme.spacing(1),
-    marginTop: theme.spacing(1.5),
-    width: "100%",
-  },
-  actionButton: {
-    flexGrow: 1,
-    borderRadius: 8,
-    textTransform: "none",
-    fontWeight: 600,
-    fontSize: "0.8rem",
-    padding: "6px 10px",
-  },
-  infoSection: {
-    padding: theme.spacing(2),
-    borderRadius: 12,
-    border: `1px solid ${theme.palette.type === "dark" ? "rgba(148, 163, 184, 0.2)" : "#e2e8f0"}`,
-    backgroundColor: theme.palette.type === "dark" ? "#111827" : "#ffffff",
-    display: "flex",
-    flexDirection: "column",
-    gap: theme.spacing(1.5),
-  },
-  sectionHeader: {
-    display: "flex",
-    alignItems: "center",
-    gap: theme.spacing(1),
-    fontWeight: 700,
-    fontSize: "0.85rem",
-    color: theme.palette.type === "dark" ? "#cbd5e1" : "#334155",
-    textTransform: "uppercase",
-    letterSpacing: "0.5px",
-    paddingBottom: theme.spacing(0.5),
-    borderBottom: `1px solid ${theme.palette.type === "dark" ? "rgba(148, 163, 184, 0.16)" : "#f1f5f9"}`,
-  },
-  metaItem: {
-    display: "flex",
-    flexDirection: "column",
-    gap: 2,
-  },
-  metaLabel: {
-    fontSize: "0.72rem",
-    color: theme.palette.type === "dark" ? "#94a3b8" : "#64748b",
-    fontWeight: 600,
-  },
-  metaValue: {
-    fontSize: "0.85rem",
-    fontWeight: 600,
-    color: theme.palette.type === "dark" ? "#e2e8f0" : "#1e293b",
-    wordBreak: "break-all",
-  },
-  extraInfoBox: {
-    padding: theme.spacing(1),
-    borderRadius: 6,
-    backgroundColor: theme.palette.type === "dark" ? "#172033" : "#f8fafc",
-    border: `1px solid ${theme.palette.type === "dark" ? "rgba(148, 163, 184, 0.14)" : "#f1f5f9"}`,
-  },
-}));
+    header: {
+      display: "flex",
+      alignItems: "center",
+      gap: theme.spacing(1),
+      borderBottom: `1px solid ${c.border}`,
+      padding: theme.spacing(0, 1.5, 0, 2),
+      minHeight: 68,
+      flex: "none",
+    },
+    headerTitle: {
+      flex: 1,
+      fontWeight: 700,
+      fontSize: "0.95rem",
+      color: c.text,
+    },
+    closeButton: {
+      width: 34,
+      height: 34,
+      padding: 0,
+    },
+    content: {
+      display: "flex",
+      flexDirection: "column",
+      gap: theme.spacing(1.5),
+      padding: theme.spacing(2),
+      flex: 1,
+      minHeight: 0,
+      overflowY: "auto",
+      backgroundColor: c.surfaceAlt,
+      ...theme.scrollbarStyles,
+    },
+
+    // Profile card (class names shared with ContactDrawerSkeleton)
+    contactHeader: {
+      display: "flex",
+      padding: theme.spacing(3, 2, 2),
+      flexDirection: "column",
+      alignItems: "center",
+      justifyContent: "center",
+      textAlign: "center",
+      gap: 4,
+      borderRadius: 14,
+      border: `1px solid ${c.border}`,
+      background: `linear-gradient(180deg, ${c.primarySoft} 0%, ${c.surface} 75%)`,
+    },
+    avatarWrapper: {
+      position: "relative",
+      display: "inline-flex",
+      borderRadius: "50%",
+      marginBottom: theme.spacing(1),
+      transition: "transform .2s ease",
+      "&:hover": { transform: "scale(1.03)" },
+    },
+    contactAvatar: {
+      width: 96,
+      height: 96,
+      fontSize: "2.1rem",
+      fontWeight: 700,
+      border: `3px solid ${c.surface}`,
+      boxShadow: `0 0 0 1px ${c.border}, ${c.shadow}`,
+      transition: "box-shadow .2s ease",
+    },
+    avatarClickable: {
+      cursor: "pointer",
+      "&:hover": {
+        boxShadow: `0 0 0 2px ${c.primary}, ${c.shadowLg}`,
+      },
+    },
+    avatarHoverOverlay: {
+      position: "absolute",
+      top: 0,
+      left: 0,
+      width: "100%",
+      height: "100%",
+      borderRadius: "50%",
+      backgroundColor: "rgba(15, 18, 34, 0.45)",
+      color: "#FFFFFF",
+      display: "flex",
+      alignItems: "center",
+      justifyContent: "center",
+      opacity: 0,
+      cursor: "pointer",
+      transition: "opacity .2s ease",
+      "&:hover": { opacity: 1 },
+    },
+    contactName: {
+      fontWeight: 700,
+      fontSize: "1.05rem",
+      color: c.text,
+      lineHeight: 1.3,
+      wordBreak: "break-word",
+    },
+    savedAs: {
+      color: c.textMuted,
+      fontWeight: 500,
+      fontSize: "0.82rem",
+      marginBottom: 4,
+    },
+    groupChip: {
+      height: 22,
+      fontSize: "0.7rem",
+      color: c.primary,
+      backgroundColor: c.primarySoft,
+    },
+    phoneCard: {
+      width: "100%",
+      marginTop: theme.spacing(1.5),
+      padding: theme.spacing(1.25, 1.5),
+      backgroundColor: c.surface,
+      borderRadius: 12,
+      border: `1px solid ${c.border}`,
+      textAlign: "left",
+    },
+    phoneLabel: {
+      fontSize: "0.68rem",
+      fontWeight: 700,
+      textTransform: "uppercase",
+      color: c.textSubtle,
+      letterSpacing: "0.08em",
+      marginBottom: 2,
+    },
+    phoneNumberText: {
+      fontSize: "1.02rem",
+      fontWeight: 700,
+      color: c.text,
+      letterSpacing: "0.02em",
+      fontVariantNumeric: "tabular-nums",
+    },
+    copyButton: {
+      color: c.textMuted,
+    },
+    copiedIcon: {
+      color: success,
+    },
+    actionsRow: {
+      display: "flex",
+      gap: theme.spacing(1),
+      marginTop: theme.spacing(1.5),
+      width: "100%",
+      "&:empty": { display: "none" },
+    },
+    actionButton: {
+      flexGrow: 1,
+      fontSize: "0.82rem",
+    },
+    whatsappButton: {
+      border: "none",
+      backgroundColor: success,
+      color: "#FFFFFF",
+      "&:hover": { backgroundColor: success, filter: "brightness(0.95)" },
+    },
+
+    // Info sections (class names shared with ContactDrawerSkeleton)
+    contactDetails: {
+      padding: theme.spacing(1.5),
+      display: "flex",
+      flexDirection: "column",
+      gap: theme.spacing(1.25),
+      borderRadius: 14,
+      border: `1px solid ${c.border}`,
+      backgroundColor: c.surface,
+    },
+    sectionTitle: {
+      display: "flex",
+      alignItems: "center",
+      gap: theme.spacing(1),
+      fontSize: "0.7rem",
+      fontWeight: 700,
+      textTransform: "uppercase",
+      letterSpacing: "0.08em",
+      color: c.textSubtle,
+      padding: theme.spacing(0, 0.5),
+    },
+    sectionIcon: {
+      fontSize: 16,
+      color: c.primary,
+    },
+    metaItem: {
+      display: "flex",
+      flexDirection: "column",
+      gap: 2,
+      padding: theme.spacing(0, 0.5),
+    },
+    metaLabel: {
+      fontSize: "0.72rem",
+      color: c.textMuted,
+      fontWeight: 600,
+    },
+    metaValue: {
+      fontSize: "0.86rem",
+      fontWeight: 600,
+      color: c.text,
+      wordBreak: "break-all",
+    },
+    metaIcon: {
+      fontSize: 16,
+      color: c.textSubtle,
+    },
+    lidChip: {
+      height: 22,
+      fontFamily: "monospace",
+      fontSize: "0.72rem",
+      fontWeight: 600,
+      color: c.textMuted,
+      backgroundColor: c.surfaceAlt,
+      border: `1px solid ${c.border}`,
+      "& svg": { fontSize: 14, color: c.primary },
+    },
+    smallIcon: {
+      fontSize: 14,
+    },
+    contactExtraInfo: {
+      padding: theme.spacing(1, 1.25),
+      borderRadius: 10,
+      backgroundColor: c.surfaceAlt,
+      border: `1px solid ${c.border}`,
+    },
+  };
+});
 
 const ContactDrawer = ({
   open,
@@ -289,12 +348,12 @@ const ContactDrawer = ({
         paper: classes.drawerPaper,
       }}
     >
-      {/* 1. Cabeçalho Superior Estilo Digisac */}
+      {/* 1. Cabeçalho */}
       <div className={classes.header}>
         <Typography className={classes.headerTitle}>
-          📋 Detalhes do Contato
+          Detalhes do Contato
         </Typography>
-        <IconButton size="small" onClick={handleDrawerClose} style={{ color: "#ffffff" }}>
+        <IconButton size="small" className={classes.closeButton} onClick={handleDrawerClose}>
           <CloseIcon fontSize="small" />
         </IconButton>
       </div>
@@ -304,7 +363,7 @@ const ContactDrawer = ({
       ) : (
         <div className={classes.content}>
           {/* 2. Card Principal de Identificação */}
-          <Paper elevation={0} className={classes.profileCard}>
+          <Paper elevation={0} className={classes.contactHeader}>
             <Tooltip
               title={contact?.profilePicUrl ? "Clique para ampliar a foto do perfil" : ""}
               placement="top"
@@ -320,7 +379,7 @@ const ContactDrawer = ({
                 <Avatar
                   alt={contact?.name}
                   src={contact?.profilePicUrl}
-                  className={clsx(classes.avatar, {
+                  className={clsx(classes.contactAvatar, {
                     [classes.avatarClickable]: Boolean(contact?.profilePicUrl),
                   })}
                 >
@@ -328,7 +387,7 @@ const ContactDrawer = ({
                 </Avatar>
                 {contact?.profilePicUrl && (
                   <div className={classes.avatarHoverOverlay}>
-                    <ZoomInIcon style={{ color: "#ffffff", fontSize: 32 }} />
+                    <ZoomInIcon style={{ fontSize: 32 }} />
                   </div>
                 )}
               </div>
@@ -339,7 +398,7 @@ const ContactDrawer = ({
             </Typography>
 
             {contact?.name && contact?.name !== formattedPhone && !contact?.isGroup && (
-              <Typography variant="body2" style={{ color: "#64748b", fontWeight: 500, marginBottom: 6 }}>
+              <Typography variant="body2" className={classes.savedAs}>
                 Salvo como: <em>{contact.name}</em>
               </Typography>
             )}
@@ -348,11 +407,11 @@ const ContactDrawer = ({
               <Chip
                 label="👥 Grupo WhatsApp"
                 size="small"
-                style={{ backgroundColor: "#e2e8f0", fontWeight: 700, height: 22, fontSize: "0.7rem" }}
+                className={classes.groupChip}
               />
             )}
 
-            {/* 3. Destaque Visual do Número de Telefone (Padrão Digisac) */}
+            {/* 3. Destaque Visual do Número de Telefone */}
             <div className={classes.phoneCard}>
               <div className={classes.phoneLabel}>
                 Número de Telefone
@@ -362,7 +421,7 @@ const ContactDrawer = ({
                   {formattedPhone || "Não identificado"}
                 </Typography>
                 <Tooltip title={copied ? "Copiado!" : "Copiar número"}>
-                  <IconButton size="small" onClick={handleCopyPhone} style={{ color: copied ? "#10b981" : "#52658C" }}>
+                  <IconButton size="small" onClick={handleCopyPhone} className={copied ? classes.copiedIcon : classes.copyButton}>
                     {copied ? <CheckIcon fontSize="small" /> : <FileCopyIcon fontSize="small" />}
                   </IconButton>
                 </Tooltip>
@@ -374,8 +433,7 @@ const ContactDrawer = ({
               {cleanNumber && (
                 <Button
                   variant="contained"
-                  style={{ backgroundColor: "#10b981", color: "#fff" }}
-                  className={classes.actionButton}
+                  className={clsx(classes.actionButton, classes.whatsappButton)}
                   startIcon={<WhatsAppIcon />}
                   onClick={handleOpenWhatsApp}
                 >
@@ -386,9 +444,9 @@ const ContactDrawer = ({
           </Paper>
 
           {/* 4. Metadados de Auditoria & Conexão */}
-          <Paper elevation={0} className={classes.infoSection}>
-            <div className={classes.sectionHeader}>
-              <SmartphoneIcon fontSize="small" style={{ color: "#52658C" }} />
+          <Paper elevation={0} className={classes.contactDetails}>
+            <div className={classes.sectionTitle}>
+              <SmartphoneIcon className={classes.sectionIcon} />
               Informações do Canal & Auditoria
             </div>
 
@@ -403,7 +461,7 @@ const ContactDrawer = ({
               <div className={classes.metaItem}>
                 <span className={classes.metaLabel}>E-mail:</span>
                 <Box display="flex" alignItems="center" gap={0.5}>
-                  <EmailIcon fontSize="small" style={{ color: "#94a3b8", fontSize: 16 }} />
+                  <EmailIcon className={classes.metaIcon} />
                   <span className={classes.metaValue}>{contact.email}</span>
                 </Box>
               </div>
@@ -415,13 +473,13 @@ const ContactDrawer = ({
                 <Box display="flex" alignItems="center" justifyContent="space-between" mt={0.2}>
                   <Chip
                     size="small"
-                    icon={<FingerprintIcon style={{ fontSize: 14, color: "#52658C" }} />}
+                    icon={<FingerprintIcon />}
                     label={cleanLid}
-                    style={{ backgroundColor: "#e2e8f0", fontFamily: "monospace", fontSize: "0.72rem", height: 22 }}
+                    className={classes.lidChip}
                   />
                   <Tooltip title={copiedLid ? "LID Copiado!" : "Copiar LID"}>
                     <IconButton size="small" onClick={handleCopyLid}>
-                      {copiedLid ? <CheckIcon style={{ fontSize: 14, color: "#10b981" }} /> : <FileCopyIcon style={{ fontSize: 14 }} />}
+                      {copiedLid ? <CheckIcon className={clsx(classes.smallIcon, classes.copiedIcon)} /> : <FileCopyIcon className={classes.smallIcon} />}
                     </IconButton>
                   </Tooltip>
                 </Box>
@@ -432,8 +490,8 @@ const ContactDrawer = ({
               <Button
                 fullWidth
                 variant="outlined"
-                style={{ borderColor: "#cbd5e1", color: "#334155", textTransform: "none", fontWeight: 600 }}
-                startIcon={<EditIcon />}
+                color="primary"
+                startIcon={<EditIcon fontSize="small" />}
                 onClick={() => setModalOpen(true)}
               >
                 Editar Informações do Contato
@@ -443,12 +501,12 @@ const ContactDrawer = ({
 
           {/* 5. Campos Personalizados (ExtraInfo) */}
           {contact?.extraInfo && contact.extraInfo.length > 0 && (
-            <Paper elevation={0} className={classes.infoSection}>
-              <div className={classes.sectionHeader}>
+            <Paper elevation={0} className={classes.contactDetails}>
+              <div className={classes.sectionTitle}>
                 Campos Personalizados
               </div>
               {contact.extraInfo.map(info => (
-                <div key={info.id} className={classes.extraInfoBox}>
+                <div key={info.id} className={classes.contactExtraInfo}>
                   <div className={classes.metaLabel}>{info.name}</div>
                   <div className={classes.metaValue}>
                     <MarkdownWrapper>{info.value}</MarkdownWrapper>

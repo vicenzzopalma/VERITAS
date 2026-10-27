@@ -1,13 +1,8 @@
 import React, { useContext, useEffect, useState } from "react";
 import { Link as RouterLink, useLocation } from "react-router-dom";
-import { makeStyles } from "@material-ui/core/styles";
+import clsx from "clsx";
 
-import ListItem from "@material-ui/core/ListItem";
-import ListItemIcon from "@material-ui/core/ListItemIcon";
-import ListItemText from "@material-ui/core/ListItemText";
-import ListSubheader from "@material-ui/core/ListSubheader";
-import Divider from "@material-ui/core/Divider";
-import { Badge, Tooltip } from "@material-ui/core";
+import { Badge, Tooltip, makeStyles } from "@material-ui/core";
 import DashboardOutlinedIcon from "@material-ui/icons/DashboardOutlined";
 import WhatsAppIcon from "@material-ui/icons/WhatsApp";
 import PhoneAndroidIcon from "@material-ui/icons/PhoneAndroid";
@@ -25,494 +20,252 @@ import { WhatsAppsContext } from "../context/WhatsApp/WhatsAppsContext";
 import { AuthContext } from "../context/Auth/AuthContext";
 import { Can } from "../components/Can";
 
-const useStyles = makeStyles((theme) => ({
-  crmMenuContainer: {
-    "& .MuiListItemIcon-root": {
-      color: "#ffffff !important",
-      minWidth: 42,
-    },
-    "& .MuiSvgIcon-root": {
-      color: "#ffffff !important",
-      fill: "#ffffff !important",
-      filter: "drop-shadow(0 1px 2px rgba(0,0,0,0.6))",
-    },
-    "& .MuiListItemText-primary": {
-      color: "#ffffff !important",
-      fontWeight: 500,
-      fontSize: "0.92rem",
-    },
-    "& .MuiListSubheader-root": {
-      color: "#94a3b8 !important",
+const CRM_TOOLTIP = "Gestão de celulares = Whatsapp control = CRM = Whatsapp Control CRM";
+
+const useStyles = makeStyles((theme) => {
+  const c = theme.custom;
+  return {
+    section: {
+      padding: theme.spacing(1.5, 1.5, 0.5),
+      fontSize: "0.66rem",
       fontWeight: 700,
-      fontSize: "0.72rem",
-      letterSpacing: "0.08em",
+      letterSpacing: "0.09em",
       textTransform: "uppercase",
-    }
-  },
-  crmActiveItem: {
-    backgroundColor: "rgba(88, 101, 242, 0.28) !important",
-    borderLeft: "4px solid #5865f2 !important",
-    borderRadius: "0 12px 12px 0 !important",
-    margin: "3px 8px 3px 0 !important",
-    color: "#ffffff !important",
-    "& .MuiListItemIcon-root": {
-      color: "#818cf8 !important",
+      color: c.textSubtle,
+      whiteSpace: "nowrap",
+      overflow: "hidden",
+      textOverflow: "ellipsis",
     },
-    "& .MuiSvgIcon-root": {
-      color: "#818cf8 !important",
-      fill: "#818cf8 !important",
-      filter: "drop-shadow(0 0 6px rgba(88,101,242,0.6)) !important",
+    sectionCollapsed: {
+      height: 1,
+      padding: 0,
+      margin: theme.spacing(1.5, 1.5),
+      backgroundColor: c.border,
     },
-    "& .MuiListItemText-primary": {
-      color: "#ffffff !important",
-      fontWeight: "700 !important",
-    }
-  },
-  crmItem: {
-    borderRadius: "12px",
-    margin: "3px 8px",
-    color: "#ffffff !important",
-    transition: "all 0.2s cubic-bezier(0.4, 0, 0.2, 1)",
-    "& .MuiListItemIcon-root": {
-      color: "#ffffff !important",
-      minWidth: 42,
+    list: { listStyle: "none", margin: 0, padding: 0 },
+    item: {
+      position: "relative",
+      display: "flex",
+      alignItems: "center",
+      gap: 12,
+      width: "100%",
+      height: 40,
+      padding: "0 12px",
+      margin: "2px 0",
+      borderRadius: 10,
+      border: "none",
+      background: "none",
+      cursor: "pointer",
+      font: "inherit",
+      color: c.textMuted,
+      textDecoration: "none",
+      fontSize: "0.88rem",
+      fontWeight: 550,
+      whiteSpace: "nowrap",
+      transition: "background-color .15s, color .15s",
+      "& svg": { fontSize: 20, flex: "none" },
+      "&:hover": { backgroundColor: c.surfaceHover, color: c.text },
     },
-    "& .MuiSvgIcon-root": {
-      color: "#ffffff !important",
-      fill: "#ffffff !important",
-      filter: "drop-shadow(0 1px 2px rgba(0,0,0,0.6))",
-    },
-    "& .MuiListItemText-primary": {
-      color: "#ffffff !important",
-      fontWeight: 500,
-    },
-    "&:hover": {
-      backgroundColor: "rgba(255, 255, 255, 0.12) !important",
-      transform: "translateX(3px)",
-      "& .MuiListItemIcon-root": {
-        color: "#818cf8 !important",
+    itemCollapsed: { justifyContent: "center", padding: 0 },
+    active: {
+      backgroundColor: c.primarySoft,
+      color: theme.palette.primary.main,
+      fontWeight: 650,
+      "&:hover": { backgroundColor: c.primarySoft, color: theme.palette.primary.main },
+      "&::before": {
+        content: '""',
+        position: "absolute",
+        left: -12,
+        top: 10,
+        bottom: 10,
+        width: 3,
+        borderRadius: "0 3px 3px 0",
+        backgroundColor: theme.palette.primary.main,
       },
-      "& .MuiSvgIcon-root": {
-        color: "#818cf8 !important",
-        fill: "#818cf8 !important",
-      },
-      "& .MuiListItemText-primary": {
-        color: "#ffffff !important",
-      }
-    }
-  }
-}));
+    },
+    label: { overflow: "hidden", textOverflow: "ellipsis" },
+  };
+});
 
-function ListItemLink(props) {
-  const { icon, primary, to, className, isWhatsappControl, active, collapsed, tooltip } = props;
+const isPathActive = (pathname, to) => {
+  const target = to.toLowerCase();
+  const current = pathname.toLowerCase();
+  return target === "/" ? current === "/" : current.startsWith(target);
+};
 
-  const renderLink = React.useMemo(
-    () =>
-      React.forwardRef((itemProps, ref) => (
-        <RouterLink to={to} ref={ref} {...itemProps} />
-      )),
-    [to]
+const withTooltip = (node, title, show) =>
+  show ? (
+    <Tooltip title={title} placement="right">
+      {node}
+    </Tooltip>
+  ) : (
+    node
   );
 
-  const content = (
-    <li style={collapsed ? { width: "68px", maxWidth: "68px", overflow: "hidden", listStyle: "none" } : { listStyle: "none" }}>
-      <ListItem
-        button
-        component={renderLink}
-        className={className}
-        style={{
-          overflow: "hidden",
-          whiteSpace: "nowrap",
-          ...(isWhatsappControl
-            ? {
-                borderRadius: collapsed ? "0" : active ? "0 14px 14px 0" : "14px",
-                margin: collapsed ? "0" : active ? "3px 8px 3px 0" : "3px 8px",
-                backgroundColor: active ? "rgba(88, 101, 242, 0.28)" : "transparent",
-                borderLeft: active ? "4px solid #5865f2" : "4px solid transparent",
-                color: "#ffffff",
-                transition: "all 0.2s cubic-bezier(0.4, 0, 0.2, 1)",
-                ...(collapsed
-                  ? {
-                      width: "68px",
-                      maxWidth: "68px",
-                      minWidth: "68px",
-                      boxSizing: "border-box",
-                      overflow: "hidden",
-                      paddingLeft: "10px",
-                      paddingRight: "10px",
-                      marginRight: "0",
-                      borderRight: "0",
-                    }
-                  : {}),
-              }
-            : (collapsed
-                ? {
-                    width: "68px",
-                    maxWidth: "68px",
-                    minWidth: "68px",
-                    boxSizing: "border-box",
-                    overflow: "hidden",
-                    paddingLeft: "10px",
-                    paddingRight: "10px",
-                  }
-                : {})),
-        }}
-      >
-        {icon ? (
-          <ListItemIcon
-            style={{
-              minWidth: collapsed ? 0 : 42,
-              width: collapsed ? "100%" : undefined,
-              justifyContent: collapsed ? "center" : undefined,
-              color: isWhatsappControl ? (active ? "#818cf8" : "#ffffff") : undefined,
-            }}
-          >
-            {React.isValidElement(icon)
-              ? React.cloneElement(icon, {
-                  style: isWhatsappControl
-                    ? {
-                        color: active ? "#818cf8" : "#ffffff",
-                        fill: active ? "#818cf8" : "#ffffff",
-                        filter: active
-                          ? "drop-shadow(0 0 6px rgba(88,101,242,0.6))"
-                          : "drop-shadow(0 1px 2px rgba(0,0,0,0.6))",
-                      }
-                    : undefined,
-                })
-              : icon}
-          </ListItemIcon>
-        ) : null}
-        {!collapsed && (
-          <ListItemText
-            primary={primary}
-            primaryTypographyProps={{
-              noWrap: true,
-              style: isWhatsappControl
-                ? {
-                    color: "#ffffff",
-                    fontWeight: active ? 700 : 500,
-                    fontSize: "0.92rem",
-                    fontFamily: "'Outfit', sans-serif",
-                    whiteSpace: "nowrap",
-                    overflow: "hidden",
-                    textOverflow: "ellipsis",
-                  }
-                : {
-                    whiteSpace: "nowrap",
-                    overflow: "hidden",
-                    textOverflow: "ellipsis",
-                  },
-            }}
-          />
-        )}
-      </ListItem>
-    </li>
-  );
-
-  if (tooltip) {
-    return (
-      <Tooltip title={tooltip} arrow placement="right">
-        {content}
-      </Tooltip>
-    );
-  }
-
-  return content;
-}
-
-const MainListItems = (props) => {
-  const { drawerClose, collapsed = false } = props;
+const NavItem = ({ to, icon, label, collapsed, tooltip }) => {
   const classes = useStyles();
-  const location = useLocation();
+  const { pathname } = useLocation();
+  const isActive = isPathActive(pathname, to);
+
+  const link = (
+    <RouterLink
+      to={to}
+      className={clsx(classes.item, collapsed && classes.itemCollapsed, isActive && classes.active)}
+      aria-current={isActive ? "page" : undefined}
+    >
+      {icon}
+      {!collapsed && <span className={classes.label}>{label}</span>}
+    </RouterLink>
+  );
+
+  return <li>{withTooltip(link, tooltip || label, collapsed || Boolean(tooltip))}</li>;
+};
+
+const LogoutItem = ({ collapsed, onClick }) => {
+  const classes = useStyles();
+  const button = (
+    <button type="button" onClick={onClick} className={clsx(classes.item, collapsed && classes.itemCollapsed)}>
+      <ExitToAppIcon />
+      {!collapsed && <span className={classes.label}>Sair</span>}
+    </button>
+  );
+  return <li>{withTooltip(button, "Sair", collapsed)}</li>;
+};
+
+const Section = ({ label, collapsed }) => {
+  const classes = useStyles();
+  return collapsed ? <div className={classes.sectionCollapsed} /> : <div className={classes.section}>{label}</div>;
+};
+
+const MainListItems = ({ drawerClose, collapsed = false }) => {
+  const classes = useStyles();
   const { user, handleLogout } = useContext(AuthContext);
   const { whatsApps } = useContext(WhatsAppsContext);
-  const isWhatsappControl = location.pathname.startsWith("/whatsapp-control") || user?.profile === "whatsapp_control" || user?.profile === "whatsapp_control_high";
   const isMaster = user?.profile === "admin_master";
   const [connectionWarning, setConnectionWarning] = useState(false);
 
   useEffect(() => {
     const delayDebounceFn = setTimeout(() => {
       if (whatsApps.length > 0) {
-        const offlineWhats = whatsApps.filter((whats) => {
-          return (
-            whats.status === "qrcode" ||
-            whats.status === "PAIRING" ||
-            whats.status === "DISCONNECTED" ||
-            whats.status === "TIMEOUT" ||
-            whats.status === "OPENING"
-          );
-        });
-        if (offlineWhats.length > 0) {
-          setConnectionWarning(true);
-        } else {
-          setConnectionWarning(false);
-        }
+        const offlineWhats = whatsApps.filter((whats) =>
+          ["qrcode", "PAIRING", "DISCONNECTED", "TIMEOUT", "OPENING"].includes(whats.status)
+        );
+        setConnectionWarning(offlineWhats.length > 0);
       }
     }, 2000);
     return () => clearTimeout(delayDebounceFn);
   }, [whatsApps]);
 
-  const getItemClass = (path) => {
-    if (isWhatsappControl) {
-      if (location.pathname === path) {
-        return `${classes.crmActiveItem} crm-active-item`;
-      }
-      return `${classes.crmItem} crm-menu-item`;
-    }
-    return undefined;
-  };
+  const connectionsIcon = (
+    <Badge variant="dot" invisible={!connectionWarning} color="error" overlap="circular">
+      <SyncAltIcon />
+    </Badge>
+  );
 
-  // O perfil Whatsapp Control acessa o CRM, as conexões e auditoria conforme o nível (baixo vs alto).
+  // Perfil Whatsapp Control: CRM, conexões e (nível alto) auditoria.
   if (user?.profile === "whatsapp_control" || user?.profile === "whatsapp_control_high") {
     const isHigh = user?.profile === "whatsapp_control_high";
     return (
-      <div onClick={drawerClose} className={classes.crmMenuContainer}>
-        <ListItemLink
-          to="/whatsapp-control"
-          primary="CRM"
-          tooltip="Gestão de celulares = Whatsapp control = CRM = Whatsapp Control CRM"
-          icon={<PhoneAndroidIcon />}
-          className={getItemClass("/whatsapp-control")}
-          isWhatsappControl={true}
-          active={location.pathname === "/whatsapp-control"}
-          collapsed={collapsed}
-        />
-        <ListItemLink
-          to="/connections"
-          primary="Conexões"
-          icon={<SyncAltIcon />}
-          className={getItemClass("/connections")}
-          isWhatsappControl={true}
-          active={location.pathname === "/connections"}
-          collapsed={collapsed}
-        />
-        {isHigh && (
-          <ListItemLink
-            to="/audit"
-            primary="Auditoria"
-            icon={<SecurityOutlinedIcon />}
-            className={getItemClass("/audit")}
-            isWhatsappControl={true}
-            active={location.pathname === "/audit"}
-            collapsed={collapsed}
-          />
-        )}
-        <Divider style={{ margin: "12px 0", backgroundColor: "rgba(255, 255, 255, 0.1)" }} />
-        <li>
-          <ListItem
-            button
-            onClick={handleLogout}
-            className={classes.crmItem}
-            style={{ borderRadius: 8, margin: "3px 8px", color: "#ffffff" }}
-          >
-            <ListItemIcon style={{ color: "#ffffff", minWidth: 42 }}>
-              <ExitToAppIcon style={{ color: "#ffffff", fill: "#ffffff" }} />
-            </ListItemIcon>
-            <ListItemText
-              primary="Sair"
-              primaryTypographyProps={{
-                style: {
-                  color: "#ffffff",
-                  fontWeight: 500,
-                  fontSize: "0.92rem",
-                  fontFamily: "'Outfit', sans-serif",
-                },
-              }}
-            />
-          </ListItem>
-        </li>
-      </div>
+      <nav onClick={drawerClose} aria-label="Navegação principal">
+        <Section label="CRM" collapsed={collapsed} />
+        <ul className={classes.list}>
+          <NavItem to="/whatsapp-control" label="CRM" tooltip={CRM_TOOLTIP} icon={<PhoneAndroidIcon />} collapsed={collapsed} />
+          <NavItem to="/connections" label="Conexões" icon={connectionsIcon} collapsed={collapsed} />
+          {isHigh && <NavItem to="/audit" label="Auditoria" icon={<SecurityOutlinedIcon />} collapsed={collapsed} />}
+        </ul>
+        <Section label="Conta" collapsed={collapsed} />
+        <ul className={classes.list}>
+          <LogoutItem collapsed={collapsed} onClick={handleLogout} />
+        </ul>
+      </nav>
     );
   }
 
   if (user?.profile === "operator") {
     return (
-      <div onClick={drawerClose}>
-        <ListItemLink
-          to="/live"
-          primary="Atendimento"
-          icon={<QuestionAnswerOutlinedIcon />}
-          active={location.pathname.startsWith("/live")}
-          collapsed={collapsed}
-        />
-        <Divider style={{ margin: "12px 0" }} />
-        <li>
-          <ListItem
-            button
-            onClick={handleLogout}
-            style={collapsed ? {
-              width: "68px",
-              maxWidth: "68px",
-              minWidth: "68px",
-              boxSizing: "border-box",
-              overflow: "hidden",
-              paddingLeft: "10px",
-              paddingRight: "10px",
-              marginRight: "0",
-            } : undefined}
-          >
-            <ListItemIcon style={collapsed ? { minWidth: 0, width: "100%", justifyContent: "center" } : undefined}>
-              <ExitToAppIcon />
-            </ListItemIcon>
-            {!collapsed && <ListItemText primary="Sair" />}
-          </ListItem>
-        </li>
-      </div>
+      <nav onClick={drawerClose} aria-label="Navegação principal">
+        <Section label="Atendimento" collapsed={collapsed} />
+        <ul className={classes.list}>
+          <NavItem to="/live" label="Atendimento" icon={<QuestionAnswerOutlinedIcon />} collapsed={collapsed} />
+        </ul>
+        <Section label="Conta" collapsed={collapsed} />
+        <ul className={classes.list}>
+          <LogoutItem collapsed={collapsed} onClick={handleLogout} />
+        </ul>
+      </nav>
     );
   }
 
   return (
-    <div onClick={drawerClose} className={isWhatsappControl ? classes.crmMenuContainer : undefined}>
-      {/* 1. CRM EM PRIMEIRO */}
-      <ListItemLink
-        to="/whatsapp-control"
-        primary="CRM"
-        tooltip="Gestão de celulares = Whatsapp control = CRM = Whatsapp Control CRM"
-        icon={<PhoneAndroidIcon />}
-        className={getItemClass("/whatsapp-control")}
-        isWhatsappControl={isWhatsappControl}
-        active={location.pathname === "/whatsapp-control"}
-        collapsed={collapsed}
-      />
+    <nav onClick={drawerClose} aria-label="Navegação principal">
+      <Section label="Gestão" collapsed={collapsed} />
+      <ul className={classes.list}>
+        <NavItem to="/whatsapp-control" label="CRM" tooltip={CRM_TOOLTIP} icon={<PhoneAndroidIcon />} collapsed={collapsed} />
+        <Can
+          role={user.profile}
+          perform="audit:view"
+          yes={() => <NavItem to="/audit" label="Auditoria" icon={<SecurityOutlinedIcon />} collapsed={collapsed} />}
+        />
+        <NavItem
+          to="/connections"
+          label={i18n.t("mainDrawer.listItems.connections")}
+          icon={connectionsIcon}
+          collapsed={collapsed}
+        />
+      </ul>
 
-      {/* 2. Auditoria */}
-      <Can
-        role={user.profile}
-        perform="audit:view"
-        yes={() => (
-          <ListItemLink
-            to="/audit"
-            primary="Auditoria"
-            icon={<SecurityOutlinedIcon />}
-            className={getItemClass("/audit")}
-            isWhatsappControl={isWhatsappControl}
-            active={location.pathname === "/audit"}
-            collapsed={collapsed}
-          />
-        )}
-      />
+      <Section label="Atendimento" collapsed={collapsed} />
+      <ul className={classes.list}>
+        <NavItem to="/tickets" label={i18n.t("mainDrawer.listItems.tickets")} icon={<WhatsAppIcon />} collapsed={collapsed} />
+        <NavItem
+          to="/contacts"
+          label={i18n.t("mainDrawer.listItems.contacts")}
+          icon={<ContactPhoneOutlinedIcon />}
+          collapsed={collapsed}
+        />
+        <NavItem
+          to="/quickAnswers"
+          label={i18n.t("mainDrawer.listItems.quickAnswers")}
+          icon={<QuestionAnswerOutlinedIcon />}
+          collapsed={collapsed}
+        />
+        <NavItem to="/" label="Dashboard" icon={<DashboardOutlinedIcon />} collapsed={collapsed} />
+      </ul>
 
-      {/* 3. Conexões */}
-      <ListItemLink
-        to="/connections"
-        primary={i18n.t("mainDrawer.listItems.connections")}
-        icon={
-          <Badge badgeContent={connectionWarning ? "!" : 0} color="error">
-            <SyncAltIcon />
-          </Badge>
-        }
-        className={getItemClass("/connections")}
-        isWhatsappControl={isWhatsappControl}
-        active={location.pathname === "/connections"}
-        collapsed={collapsed}
-      />
-
-      {/* 4. Tickets */}
-      <ListItemLink
-        to="/tickets"
-        primary={i18n.t("mainDrawer.listItems.tickets")}
-        icon={<WhatsAppIcon />}
-        className={getItemClass("/tickets")}
-        isWhatsappControl={isWhatsappControl}
-        active={location.pathname === "/tickets"}
-        collapsed={collapsed}
-      />
-
-      {/* 5. Contatos */}
-      <ListItemLink
-        to="/contacts"
-        primary={i18n.t("mainDrawer.listItems.contacts")}
-        icon={<ContactPhoneOutlinedIcon />}
-        className={getItemClass("/contacts")}
-        isWhatsappControl={isWhatsappControl}
-        active={location.pathname === "/contacts"}
-        collapsed={collapsed}
-      />
-
-      {/* 6. Respostas Rápidas */}
-      <ListItemLink
-        to="/quickAnswers"
-        primary={i18n.t("mainDrawer.listItems.quickAnswers")}
-        icon={<QuestionAnswerOutlinedIcon />}
-        className={getItemClass("/quickAnswers")}
-        isWhatsappControl={isWhatsappControl}
-        active={location.pathname === "/quickAnswers"}
-        collapsed={collapsed}
-      />
-
-      {/* 7. Dashboard EMBAIXO DE RESPOSTAS RÁPIDAS */}
-      <ListItemLink
-        to="/"
-        primary="Dashboard"
-        icon={<DashboardOutlinedIcon />}
-        className={getItemClass("/")}
-        isWhatsappControl={isWhatsappControl}
-        active={location.pathname === "/"}
-        collapsed={collapsed}
-      />
-
-      {/* 8. Administração */}
       <Can
         role={user.profile}
         perform="drawer-admin-items:view"
         yes={() => (
           <>
-            <Divider style={isWhatsappControl ? { backgroundColor: "rgba(255, 255, 255, 0.1)" } : undefined} />
-            {!collapsed && (
-              <ListSubheader
-                inset
-                style={
-                  isWhatsappControl
-                    ? {
-                        color: "#94a3b8",
-                        backgroundColor: "transparent",
-                        fontWeight: 700,
-                        fontSize: "0.72rem",
-                        textTransform: "uppercase",
-                        letterSpacing: "0.08em",
-                        fontFamily: "'Outfit', sans-serif",
-                      }
-                    : undefined
-                }
-              >
-                {i18n.t("mainDrawer.listItems.administration")}
-              </ListSubheader>
-            )}
-            {isMaster && (
-              <ListItemLink
-                to="/users"
-                primary={i18n.t("mainDrawer.listItems.users")}
-                icon={<PeopleAltOutlinedIcon />}
-                className={getItemClass("/users")}
-                isWhatsappControl={isWhatsappControl}
-                active={location.pathname === "/users"}
+            <Section label={i18n.t("mainDrawer.listItems.administration")} collapsed={collapsed} />
+            <ul className={classes.list}>
+              {isMaster && (
+                <NavItem
+                  to="/users"
+                  label={i18n.t("mainDrawer.listItems.users")}
+                  icon={<PeopleAltOutlinedIcon />}
+                  collapsed={collapsed}
+                />
+              )}
+              <NavItem
+                to="/queues"
+                label={i18n.t("mainDrawer.listItems.queues")}
+                icon={<AccountTreeOutlinedIcon />}
                 collapsed={collapsed}
               />
-            )}
-            <ListItemLink
-              to="/queues"
-              primary={i18n.t("mainDrawer.listItems.queues")}
-              icon={<AccountTreeOutlinedIcon />}
-              className={getItemClass("/queues")}
-              isWhatsappControl={isWhatsappControl}
-              active={location.pathname === "/queues"}
-              collapsed={collapsed}
-            />
-            {isMaster && (
-              <ListItemLink
-                to="/settings"
-                primary={i18n.t("mainDrawer.listItems.settings")}
-                icon={<SettingsOutlinedIcon />}
-                className={getItemClass("/settings")}
-                isWhatsappControl={isWhatsappControl}
-                active={location.pathname === "/settings"}
-                collapsed={collapsed}
-              />
-            )}
+              {isMaster && (
+                <NavItem
+                  to="/settings"
+                  label={i18n.t("mainDrawer.listItems.settings")}
+                  icon={<SettingsOutlinedIcon />}
+                  collapsed={collapsed}
+                />
+              )}
+            </ul>
           </>
         )}
       />
-    </div>
+    </nav>
   );
 };
 

@@ -136,7 +136,7 @@ const NewTicketModal = ({ modalOpen, onClose }) => {
 				onClose={handleCloseContactModal}
 				onSave={handleAddNewContactTicket}
 			></ContactModal>
-			<Dialog open={modalOpen} onClose={handleClose}>
+			<Dialog open={modalOpen} onClose={handleClose} fullWidth maxWidth="xs">
 				<DialogTitle id="form-dialog-title">
 					{i18n.t("newTicketModal.title")}
 				</DialogTitle>
@@ -144,7 +144,7 @@ const NewTicketModal = ({ modalOpen, onClose }) => {
 					<Autocomplete
 						options={options}
 						loading={loading}
-						style={{ width: 300 }}
+						fullWidth
 						clearOnBlur
 						autoHighlight
 						freeSolo
@@ -184,7 +184,6 @@ const NewTicketModal = ({ modalOpen, onClose }) => {
 				<DialogActions>
 					<Button
 						onClick={handleClose}
-						color="secondary"
 						disabled={loading}
 						variant="outlined"
 					>

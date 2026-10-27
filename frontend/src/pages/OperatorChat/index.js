@@ -3,8 +3,8 @@ import { useParams, useHistory } from "react-router-dom";
 import { parseISO, format, isSameDay } from "date-fns";
 import clsx from "clsx";
 
+import { makeStyles, alpha } from "@material-ui/core/styles";
 import {
-  makeStyles,
   Typography,
   Avatar,
   IconButton,
@@ -42,14 +42,18 @@ import {
 } from "../../helpers/contactHelper";
 
 const useStyles = makeStyles((theme) => {
+  const c = theme.custom;
   const isDark = theme.palette.type === "dark";
+  const success = theme.palette.success.main;
   return {
     root: {
       display: "flex",
+      gap: theme.spacing(1.5),
+      padding: theme.spacing(1.5),
       height: "100dvh",
       width: "100%",
       overflow: "hidden",
-      backgroundColor: isDark ? "#111b21" : "#f0f2f5",
+      ...c.dotGrid,
       position: "fixed",
       top: 0,
       left: 0,
@@ -58,6 +62,8 @@ const useStyles = makeStyles((theme) => {
       zIndex: 1,
       [theme.breakpoints.down("sm")]: {
         position: "relative",
+        padding: 0,
+        gap: 0,
         minHeight: "calc(100dvh - 56px)",
         height: "calc(100dvh - 56px)",
       },
@@ -65,19 +71,24 @@ const useStyles = makeStyles((theme) => {
 
     // Painel Esquerdo (Lista de Conversas)
     leftPanel: {
-      width: 420,
+      width: 400,
       minWidth: 320,
-      maxWidth: 480,
+      maxWidth: 460,
       height: "100%",
       display: "flex",
       flexDirection: "column",
-      borderRight: `1px solid ${isDark ? "#222d34" : "#e9edef"}`,
-      backgroundColor: isDark ? "#111b21" : "#ffffff",
+      backgroundColor: c.surface,
+      border: `1px solid ${c.border}`,
+      borderRadius: 16,
+      boxShadow: c.shadow,
+      overflow: "hidden",
       zIndex: 2,
       [theme.breakpoints.down("sm")]: {
         width: "100%",
         maxWidth: "100%",
         minWidth: 0,
+        borderRadius: 0,
+        border: "none",
       }
     },
     leftPanelHiddenOnMobile: {
@@ -88,14 +99,13 @@ const useStyles = makeStyles((theme) => {
 
     // Header do Operador (topo esquerdo)
     leftHeader: {
-      height: 60,
-      minHeight: 60,
-      padding: "10px 16px",
+      minHeight: 68,
+      padding: theme.spacing(1.5, 2),
       display: "flex",
       alignItems: "center",
       justifyContent: "space-between",
-      backgroundColor: isDark ? "#202c33" : "#f0f2f5",
-      borderBottom: `1px solid ${isDark ? "#222d34" : "#e9edef"}`
+      backgroundColor: c.surface,
+      borderBottom: `1px solid ${c.border}`
     },
     operatorInfo: {
       display: "flex",
@@ -104,71 +114,85 @@ const useStyles = makeStyles((theme) => {
       overflow: "hidden"
     },
     deviceAvatar: {
-      backgroundColor: "#25d366",
+      background: c.gradient,
       color: "#ffffff",
       width: 40,
-      height: 40
+      height: 40,
+      borderRadius: 12
     },
     deviceTextWrapper: {
       display: "flex",
       flexDirection: "column",
-      overflow: "hidden",
-      marginLeft: 10
+      overflow: "hidden"
     },
     deviceName: {
-      fontSize: "0.95rem",
-      fontWeight: 600,
-      color: isDark ? "#e9edef" : "#111b21",
+      fontSize: "0.92rem",
+      fontWeight: 700,
+      letterSpacing: "-0.01em",
+      color: theme.palette.text.primary,
       whiteSpace: "nowrap",
       overflow: "hidden",
       textOverflow: "ellipsis"
     },
     deviceStatus: {
-      fontSize: "0.75rem",
-      color: "#25d366",
-      fontWeight: 500,
-      display: "flex",
+      alignSelf: "flex-start",
+      fontSize: "0.68rem",
+      color: success,
+      backgroundColor: alpha(success, isDark ? 0.16 : 0.1),
+      fontWeight: 600,
+      display: "inline-flex",
       alignItems: "center",
-      gap: 6,
-      marginTop: 2
+      gap: 5,
+      marginTop: 3,
+      padding: "1px 8px",
+      borderRadius: 999,
+      lineHeight: 1.6
     },
     statusDot: {
-      width: 8,
-      height: 8,
+      width: 6,
+      height: 6,
       borderRadius: "50%",
-      backgroundColor: "#25d366",
-      boxShadow: "0 0 6px #25d366",
-      display: "inline-block",
-      marginRight: 4
+      backgroundColor: success,
+      boxShadow: `0 0 0 3px ${alpha(success, 0.2)}`,
+      display: "inline-block"
     },
     headerActions: {
       display: "flex",
       alignItems: "center",
       gap: 4
     },
+    logoutButton: {
+      color: theme.palette.error.main,
+      "&:hover": { backgroundColor: alpha(theme.palette.error.main, 0.1) }
+    },
 
     // Barra de Busca
     searchContainer: {
-      padding: "8px 12px",
-      backgroundColor: isDark ? "#111b21" : "#ffffff",
-      borderBottom: `1px solid ${isDark ? "#222d34" : "#e9edef"}`
+      padding: theme.spacing(1.5, 1.5, 1),
+      backgroundColor: c.surface
     },
     searchBox: {
       display: "flex",
       alignItems: "center",
-      backgroundColor: isDark ? "#202c33" : "#f0f2f5",
-      borderRadius: 8,
-      padding: "4px 12px",
-      height: 38
+      backgroundColor: c.surfaceAlt,
+      border: `1px solid ${c.border}`,
+      borderRadius: 10,
+      padding: "4px 8px 4px 12px",
+      height: 40,
+      transition: "border-color .15s, box-shadow .15s",
+      "&:focus-within": {
+        borderColor: c.primary,
+        boxShadow: `0 0 0 3px ${c.primarySoft}`
+      }
     },
     searchInput: {
       marginLeft: 8,
       flex: 1,
-      fontSize: "0.875rem",
-      color: isDark ? "#d1d7db" : "#3b4a54"
+      fontSize: "0.86rem",
+      color: theme.palette.text.primary
     },
     searchIcon: {
-      color: isDark ? "#8696a0" : "#54656f",
+      color: c.textSubtle,
       fontSize: 20
     },
 
@@ -176,55 +200,76 @@ const useStyles = makeStyles((theme) => {
     chatListWrapper: {
       flex: 1,
       overflowY: "auto",
+      padding: theme.spacing(0.5, 1, 1),
       ...theme.scrollbarStyles
     },
     chatItem: {
+      position: "relative",
       display: "flex",
       alignItems: "center",
-      padding: "12px 16px",
+      gap: theme.spacing(1.5),
+      padding: theme.spacing(1.25, 1.25, 1.25, 1.5),
+      margin: "2px 0",
+      borderRadius: 12,
       cursor: "pointer",
-      borderBottom: `1px solid ${isDark ? "#222d34" : "#f5f6f6"}`,
-      transition: "background-color 0.15s ease",
+      transition: "background-color .12s ease",
       "&:hover": {
-        backgroundColor: isDark ? "#202c33" : "#f5f6f6"
+        backgroundColor: c.surfaceHover
       }
     },
     chatItemSelected: {
-      backgroundColor: isDark ? "#2a3942 !important" : "#e9edef !important"
+      backgroundColor: `${c.primarySoft} !important`,
+      "&::before": {
+        content: '""',
+        position: "absolute",
+        left: 0,
+        top: 10,
+        bottom: 10,
+        width: 3,
+        borderRadius: 3,
+        backgroundColor: c.primary
+      }
     },
     contactAvatar: {
-      width: 48,
-      height: 48,
-      marginRight: 14,
-      backgroundColor: isDark ? "#374248" : "#dfe5e7",
-      color: isDark ? "#aebac1" : "#54656f",
-      fontWeight: 600
+      width: 42,
+      height: 42,
+      flex: "none",
+      border: `1px solid ${c.border}`,
+      backgroundColor: c.primarySoft,
+      color: c.primary,
+      fontWeight: 700
     },
     chatContent: {
       flex: 1,
       minWidth: 0,
       display: "flex",
       flexDirection: "column",
-      gap: 3
+      gap: 2
     },
     chatRowTop: {
       display: "flex",
       justifyContent: "space-between",
-      alignItems: "center"
+      alignItems: "center",
+      gap: theme.spacing(1)
     },
     contactPhone: {
-      fontSize: "0.95rem",
+      fontSize: "0.88rem",
       fontWeight: 600,
-      color: isDark ? "#e9edef" : "#111b21",
+      color: theme.palette.text.primary,
       whiteSpace: "nowrap",
       overflow: "hidden",
       textOverflow: "ellipsis"
     },
     chatTimestamp: {
-      fontSize: "0.75rem",
-      color: isDark ? "#8696a0" : "#667781",
-      whiteSpace: "nowrap",
-      marginLeft: 8
+      flex: "none",
+      fontSize: "0.72rem",
+      fontWeight: 500,
+      color: c.textSubtle,
+      whiteSpace: "nowrap"
+    },
+    chatTimestampUnread: {
+      color: c.primary,
+      fontWeight: 700
     },
     chatRowBottom: {
       display: "flex",
@@ -233,25 +278,43 @@ const useStyles = makeStyles((theme) => {
       gap: 6
     },
     lastMessagePreview: {
-      fontSize: "0.825rem",
-      color: isDark ? "#8696a0" : "#667781",
+      fontSize: "0.8rem",
+      color: c.textMuted,
       whiteSpace: "nowrap",
       overflow: "hidden",
       textOverflow: "ellipsis",
       flex: 1,
+      minWidth: 0,
       display: "flex",
       alignItems: "center",
-      gap: 4
+      gap: 4,
+      "& > span": {
+        overflow: "hidden",
+        textOverflow: "ellipsis"
+      },
+      "& svg": {
+        fontSize: 16,
+        flex: "none",
+        color: c.textSubtle
+      }
+    },
+    lastMessageUnread: {
+      color: theme.palette.text.primary,
+      fontWeight: 600
+    },
+    voiceIcon: {
+      color: `${c.primary} !important`
     },
     unreadBadge: {
-      backgroundColor: "#25d366",
-      color: "#ffffff",
+      flex: "none",
+      backgroundColor: c.primary,
+      color: theme.palette.primary.contrastText,
       fontWeight: 700,
-      fontSize: "0.725rem",
+      fontSize: "0.7rem",
       minWidth: 20,
       height: 20,
-      borderRadius: 10,
-      display: "flex",
+      borderRadius: 999,
+      display: "inline-flex",
       alignItems: "center",
       justifyContent: "center",
       padding: "0 6px"
@@ -260,12 +323,20 @@ const useStyles = makeStyles((theme) => {
     // Painel Direito
     rightPanel: {
       flex: 1,
+      minWidth: 0,
       height: "100%",
       display: "flex",
       flexDirection: "column",
-      backgroundColor: isDark ? "#0b141a" : "#efeae2",
+      backgroundColor: c.surface,
+      border: `1px solid ${c.border}`,
+      borderRadius: 16,
+      boxShadow: c.shadow,
       position: "relative",
-      overflow: "hidden"
+      overflow: "hidden",
+      [theme.breakpoints.down("sm")]: {
+        borderRadius: 0,
+        border: "none"
+      }
     },
     rightPanelHiddenOnMobile: {
       [theme.breakpoints.down("sm")]: {
@@ -284,30 +355,43 @@ const useStyles = makeStyles((theme) => {
 
     // Header do Chat Ativo
     chatHeader: {
-      height: 60,
-      minHeight: 60,
-      padding: "10px 16px",
+      minHeight: 68,
+      padding: theme.spacing(1.25, 2),
       display: "flex",
       alignItems: "center",
       justifyContent: "space-between",
-      backgroundColor: isDark ? "#202c33" : "#f0f2f5",
-      borderBottom: `1px solid ${isDark ? "#222d34" : "#e9edef"}`,
+      backgroundColor: c.surface,
+      borderBottom: `1px solid ${c.border}`,
       zIndex: 10
     },
     chatHeaderContact: {
       display: "flex",
       alignItems: "center",
       gap: 12,
-      overflow: "hidden"
+      overflow: "hidden",
+      minWidth: 0
+    },
+    chatHeaderText: {
+      minWidth: 0,
+      display: "flex",
+      flexDirection: "column"
     },
     chatHeaderPhone: {
-      fontSize: "1rem",
-      fontWeight: 600,
-      color: isDark ? "#e9edef" : "#111b21"
+      fontSize: "0.98rem",
+      fontWeight: 700,
+      letterSpacing: "-0.01em",
+      color: theme.palette.text.primary,
+      whiteSpace: "nowrap",
+      overflow: "hidden",
+      textOverflow: "ellipsis"
     },
     chatHeaderSubtext: {
+      display: "inline-flex",
+      alignItems: "center",
+      gap: 4,
       fontSize: "0.75rem",
-      color: isDark ? "#8696a0" : "#667781"
+      color: c.textMuted,
+      "& svg": { fontSize: 14, color: c.textSubtle }
     },
 
     messagesContainer: {
@@ -316,7 +400,7 @@ const useStyles = makeStyles((theme) => {
       flexDirection: "column",
       overflow: "hidden",
       position: "relative",
-      height: "calc(100% - 60px)"
+      height: "calc(100% - 68px)"
     },
 
     // Tela de Boas-Vindas
@@ -328,31 +412,45 @@ const useStyles = makeStyles((theme) => {
       justifyContent: "center",
       padding: 32,
       textAlign: "center",
-      backgroundColor: isDark ? "#222e35" : "#f0f2f5",
-      borderBottom: `6px solid #25d366`
+      ...c.dotGrid
+    },
+    welcomeIconWrap: {
+      width: 88,
+      height: 88,
+      borderRadius: 24,
+      display: "grid",
+      placeItems: "center",
+      backgroundColor: c.primarySoft,
+      color: c.primary,
+      marginBottom: 24,
+      boxShadow: `0 0 0 8px ${alpha(c.primary, isDark ? 0.06 : 0.05)}`
     },
     welcomeIcon: {
-      fontSize: 80,
-      color: isDark ? "#3b4a54" : "#aebac1",
-      marginBottom: 24
+      fontSize: 44
     },
     welcomeTitle: {
-      fontSize: "1.75rem",
-      fontWeight: 300,
-      color: isDark ? "#e9edef" : "#41525d",
-      marginBottom: 12
+      fontSize: "1.45rem",
+      fontWeight: 750,
+      letterSpacing: "-0.02em",
+      color: theme.palette.text.primary,
+      marginBottom: 8
     },
     welcomeSubtitle: {
-      fontSize: "0.925rem",
-      color: isDark ? "#8696a0" : "#667781",
+      fontSize: "0.9rem",
+      color: c.textMuted,
       maxWidth: 460,
-      lineHeight: 1.6
+      lineHeight: 1.6,
+      "& strong": { color: theme.palette.text.primary }
     },
 
     emptyState: {
       padding: 32,
       textAlign: "center",
-      color: isDark ? "#8696a0" : "#667781"
+      color: c.textMuted
+    },
+    loadingWrap: {
+      padding: 24,
+      textAlign: "center"
     }
   };
 });
@@ -538,7 +636,7 @@ const OperatorChat = () => {
     if (last.endsWith(".mp3") || last.endsWith(".ogg") || last.endsWith(".wav")) {
       return (
         <>
-          <MicIcon style={{ fontSize: 16, color: "#25d366" }} />
+          <MicIcon className={classes.voiceIcon} />
           <span>Mensagem de voz</span>
         </>
       );
@@ -551,7 +649,7 @@ const OperatorChat = () => {
     ) {
       return (
         <>
-          <PhotoCameraIcon style={{ fontSize: 16 }} />
+          <PhotoCameraIcon />
           <span>Foto</span>
         </>
       );
@@ -559,7 +657,7 @@ const OperatorChat = () => {
     if (last.endsWith(".pdf") || last.endsWith(".docx") || last.endsWith(".zip")) {
       return (
         <>
-          <FileIcon style={{ fontSize: 16 }} />
+          <FileIcon />
           <span>Documento</span>
         </>
       );
@@ -598,15 +696,20 @@ const OperatorChat = () => {
             <Tooltip title={darkMode ? "Modo Claro" : "Modo Escuro"} arrow>
               <IconButton size="small" onClick={toggleTheme} style={{ padding: 8 }}>
                 {darkMode ? (
-                  <Brightness7Icon style={{ color: "#e9edef" }} />
+                  <Brightness7Icon fontSize="small" />
                 ) : (
-                  <Brightness4Icon style={{ color: "#54656f" }} />
+                  <Brightness4Icon fontSize="small" />
                 )}
               </IconButton>
             </Tooltip>
             <Tooltip title="Sair da Conta" arrow>
-              <IconButton size="small" onClick={handleLogout} style={{ padding: 8 }}>
-                <ExitToAppIcon style={{ color: "#f15c6d" }} />
+              <IconButton
+                size="small"
+                onClick={handleLogout}
+                style={{ padding: 8 }}
+                className={classes.logoutButton}
+              >
+                <ExitToAppIcon fontSize="small" />
               </IconButton>
             </Tooltip>
           </div>
@@ -659,7 +762,12 @@ const OperatorChat = () => {
                       {displayName}
                     </Typography>
                     {t.updatedAt && (
-                      <span className={classes.chatTimestamp}>
+                      <span
+                        className={clsx(classes.chatTimestamp, {
+                          [classes.chatTimestampUnread]:
+                            t.unreadMessages > 0 && !isSelected
+                        })}
+                      >
                         {isSameDay(parseISO(t.updatedAt), new Date())
                           ? format(parseISO(t.updatedAt), "HH:mm")
                           : format(parseISO(t.updatedAt), "dd/MM/yyyy")}
@@ -668,7 +776,12 @@ const OperatorChat = () => {
                   </div>
 
                   <div className={classes.chatRowBottom}>
-                    <div className={classes.lastMessagePreview}>
+                    <div
+                      className={clsx(classes.lastMessagePreview, {
+                        [classes.lastMessageUnread]:
+                          t.unreadMessages > 0 && !isSelected
+                      })}
+                    >
                       {renderLastMessageSnippet(t)}
                     </div>
                     {t.unreadMessages > 0 && !isSelected && (
@@ -691,8 +804,8 @@ const OperatorChat = () => {
           )}
 
           {loading && (
-            <div style={{ padding: 24, textAlign: "center" }}>
-              <CircularProgress size={28} style={{ color: "#25d366" }} />
+            <div className={classes.loadingWrap}>
+              <CircularProgress size={28} color="primary" />
             </div>
           )}
         </div>
@@ -713,7 +826,7 @@ const OperatorChat = () => {
                   <IconButton
                     size="small"
                     onClick={handleBackToList}
-                    style={{ marginRight: 8 }}
+                    style={{ marginRight: 4 }}
                   >
                     <ArrowBackIcon />
                   </IconButton>
@@ -727,11 +840,12 @@ const OperatorChat = () => {
                       ? activeTicket.contact.name.charAt(0).toUpperCase()
                       : "#")}
                 </Avatar>
-                <div>
+                <div className={classes.chatHeaderText}>
                   <Typography className={classes.chatHeaderPhone}>
                     {getContactDisplayName(activeTicket?.contact)}
                   </Typography>
-                  <Typography className={classes.chatHeaderSubtext}>
+                  <Typography component="span" className={classes.chatHeaderSubtext}>
+                    <SmartphoneIcon />
                     {activeDeviceName}
                   </Typography>
                 </div>
@@ -752,7 +866,9 @@ const OperatorChat = () => {
         ) : (
           /* Tela de Boas-Vindas */
           <div className={classes.welcomeScreen}>
-            <ForumIcon className={classes.welcomeIcon} />
+            <div className={classes.welcomeIconWrap}>
+              <ForumIcon className={classes.welcomeIcon} />
+            </div>
             <Typography className={classes.welcomeTitle}>
               VERITAS WhatsApp Web
             </Typography>

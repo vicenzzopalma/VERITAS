@@ -129,14 +129,15 @@ const TransferTicketModal = ({ modalOpen, onClose, ticketid, ticketWhatsappId })
 	};
 
 	return (
-		<Dialog open={modalOpen} onClose={handleClose} maxWidth="lg" scroll="paper">
+		<Dialog open={modalOpen} onClose={handleClose} fullWidth maxWidth="xs" scroll="paper">
 			<form onSubmit={handleSaveTicket}>
 				<DialogTitle id="form-dialog-title">
 					{i18n.t("transferTicketModal.title")}
 				</DialogTitle>
 				<DialogContent dividers>
 					<Autocomplete
-						style={{ width: 300, marginBottom: 20 }}
+						fullWidth
+						style={{ marginBottom: 16, marginTop: 8 }}
 						getOptionLabel={option => `${option.name}`}
 						onChange={(e, newValue) => {
 							setSelectedUser(newValue);
@@ -192,7 +193,7 @@ const TransferTicketModal = ({ modalOpen, onClose, ticketid, ticketWhatsappId })
 						role={loggedInUser.profile}
 						perform="ticket-options:transferWhatsapp"
 						yes={() => (!loadingWhatsapps && 
-							<FormControl variant="outlined" className={classes.maxWidth} style={{ marginTop: 20 }}>
+							<FormControl variant="outlined" className={classes.maxWidth} style={{ marginTop: 16 }}>
 								<InputLabel>{i18n.t("transferTicketModal.fieldConnectionLabel")}</InputLabel>
 								<Select
 									value={selectedWhatsapp}
@@ -210,7 +211,6 @@ const TransferTicketModal = ({ modalOpen, onClose, ticketid, ticketWhatsappId })
 				<DialogActions>
 					<Button
 						onClick={handleClose}
-						color="secondary"
 						disabled={loading}
 						variant="outlined"
 					>
