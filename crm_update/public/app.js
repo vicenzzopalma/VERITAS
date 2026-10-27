@@ -31,7 +31,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   let currentUser = null;
   let socket = null;
-  let currentSector = 'Junior';
+  let currentSector = 'Todos'; // sem setor escolhido = visão geral de todos os setores permitidos
   let currentSubSector = 'PA FIXA 1';
 
   // --- Persistência e Interoperabilidade de Setores (VERITAS <-> CRM) ---
@@ -49,7 +49,7 @@ document.addEventListener('DOMContentLoaded', () => {
       if (saved.toUpperCase() === 'TODOS') {
         return { sector: 'Todos', subSector: 'PA FIXA 1' };
       }
-      const validSectors = ['Junior', 'Senior', 'Pesquisa', 'Juridico', 'Comercial'];
+      const validSectors = ['Junior', 'Senior', 'Pesquisa', 'Juridico', 'Comercial', 'RH', 'ADM', 'Financeiro'];
       if (validSectors.includes(saved)) {
         return { sector: saved, subSector: 'PA FIXA 1' };
       }
@@ -139,10 +139,7 @@ document.addEventListener('DOMContentLoaded', () => {
       }
     } else if (currentUser && currentUser.username !== 'vicenzzo' && currentUser.allowAllTabs !== 1 && currentUser.allowAllTabs !== true) {
       const perms = Array.isArray(currentUser.sectorPermissions) ? currentUser.sectorPermissions : [];
-      if (targetSector === 'Todos') {
-        targetSector = 'Junior';
-      }
-      const canView = perms.some(p => {
+      const canView = targetSector === 'Todos' || perms.some(p => {
         if (targetSector === 'PA FIXA') {
           return (p.sector === targetSubSector || p.sector === 'PA FIXA 1' || p.sector === 'PA FIXA 2') && p.can_view === 1;
         }
@@ -558,7 +555,7 @@ document.addEventListener('DOMContentLoaded', () => {
         btn.style.display = 'inline-block';
       });
     } else {
-      tabAll.style.display = 'none';
+      tabAll.style.display = isPaFixaOnly ? 'none' : 'inline-block';
 
       const canViewSector = (secName) => {
         if (!secName) return false;
@@ -578,7 +575,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
       sectorTabsContainer.querySelectorAll('.tab-btn').forEach(btn => {
         if (btn.id === 'tab-all') {
-          btn.style.display = 'none';
+          btn.style.display = isPaFixaOnly ? 'none' : 'inline-block';
           return;
         }
         const sec = btn.getAttribute('data-sector');
@@ -587,7 +584,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
       // Se o currentSector for 'Todos' ou estiver invisível/proibido, trocar para a primeira aba visível
       const currentBtn = sectorTabsContainer.querySelector(`.tab-btn[data-sector="${currentSector}"]`);
-      if (currentSector === 'Todos' || !currentBtn || currentBtn.style.display === 'none') {
+      if ((currentSector === 'Todos' && isPaFixaOnly) || !currentBtn || currentBtn.style.display === 'none') {
         const firstVisibleBtn = Array.from(sectorTabsContainer.querySelectorAll('.tab-btn'))
           .find(b => b.id !== 'tab-all' && b.style.display !== 'none');
         
@@ -2467,7 +2464,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
     if (filteredDevices.length === 0) {
       const displaySecName = currentSector === 'PA FIXA' ? currentSubSector : currentSector;
-      devicesContainer.innerHTML = `<div class="empty-state">Nenhum aparelho encontrado no setor ${displaySecName}.</div>`;
+      devicesContainer.innerHTML = currentSector === 'Todos'
+        ? `<div class="empty-state">Nenhum aparelho encontrado nos seus setores.</div>`
+        : `<div class="empty-state">Nenhum aparelho encontrado no setor ${displaySecName}.</div>`;
       return;
     }
 
@@ -3321,9 +3320,13 @@ document.addEventListener('DOMContentLoaded', () => {
       syncSectorTabsUI();
       renderDevices();
     } else if (normalTab) {
-      const sec = normalTab.getAttribute('data-sector');
+      let sec = normalTab.getAttribute('data-sector');
       if (isPaFixaOnly && sec !== 'PA FIXA') {
         return;
+      }
+      // Setor não é obrigatório: clicar na aba já ativa desmarca e volta para a visão geral
+      if (!isPaFixaOnly && sec !== 'Todos' && sec === currentSector) {
+        sec = 'Todos';
       }
       currentSector = sec;
       if (currentSector === 'PA FIXA') {
@@ -3333,6 +3336,13 @@ document.addEventListener('DOMContentLoaded', () => {
       syncSectorTabsUI();
       renderDevices();
     } else if (splitTab) {
+      if (!isPaFixaOnly && currentSector === 'PA FIXA') {
+        currentSector = 'Todos';
+        persistCurrentSector();
+        syncSectorTabsUI();
+        renderDevices();
+        return;
+      }
       currentSector = 'PA FIXA';
       if (!currentSubSector) currentSubSector = 'PA FIXA 1';
       persistCurrentSector();
@@ -3495,7 +3505,9 @@ document.addEventListener('DOMContentLoaded', () => {
   btnOpenAddDevice.addEventListener('click', () => {
     formAddDevice.reset();
     const sectorSelect = document.getElementById('device-sector-select');
-    sectorSelect.value = currentSector === 'Todos' ? 'Junior' : currentSector;
+    // Na visão geral, sugerir o primeiro setor em que o usuário pode cadastrar
+    const firstConfigurable = (availableSectors || []).find(sec => canConfigureSector(sec)) || 'Junior';
+    sectorSelect.value = currentSector === 'Todos' ? firstConfigurable : (currentSector === 'PA FIXA' ? currentSubSector : currentSector);
     openModal(modalAddDevice);
   });
 
