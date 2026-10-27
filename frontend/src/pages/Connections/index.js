@@ -118,7 +118,7 @@ const getWhatsAppNumber = whatsApp => {
 	return "";
 };
 
-const VIEW_MODE_STORAGE_KEY = "veritas:connectionsViewMode";
+const VIEW_MODE_STORAGE_KEY = "veritas:connectionsViewMode:v2"; // v2: padrão volta a ser lista para todos
 
 const formatDateTime = dateVal => {
 	if (!dateVal) return "-";
@@ -833,9 +833,9 @@ const Connections = () => {
 	const [viewMode, setViewModeState] = useState(() => {
 		try {
 			const saved = localStorage.getItem(VIEW_MODE_STORAGE_KEY);
-			return saved === "list" || saved === "columns" ? saved : "columns";
+			return saved === "list" || saved === "columns" ? saved : "list";
 		} catch (e) {
-			return "columns";
+			return "list";
 		}
 	});
 
