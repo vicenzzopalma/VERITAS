@@ -114,9 +114,12 @@ class SocketService {
                 return s && allowedSectors.includes(s);
               });
             } else {
-              const negotiatorName = n.name || dev.name;
-              const s = findColabSector(negotiatorName);
-              return s && allowedSectors.includes(s);
+              // Negociador + holders: o aparelho vai para o setor de cada usuário do chip
+              const holders = n.holder ? String(n.holder).split(',').map(h => h.trim()).filter(Boolean) : [];
+              return [n.name || dev.name, ...holders].some(name => {
+                const s = findColabSector(name);
+                return s && allowedSectors.includes(s);
+              });
             }
           });
         });

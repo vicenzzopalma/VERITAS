@@ -1567,16 +1567,20 @@ document.addEventListener('DOMContentLoaded', () => {
         return isDeviceSectorMatch(device.origin_sector || device.sector, targetSector, targetSubSector);
       }
     } else {
-      const negotiatorName = getNegotiatorName(device, num);
-      const colab = findCollaboratorInSystem(negotiatorName);
-      if (colab) {
-        if (targetSector === 'PA FIXA') {
-          if (targetSubSector === 'Ver Ambos') {
-            return colab.sector === 'PA FIXA 1' || colab.sector === 'PA FIXA 2';
+      // Usuários do chip: o negociador (nome do chip) + todos os holders.
+      // O chip (e o aparelho) aparece no setor de cada um deles.
+      const people = [getNegotiatorName(device, num), ...(holderLists.get(num.id) || [])];
+      const colabs = people.map(name => findCollaboratorInSystem(name)).filter(Boolean);
+      if (colabs.length > 0) {
+        return colabs.some(colab => {
+          if (targetSector === 'PA FIXA') {
+            if (targetSubSector === 'Ver Ambos') {
+              return colab.sector === 'PA FIXA 1' || colab.sector === 'PA FIXA 2';
+            }
+            return colab.sector === targetSubSector;
           }
-          return colab.sector === targetSubSector;
-        }
-        return colab.sector === targetSector;
+          return colab.sector === targetSector;
+        });
       } else {
         return isDeviceSectorMatch(device.origin_sector || device.sector, targetSector, targetSubSector);
       }
