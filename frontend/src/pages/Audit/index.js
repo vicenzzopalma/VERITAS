@@ -69,6 +69,7 @@ import { AuthContext } from "../../context/Auth/AuthContext";
 import api from "../../services/api";
 import openSocket from "../../services/socket-io";
 import { toast } from "react-toastify";
+import { sortSectors } from "../../helpers/sectorOrder";
 import toastError from "../../errors/toastError";
 import ExportAuditModal from "../../components/ExportAuditModal";
 import MediaViewerModal from "../../components/MediaViewerModal";
@@ -1145,7 +1146,7 @@ const Audit = () => {
 
   const sectorsList = useMemo(() => {
     if (Array.isArray(allowedSectors)) {
-      return allowedSectors;
+      return sortSectors(allowedSectors);
     }
     const defaultOrder = dynamicSectors.length > 0 ? dynamicSectors : OFFICIAL_SECTORS;
     const presentSectors = new Set();
@@ -1153,7 +1154,7 @@ const Audit = () => {
     safeDevices.forEach((d) => {
       if (d && d.sector) presentSectors.add(d.sector);
     });
-    return Array.from(new Set([...defaultOrder, ...presentSectors]));
+    return sortSectors(Array.from(new Set([...defaultOrder, ...presentSectors])));
   }, [devices, allowedSectors, dynamicSectors]);
 
   const sectorCounts = useMemo(() => {

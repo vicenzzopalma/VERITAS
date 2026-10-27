@@ -64,6 +64,7 @@ import { i18n } from "../../translate/i18n";
 import { WhatsAppsContext } from "../../context/WhatsApp/WhatsAppsContext";
 import { AuthContext } from "../../context/Auth/AuthContext";
 import toastError from "../../errors/toastError";
+import { sortSectors } from "../../helpers/sectorOrder";
 
 const WHATSAPP_GREEN = "#25D366";
 const ARCHIVE_COLOR = "#7C3AED";
@@ -981,9 +982,9 @@ const Connections = () => {
 		});
 		const merged = Array.from(new Set([...defaultOrder, ...presentSectors, ...dynamicSectors]));
 		if (Array.isArray(allowedSectors) && allowedSectors.length > 0 && !isMaster) {
-			return merged.filter(s => allowedSectors.includes(s));
+			return sortSectors(merged.filter(s => allowedSectors.includes(s)));
 		}
-		return merged;
+		return sortSectors(merged);
 	}, [whatsApps, allowedSectors, isArchivedWhatsapp, dynamicSectors, isMaster]);
 
 	const sectorCounts = React.useMemo(() => {

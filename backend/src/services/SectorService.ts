@@ -7,6 +7,19 @@ import {
   DEFAULT_OPERATIONAL_SECTORS
 } from "./WhatsappService/WhatsappAccessPolicy";
 
+// Ordem oficial dos setores (a mesma do CRM). Setores fora da lista vão para o fim, em ordem alfabética.
+const SECTOR_ORDER = ["Junior", "Senior", "PA FIXA 1", "PA FIXA 2", "Pesquisa", "Juridico", "Comercial", "RH", "ADM", "Financeiro"];
+const normalizeSector = (s: string) =>
+  String(s || "").normalize("NFD").replace(/[̀-ͯ]/g, "").trim().toLowerCase();
+const SECTOR_RANK = new Map(SECTOR_ORDER.map((s, i) => [normalizeSector(s), i]));
+const sortByOfficialOrder = (list: any[]) =>
+  [...list].sort((a: any, b: any) => {
+    const ra = SECTOR_RANK.get(normalizeSector(a.name)) ?? Infinity;
+    const rb = SECTOR_RANK.get(normalizeSector(b.name)) ?? Infinity;
+    if (ra !== rb) return ra - rb;
+    return String(a.name).localeCompare(String(b.name), "pt-BR");
+  });
+
 export const listSectors = async (user?: any) => {
   try {
     const isMaster = isMasterAdmin(user);
@@ -32,7 +45,7 @@ export const listSectors = async (user?: any) => {
     }
 
     if (sectors && sectors.length > 0) {
-      return sectors.map((s: any) => ({
+      return sortByOfficialOrder(sectors).map((s: any) => ({
         id: s.id,
         name: s.name,
         minimumProfile: s.minimumProfile || "admin_operational"

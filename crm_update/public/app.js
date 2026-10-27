@@ -488,6 +488,23 @@ document.addEventListener('DOMContentLoaded', () => {
     return false;
   }
 
+  // Ordem oficial das abas: Todos primeiro, depois a ordem do CRM; setores novos vão para o fim.
+  const SECTOR_TAB_ORDER = ['Todos', 'Junior', 'Senior', 'PA FIXA', 'PA FIXA 1', 'PA FIXA 2', 'Pesquisa', 'Juridico', 'Comercial', 'RH', 'ADM', 'Financeiro'];
+  function reorderSectorTabs(container) {
+    const norm = s => String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').trim().toLowerCase();
+    const rank = new Map(SECTOR_TAB_ORDER.map((s, i) => [norm(s), i]));
+    const tabs = Array.from(container.children).filter(el => el.classList.contains('tab-btn'));
+    tabs.sort((a, b) => {
+      const sa = a.getAttribute('data-sector');
+      const sb = b.getAttribute('data-sector');
+      const ra = rank.has(norm(sa)) ? rank.get(norm(sa)) : Infinity;
+      const rb = rank.has(norm(sb)) ? rank.get(norm(sb)) : Infinity;
+      if (ra !== rb) return ra - rb;
+      return String(sa).localeCompare(String(sb), 'pt-BR');
+    });
+    tabs.forEach(el => container.appendChild(el));
+  }
+
   function updateAllTabsVisibility() {
     const tabAll = document.getElementById('tab-all');
     const sectorTabsContainer = document.getElementById('sector-tabs');
@@ -528,10 +545,12 @@ document.addEventListener('DOMContentLoaded', () => {
           newBtn.className = 'tab-btn';
           newBtn.setAttribute('data-sector', normSec);
           newBtn.textContent = normSec;
-          sectorTabsContainer.insertBefore(newBtn, tabAll);
+          sectorTabsContainer.appendChild(newBtn);
         }
       }
     });
+
+    reorderSectorTabs(sectorTabsContainer);
 
     if (hasGlobalTabs) {
       tabAll.style.display = 'inline-block';
@@ -3196,7 +3215,7 @@ document.addEventListener('DOMContentLoaded', () => {
     inventoryTbody.innerHTML = '';
     
     // Definir a ordem dos setores
-    const sectorOrder = ['Junior', 'Senior', 'PA FIXA', 'Pesquisa', 'Juridico', 'Comercial'];
+    const sectorOrder = ['Junior', 'Senior', 'PA FIXA', 'PA FIXA 1', 'PA FIXA 2', 'Pesquisa', 'Juridico', 'Comercial', 'RH', 'ADM', 'Financeiro'];
     
     // Filtrar por setor se necessário
     const sectorsToShow = currentInventorySector === 'Todos' 
