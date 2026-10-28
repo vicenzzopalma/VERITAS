@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import QRCode from "qrcode.react";
 import toastError from "../../errors/toastError";
 
@@ -95,6 +95,39 @@ const STEPS = [
 const QrcodeModal = ({ open, onClose, whatsAppId }) => {
 	const classes = useStyles();
 	const [qrCode, setQrCode] = useState("");
+	const lastRenewRef = useRef(0);
+
+	// Renova o QR automaticamente enquanto o modal está aberto. O WhatsApp entrega poucos QRs
+	// por sessão; quando acabam, a sessão é encerrada e pedimos um novo (igual ao botão "Novo QR").
+	const renewQr = useCallback(async () => {
+		if (!open || !whatsAppId) return;
+		const now = Date.now();
+		if (now - lastRenewRef.current < 10000) return;
+		lastRenewRef.current = now;
+		try {
+			await api.put(`/whatsappsession/${whatsAppId}`);
+		} catch (err) {
+			// silencioso: tenta de novo no próximo ciclo
+		}
+	}, [open, whatsAppId]);
+
+	const handleSessionUpdate = useCallback(
+		session => {
+			if (!session || session.id !== whatsAppId) return;
+			if (session.status === "CONNECTED") {
+				onClose();
+				return;
+			}
+			if (session.qrcode) {
+				setQrCode(session.qrcode);
+			} else if (session.status === "DISCONNECTED") {
+				// QR expirou e a sessão foi encerrada: gerar outro
+				setQrCode("");
+				renewQr();
+			}
+		},
+		[whatsAppId, onClose, renewQr]
+	);
 
 	useEffect(() => {
 		const fetchSession = async () => {
@@ -103,43 +136,37 @@ const QrcodeModal = ({ open, onClose, whatsAppId }) => {
 			try {
 				const { data } = await api.get(`/whatsapp/${whatsAppId}`);
 				setQrCode(data.qrcode);
+				if (!data.qrcode && data.status === "DISCONNECTED") renewQr();
 			} catch (err) {
 				toastError(err);
 			}
 		};
 		fetchSession();
-	}, [whatsAppId]);
+	}, [whatsAppId, renewQr]);
 
 	useEffect(() => {
 		if (!whatsAppId) return;
 		const socket = openSocket();
 
 		socket.on("whatsappSession", data => {
-			if (data.action === "update" && data.session && data.session.id === whatsAppId) {
-				if (data.session.qrcode !== undefined) {
-					setQrCode(data.session.qrcode);
-				}
-				if (data.session.status === "CONNECTED") {
-					onClose();
-				}
-			}
+			if (data.action === "update") handleSessionUpdate(data.session);
 		});
 
 		socket.on("whatsapp", data => {
-			if (data.action === "update" && data.whatsapp && data.whatsapp.id === whatsAppId) {
-				if (data.whatsapp.qrcode) {
-					setQrCode(data.whatsapp.qrcode);
-				}
-				if (data.whatsapp.status === "CONNECTED") {
-					onClose();
-				}
-			}
+			if (data.action === "update") handleSessionUpdate(data.whatsapp);
 		});
 
 		return () => {
 			socket.disconnect();
 		};
-	}, [whatsAppId, onClose]);
+	}, [whatsAppId, handleSessionUpdate]);
+
+	// Rede de segurança: se ficar sem QR por 30s com o modal aberto, pede um novo.
+	useEffect(() => {
+		if (!open || !whatsAppId || qrCode) return;
+		const timer = setTimeout(renewQr, 30000);
+		return () => clearTimeout(timer);
+	}, [open, whatsAppId, qrCode, renewQr]);
 
 	return (
 		<Dialog
