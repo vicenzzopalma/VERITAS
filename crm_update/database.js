@@ -607,6 +607,41 @@ async function initDb() {
   await db.run("UPDATE numbers SET name = 'Djully' WHERE LOWER(name) = 'djenny' AND excluido_em IS NULL");
   await db.run("UPDATE numbers SET holder = 'Djully' WHERE LOWER(holder) = 'djenny' AND excluido_em IS NULL");
 
+  // Reparo (2026-10-28): o login automático vindo do Veritas apagava as permissões de setor
+  // de quem não tinha setores cadastrados lá. Só devolve o acesso a quem ficou SEM NENHUM setor
+  // visível e sem acesso global; quem já tem algum setor não é alterado.
+  try {
+    const restoreSnapshot = {
+      'nicoly.freitas': { sectors: [['PA FIXA 1', 1], ['PA FIXA 2', 1]] },
+      'comercial': { sectors: [['Comercial', 1]] },
+      'equipe.junior': { sectors: [['Junior', 0]] },
+      'equipe.senior': { sectors: [['Senior', 0]] },
+      'equipe.pesquisa': { sectors: [['Pesquisa', 0]] },
+      'equipe.pafixa': { sectors: [['PA FIXA 1', 0], ['PA FIXA 2', 0]] },
+      'tecnoponto': { sectors: [['Junior', 0]] },
+      'supervisor': { sectors: [['Junior', 0], ['Senior', 0], ['PA FIXA 1', 0], ['PA FIXA 2', 0], ['Pesquisa', 0]] },
+      'arthur.hille': { allTabs: true },
+      'janaina.juttel': { allTabs: true },
+    };
+    for (const [username, snap] of Object.entries(restoreSnapshot)) {
+      const u = await db.get("SELECT id, allow_all_tabs FROM users WHERE LOWER(username) = ?", [username]);
+      if (!u || u.allow_all_tabs === 1) continue;
+      const visible = await db.get("SELECT COUNT(*) AS c FROM user_sector_permissions WHERE user_id = ? AND can_view = 1", [u.id]);
+      if (visible && visible.c > 0) continue;
+      if (snap.allTabs) {
+        await db.run("UPDATE users SET allow_all_tabs = 1 WHERE id = ?", [u.id]);
+      } else {
+        for (const [sector, canConfigure] of snap.sectors) {
+          await db.run("DELETE FROM user_sector_permissions WHERE user_id = ? AND sector = ?", [u.id, sector]);
+          await db.run("INSERT INTO user_sector_permissions (user_id, sector, can_view, can_configure) VALUES (?, ?, 1, ?)", [u.id, sector, canConfigure]);
+        }
+      }
+      console.log(`[DB] Permissões de setor restauradas para ${username}.`);
+    }
+  } catch (errRestore) {
+    console.error('[DB] Erro ao restaurar permissões de setor:', errRestore);
+  }
+
   // Reparo de permissões de governança: Maiara restrita estritamente a PA FIXA
   try {
     await db.run("UPDATE users SET allow_all_tabs = 0 WHERE LOWER(username) LIKE '%maiara%' OR LOWER(name) LIKE '%maiara%'");

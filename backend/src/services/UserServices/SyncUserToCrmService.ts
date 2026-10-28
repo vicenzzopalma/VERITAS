@@ -70,6 +70,18 @@ export const syncUserToCrm = async (userData: CrmSyncUserData): Promise<void> =>
           const allowManage = isMaster ? 1 : 0;
           const isReadonly = 0;
 
+          // Sem nenhum setor visível vindo do Veritas, não mexer nas permissões do CRM:
+          // antes elas eram apagadas e o usuário ficava sem nenhum setor.
+          const grantsAnyView = Array.isArray(sectorPermissions) && sectorPermissions.length > 0
+            ? sectorPermissions.some(p => p.canView)
+            : isManager && sectors.length > 0;
+
+          if (existingUser && !isMaster && !grantsAnyView) {
+            console.log(`[CRM SYNC] Veritas não define setores para ${rawName || emailPrefix}; mantendo permissões do CRM.`);
+            db.close();
+            return resolve();
+          }
+
           if (existingUser) {
             const userId = existingUser.id;
             db.run(

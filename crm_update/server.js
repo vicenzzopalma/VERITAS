@@ -167,10 +167,7 @@ async function resolveUserFromSsoToken(ssoToken) {
       }
     }
 
-    // Se ainda assim não vierem setores no token/banco e for gestor, o padrão é PA FIXA
-    if (sectors.length === 0 && isWhatsappControl) {
-      sectors = ['PA FIXA 1', 'PA FIXA 2'];
-    }
+    // Sem setores no token/banco: não inventar setores. As permissões já configuradas no CRM são mantidas.
 
     // Normalizar qualquer menção de 'PA FIXA' genérica para ambos os subsetores 'PA FIXA 1' e 'PA FIXA 2'
     const expandedSectors = [];
@@ -273,7 +270,15 @@ async function resolveUserFromSsoToken(ssoToken) {
 
         const isMaiara = (targetUser.username || '').toLowerCase().includes('maiara') || (targetUser.name || '').toLowerCase().includes('maiara');
 
-        if (Array.isArray(explicitSectorPerms) && explicitSectorPerms.length > 0) {
+        // Só sincroniza do Veritas quando ele realmente define algum setor visível.
+        // Sem informação de setor no Veritas, as permissões já configuradas no CRM são mantidas
+        // (antes eram apagadas, deixando o usuário sem nenhum setor).
+        const veritasGrantsAnyView = Array.isArray(explicitSectorPerms) && explicitSectorPerms.some(p => p.canView === 1 || p.canView === true);
+        const veritasConnectionSectors = [...new Set((veritasUser && veritasUser.connectionSectors) || [])].filter(Boolean);
+
+        if (Array.isArray(explicitSectorPerms) && explicitSectorPerms.length > 0 && !veritasGrantsAnyView && !isMaiara) {
+          console.log(`[SSO] Veritas não concede nenhum setor a ${targetUser.username}; mantendo permissões do CRM.`);
+        } else if (Array.isArray(explicitSectorPerms) && explicitSectorPerms.length > 0) {
           const hasAllSectors = explicitSectorPerms.length >= 5 && explicitSectorPerms.every(p => p.canView === 1 || p.canView === true);
           const shouldAllowAll = isMasterAdmin || (!isMaiara && hasAllSectors);
 
@@ -288,8 +293,10 @@ async function resolveUserFromSsoToken(ssoToken) {
           targetUser.allow_all_tabs = shouldAllowAll ? 1 : 0;
           console.log(`[SSO] Permissões setoriais de ${targetUser.username} sincronizadas do Veritas. allow_all_tabs=${targetUser.allow_all_tabs}`);
           await refreshUserSessions(targetUser.id);
+        } else if (isWhatsappControl && veritasConnectionSectors.length === 0 && !isMaiara) {
+          console.log(`[SSO] Gestor ${targetUser.username} sem setores no Veritas; mantendo permissões do CRM.`);
         } else if (isWhatsappControl) {
-          let expectedSectors = [...new Set(veritasUser.connectionSectors)];
+          let expectedSectors = veritasConnectionSectors;
           if (isMaiara) {
             expectedSectors = ['PA FIXA 1', 'PA FIXA 2'];
           }
