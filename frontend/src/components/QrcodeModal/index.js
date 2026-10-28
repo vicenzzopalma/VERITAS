@@ -19,16 +19,16 @@ const useStyles = makeStyles(theme => {
 			display: "flex",
 			gap: theme.spacing(4),
 			alignItems: "center",
-			padding: theme.spacing(4),
+			padding: theme.spacing(3, 4),
 			[theme.breakpoints.down("xs")]: {
 				flexDirection: "column-reverse",
 				padding: theme.spacing(3, 2.5),
 				gap: theme.spacing(3),
 			},
-			"&:first-child": { paddingTop: theme.spacing(4) },
+			"&:first-child": { paddingTop: theme.spacing(3) },
 		},
 		close: { position: "absolute", top: 10, right: 10 },
-		info: { flex: 1, minWidth: 0, maxWidth: 320 },
+		info: { flex: 1, minWidth: 220, maxWidth: 300 },
 		badge: {
 			width: 44,
 			height: 44,
@@ -64,9 +64,10 @@ const useStyles = makeStyles(theme => {
 		},
 		// The QR tile is always white with black modules (scanners need contrast,
 		// also in dark mode).
+		// QR grande (480px, como antes do redesign); só encolhe se a tela não tiver altura.
 		qrTile: {
-			width: 340,
-			height: 340,
+			width: "min(512px, calc(100vh - 140px))",
+			height: "min(512px, calc(100vh - 140px))",
 			borderRadius: 14,
 			backgroundColor: "#FFFFFF",
 			display: "grid",
@@ -75,7 +76,11 @@ const useStyles = makeStyles(theme => {
 			border: "1px solid #E6E8F0",
 			[theme.breakpoints.down("xs")]: { width: 260, height: 260 },
 		},
-		qr: { [theme.breakpoints.down("xs")]: { width: "232px !important", height: "232px !important" } },
+		qr: {
+			width: "calc(100% - 32px) !important",
+			height: "calc(100% - 32px) !important",
+			[theme.breakpoints.down("xs")]: { width: "232px !important", height: "232px !important" },
+		},
 		waiting: { display: "flex", flexDirection: "column", alignItems: "center", gap: 12, color: "#5F6478", fontSize: "0.82rem" },
 	};
 });
@@ -140,7 +145,7 @@ const QrcodeModal = ({ open, onClose, whatsAppId }) => {
 		<Dialog
 			open={open}
 			onClose={onClose}
-			maxWidth="md"
+			maxWidth="lg"
 			scroll="paper"
 			classes={{ paper: classes.paper }}
 		>
@@ -170,7 +175,7 @@ const QrcodeModal = ({ open, onClose, whatsAppId }) => {
 						{qrCode ? (
 							<QRCode
 								value={qrCode}
-								size={308}
+								size={480}
 								bgColor="#ffffff"
 								fgColor="#000000"
 								className={classes.qr}
