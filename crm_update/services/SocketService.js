@@ -109,7 +109,9 @@ class SocketService {
             const isReserva = dev.name.toLowerCase().includes('reserva') || (n.name && n.name.toLowerCase().includes('reserva'));
             if (isReserva) {
               const holders = n.holder ? String(n.holder).split(',').map(h => h.trim()).filter(Boolean) : [];
-              return holders.some(h => {
+              // Reserva sem responsável: setor da pessoa do nome do chip
+              const people = holders.length > 0 ? holders : [n.name];
+              return people.some(h => {
                 const s = findColabSector(h);
                 return s && allowedSectors.includes(s);
               });

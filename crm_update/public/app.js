@@ -1564,6 +1564,18 @@ document.addEventListener('DOMContentLoaded', () => {
           return colab.sector === targetSector;
         });
       } else {
+        // Reserva sem responsável: a pessoa é identificada pelo nome do chip
+        // (ex.: "GUILHERME KRUGER RESERVA 2" -> Guilherme); o chip aparece só no setor dela.
+        const owner = findCollaboratorInSystem(num.name);
+        if (owner) {
+          if (targetSector === 'PA FIXA') {
+            if (targetSubSector === 'Ver Ambos') {
+              return owner.sector === 'PA FIXA 1' || owner.sector === 'PA FIXA 2';
+            }
+            return owner.sector === targetSubSector;
+          }
+          return owner.sector === targetSector;
+        }
         return isDeviceSectorMatch(device.origin_sector || device.sector, targetSector, targetSubSector);
       }
     } else {
