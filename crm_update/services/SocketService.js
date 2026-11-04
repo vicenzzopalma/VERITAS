@@ -86,10 +86,11 @@ class SocketService {
           colab = collaborators.find(c => c.name.toLowerCase().trim().startsWith(nameLower));
           if (colab) return colab.sector;
           
-          colab = collaborators.find(c => {
+          // nome mais completo vence ("HELENA KORMANN RES." -> "HELENA KORMANN", não "Helena")
+          colab = collaborators.filter(c => {
             const cName = c.name.toLowerCase().trim();
             return cName.length > 3 && nameLower.includes(cName);
-          });
+          }).sort((a, b) => b.name.trim().length - a.name.trim().length)[0];
           if (colab) return colab.sector;
           
           const searchFirstWord = nameLower.split(' ')[0];
@@ -248,10 +249,11 @@ class SocketService {
                 if (colab) return colab.sector;
                 colab = collaborators.find(c => c.name.toLowerCase().trim().startsWith(nameLower));
                 if (colab) return colab.sector;
-                colab = collaborators.find(c => {
+                // nome mais completo vence ("HELENA KORMANN RES." -> "HELENA KORMANN", não "Helena")
+                colab = collaborators.filter(c => {
                   const cName = c.name.toLowerCase().trim();
                   return cName.length > 3 && nameLower.includes(cName);
-                });
+                }).sort((a, b) => b.name.trim().length - a.name.trim().length)[0];
                 if (colab) return colab.sector;
                 const searchFirstWord = nameLower.split(' ')[0];
                 const ignoreWords = ['reserva', 'pesquisa', 'pa', 'fixa', 'backoffice', 'sem'];

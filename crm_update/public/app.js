@@ -294,6 +294,7 @@ document.addEventListener('DOMContentLoaded', () => {
   let logFilterSector = 'all';
   let logFilterManager = 'all';
   let systemUsers = [];
+  let collaboratorDirectory = []; // nome + setor de TODOS os colaboradores (só para identificar setor)
   let holderChips = new Map();
   let selectHolderNumberId = null;
   let holderLists = new Map();
@@ -1470,25 +1471,36 @@ document.addEventListener('DOMContentLoaded', () => {
   // --- Auxiliares para resolução e comparação precisa de colaboradores ---
   function findCollaboratorInSystem(name) {
     if (!name) return null;
+    // Busca no diretório completo; se a pessoa também está na lista do usuário, devolve essa (tem ramal).
+    const pool = collaboratorDirectory.length > 0 ? collaboratorDirectory : systemUsers;
+    const found = findCollaboratorIn(pool, name);
+    if (!found || pool === systemUsers) return found;
+    const key = found.name.toLowerCase().trim();
+    return systemUsers.find(u => u.name.toLowerCase().trim() === key) || found;
+  }
+
+  function findCollaboratorIn(list, name) {
     const nameLower = name.toLowerCase().trim();
+    const longest = arr => arr.reduce((a, b) => (b.name.trim().length > a.name.trim().length ? b : a));
 
     // 1) Match exact
-    let colab = systemUsers.find(u => u.name.toLowerCase().trim() === nameLower);
+    let colab = list.find(u => u.name.toLowerCase().trim() === nameLower);
     if (colab) return colab;
 
     // 2) Match startsWith (ex: "Vinicius" -> "Vinicius Correia")
-    colab = systemUsers.find(u => u.name.toLowerCase().trim().startsWith(nameLower));
+    colab = list.find(u => u.name.toLowerCase().trim().startsWith(nameLower));
     if (colab) return colab;
 
     // 3) Match if the chip/search name contains the collaborator's full name (ex: "Leticia Cordeiro Reserva" -> "Leticia Cordeiro")
-    colab = systemUsers.find(u => {
+    //    Vence o nome mais completo ("HELENA KORMANN RES." -> "HELENA KORMANN", não "Helena").
+    const contained = list.filter(u => {
       const uName = u.name.toLowerCase().trim();
       return uName.length > 3 && nameLower.includes(uName);
     });
-    if (colab) return colab;
+    if (contained.length > 0) return longest(contained);
 
     // 4) Match if the collaborator's name contains the search name (ex: "Leticia" -> "Leticia Cordeiro")
-    colab = systemUsers.find(u => {
+    colab = list.find(u => {
       const uName = u.name.toLowerCase().trim();
       return nameLower.length > 3 && uName.includes(nameLower);
     });
@@ -1498,7 +1510,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const searchFirstWord = nameLower.split(' ')[0];
     const ignoreWords = ['reserva', 'pesquisa', 'pa', 'fixa', 'backoffice', 'sem'];
     if (searchFirstWord && !ignoreWords.includes(searchFirstWord)) {
-      colab = systemUsers.find(u => {
+      colab = list.find(u => {
         const uFirstWord = u.name.split(' ')[0].toLowerCase().trim();
         return uFirstWord === searchFirstWord;
       });
@@ -5012,8 +5024,12 @@ document.addEventListener('DOMContentLoaded', () => {
       const response = await fetch('/api/users/list');
       if (response.ok) {
         systemUsers = await response.json();
-        renderDevices(); // Trigger re-render to apply collaborator names and sectors!
       }
+      const dirResponse = await fetch('/api/collaborators/directory');
+      if (dirResponse.ok) {
+        collaboratorDirectory = await dirResponse.json();
+      }
+      renderDevices(); // Trigger re-render to apply collaborator names and sectors!
     } catch (err) {
       console.error('Erro ao buscar lista de usuários para seleção:', err);
     }

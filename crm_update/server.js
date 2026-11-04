@@ -1338,6 +1338,22 @@ app.get('/api/dashboard/stats', requireManagerAccess, async (req, res) => {
   }
 });
 
+// Nome + setor de todos os colaboradores, para o front identificar o setor certo de cada chip.
+// (A /api/users/list é filtrada pelos setores do usuário; usando só ela, "HELENA KORMANN RES."
+// casava com outra "Helena" de um setor visível.)
+app.get('/api/collaborators/directory', async (req, res) => {
+  if (!req.session.userId) {
+    return res.status(401).json({ error: 'Não autenticado' });
+  }
+  try {
+    const list = await crmService.collaboratorRepo.getAll();
+    return res.json(list.map(c => ({ name: c.name, sector: c.sector })));
+  } catch (err) {
+    console.error('Erro ao listar diretório de colaboradores:', err);
+    return res.status(500).json({ error: 'Erro interno do servidor' });
+  }
+});
+
 app.get('/api/users/list', async (req, res) => {
   if (!req.session.userId) {
     return res.status(401).json({ error: 'NÃ£o autenticado' });
