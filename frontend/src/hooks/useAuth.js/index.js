@@ -176,7 +176,7 @@ const useAuth = () => {
 			} else if (data.user?.profile === "whatsapp_control" || data.user?.profile === "whatsapp_control_high") {
 				history.push("/whatsapp-control");
 			} else {
-				history.push("/tickets");
+				history.push("/whatsapp-control");
 			}
 			setLoading(false);
 		} catch (err) {

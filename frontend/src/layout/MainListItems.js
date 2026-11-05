@@ -229,7 +229,7 @@ const MainListItems = ({ drawerClose, collapsed = false }) => {
           icon={<QuestionAnswerOutlinedIcon />}
           collapsed={collapsed}
         />
-        <NavItem to="/" label="Dashboard" icon={<DashboardOutlinedIcon />} collapsed={collapsed} />
+        <NavItem to="/dashboard" label="Dashboard" icon={<DashboardOutlinedIcon />} collapsed={collapsed} />
       </ul>
 
       <Can

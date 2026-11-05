@@ -4,6 +4,9 @@ import { Route as RouterRoute, Redirect } from "react-router-dom";
 import { AuthContext } from "../context/Auth/AuthContext";
 import BackdropLoading from "../components/BackdropLoading";
 
+// Tela inicial de cada perfil: operador vai para o Atendimento; todo o resto, para o CRM.
+const homePath = user => (user?.profile === "operator" ? "/live" : "/whatsapp-control");
+
 const Route = ({ component: Component, isPrivate = false, ...rest }) => {
   const { isAuth, loading, user } = useContext(AuthContext);
 
@@ -18,12 +21,14 @@ const Route = ({ component: Component, isPrivate = false, ...rest }) => {
   }
 
   if (isAuth && !isPrivate) {
-    let defaultPath = "/";
-    if (user?.profile === "operator") defaultPath = "/live";
-    if (user?.profile === "whatsapp_control" || user?.profile === "whatsapp_control_high") defaultPath = "/whatsapp-control";
     return (
-      <Redirect to={{ pathname: defaultPath, state: { from: rest.location } }} />
+      <Redirect to={{ pathname: homePath(user), state: { from: rest.location } }} />
     );
+  }
+
+  // Entrar direto no endereço do VERITAS abre a tela inicial do perfil (CRM).
+  if (isAuth && rest.path === "/") {
+    return <Redirect to={{ pathname: homePath(user) }} />;
   }
 
   // Bloqueio rigoroso de rota para operadores de chat
@@ -65,7 +70,7 @@ const Route = ({ component: Component, isPrivate = false, ...rest }) => {
       if (user?.profile === "operator") {
         return <Redirect to={{ pathname: "/live" }} />;
       }
-      return <Redirect to={{ pathname: "/tickets" }} />;
+      return <Redirect to={{ pathname: homePath(user) }} />;
     }
   }
 
@@ -75,7 +80,7 @@ const Route = ({ component: Component, isPrivate = false, ...rest }) => {
     (rest.path === "/users" || rest.path === "/settings" || rest.path === "/Settings")
   ) {
     if (user?.profile !== "admin_master") {
-      let fallback = "/tickets";
+      let fallback = homePath(user);
       if (user?.profile === "whatsapp_control" || user?.profile === "whatsapp_control_high") {
         fallback = "/whatsapp-control";
       } else if (user?.profile === "operator") {

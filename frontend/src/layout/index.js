@@ -54,6 +54,7 @@ const PAGE_TITLES = [
   ["/contacts", "Contatos", "Atendimento"],
   ["/quickanswers", "Respostas Rápidas", "Atendimento"],
   ["/connections", "Conexões", "Gestão"],
+  ["/dashboard", "Dashboard", "Atendimento"],
   ["/users", "Usuários", "Administração"],
   ["/queues", "Filas", "Administração"],
   ["/settings", "Configurações", "Administração"],
