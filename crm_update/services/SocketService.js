@@ -109,7 +109,8 @@ class SocketService {
           return devNumbers.some(n => {
             const isReserva = dev.name.toLowerCase().includes('reserva') || (n.name && n.name.toLowerCase().includes('reserva'));
             if (isReserva) {
-              const holders = n.holder ? String(n.holder).split(',').map(h => h.trim()).filter(Boolean) : [];
+              // Responsável de todos os setores (ex.: AUTOMAÇÃO IA) não conta para o setor
+              const holders = n.holder ? String(n.holder).split(',').map(h => h.trim()).filter(h => h && findColabSector(h) !== 'Todos') : [];
               // Reserva sem responsável: setor da pessoa do nome do chip
               const people = holders.length > 0 ? holders : [n.name];
               return people.some(h => {

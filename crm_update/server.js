@@ -11,7 +11,7 @@ async function getAvailableSectorCatalog(role) {
       (devSectors || []).forEach(d => {
         if (d.sector && d.sector.trim()) allSectors.add(d.sector.trim());
       });
-      const colabSectors = await db.all("SELECT DISTINCT sector FROM collaborators WHERE sector IS NOT NULL AND TRIM(sector) != ''");
+      const colabSectors = await db.all("SELECT DISTINCT sector FROM collaborators WHERE sector IS NOT NULL AND TRIM(sector) != '' AND sector != 'Todos'");
       (colabSectors || []).forEach(c => {
         if (c.sector && c.sector.trim()) allSectors.add(c.sector.trim());
       });
@@ -1430,7 +1430,7 @@ app.get('/api/users/list', async (req, res) => {
     return res.json(
       permittedSectors === null
         ? list
-        : list.filter(collaborator => permittedSectors.includes(collaborator.sector))
+        : list.filter(collaborator => collaborator.sector === 'Todos' || permittedSectors.includes(collaborator.sector))
     );
   } catch (err) {
     console.error('Erro ao listar nomes de colaboradores para dropdown:', err);
@@ -1493,7 +1493,7 @@ app.get('/api/collaborators', requireManagerAccess, async (req, res) => {
     return res.json(
       permittedSectors === null
         ? list
-        : list.filter(collaborator => permittedSectors.includes(collaborator.sector))
+        : list.filter(collaborator => collaborator.sector === 'Todos' || permittedSectors.includes(collaborator.sector))
     );
   } catch (err) {
     console.error('Erro ao listar colaboradores:', err);

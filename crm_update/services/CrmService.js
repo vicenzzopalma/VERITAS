@@ -75,7 +75,13 @@ class CrmService {
     this.reservationRepo = new ReservationLogRepository(db);
   }
 
+  // Colaborador de todos os setores (ex.: AUTOMAÇÃO IA) não define setor: usa-se o do aparelho.
   async findCollaboratorSector(name) {
+    const sector = await this.findCollaboratorSectorRaw(name);
+    return sector === 'Todos' ? null : sector;
+  }
+
+  async findCollaboratorSectorRaw(name) {
     if (!name) return null;
     const clean = String(name).trim();
     if (!clean) return null;

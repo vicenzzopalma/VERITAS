@@ -1562,13 +1562,19 @@ document.addEventListener('DOMContentLoaded', () => {
     return deviceSector === targetSector;
   }
 
+  // Colaborador de todos os setores (ex.: AUTOMAÇÃO IA): não conta para decidir o setor do chip.
+  function isAllSectorsName(name) {
+    const colab = findCollaboratorInSystem(name);
+    return !!(colab && colab.sector === 'Todos');
+  }
+
   function isNumberMatchSector(device, num, targetSector, targetSubSector) {
     if (targetSector === 'Todos') return true;
 
     const isReserva = device.name.toLowerCase().includes('reserva') || (num.name && num.name.toLowerCase().includes('reserva'));
 
     if (isReserva) {
-      const holders = holderLists.get(num.id) || [];
+      const holders = (holderLists.get(num.id) || []).filter(h => !isAllSectorsName(h));
       if (holders.length > 0) {
         return holders.some(h => {
           const colab = findCollaboratorInSystem(h);
@@ -1600,7 +1606,7 @@ document.addEventListener('DOMContentLoaded', () => {
       // Usuários do chip: o negociador (nome do chip) + todos os holders.
       // O chip (e o aparelho) aparece no setor de cada um deles.
       const people = [getNegotiatorName(device, num), ...(holderLists.get(num.id) || [])];
-      const colabs = people.map(name => findCollaboratorInSystem(name)).filter(Boolean);
+      const colabs = people.map(name => findCollaboratorInSystem(name)).filter(c => c && c.sector !== 'Todos');
       if (colabs.length > 0) {
         return colabs.some(colab => {
           if (targetSector === 'PA FIXA') {

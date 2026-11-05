@@ -655,6 +655,22 @@ async function initDb() {
     console.error('[DB] Erro ao sanitizar permissões da Maiara:', errMaiara);
   }
 
+  // Responsável "de todos os setores": pode ser colocado em qualquer chip sem mudar o setor dele.
+  // Criado uma vez só (se alguém excluir, não volta sozinho).
+  try {
+    const iaRow = await db.get("SELECT id FROM collaborators WHERE name = ?", ['AUTOMAÇÃO IA']);
+    if (!iaRow) {
+      const nowIa = new Date().toISOString();
+      await db.run(
+        "INSERT INTO collaborators (name, ramal, sector, criado_em, atualizado_em) VALUES (?, '', 'Todos', ?, ?)",
+        ['AUTOMAÇÃO IA', nowIa, nowIa]
+      );
+      console.log('[DB] Colaborador AUTOMAÇÃO IA (todos os setores) criado.');
+    }
+  } catch (errIa) {
+    console.error('[DB] Erro ao criar colaborador AUTOMAÇÃO IA:', errIa);
+  }
+
   console.log('Banco de dados inicializado com sucesso.');
   
   // Backup inicial assíncrono no boot
