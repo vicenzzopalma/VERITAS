@@ -3440,6 +3440,28 @@ body:has(.modal.active) .restricted-sidebar {
   letter-spacing: 0.3px;
   user-select: none;
 }
+/* --- Mini botão de QR Code (abre o QR do VERITAS para conectar o chip) --- */
+.btn-veritas-qr {
+  display: inline-grid;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+  margin-left: 4px;
+  padding: 0;
+  border: 1px solid rgba(148, 163, 184, 0.35);
+  border-radius: 5px;
+  background: transparent;
+  color: inherit;
+  opacity: 0.75;
+  cursor: pointer;
+  transition: opacity 0.15s, border-color 0.15s, color 0.15s;
+}
+.btn-veritas-qr:hover {
+  opacity: 1;
+  color: #5865f2;
+  border-color: #5865f2;
+}
+
 /* --- BOLINHAS DE STATUS VERITAS (Apenas as bolinhas, sem texto) --- */
 .veritas-dot {
   display: inline-block;

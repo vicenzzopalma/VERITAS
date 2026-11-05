@@ -295,6 +295,8 @@ document.addEventListener('DOMContentLoaded', () => {
   let logFilterManager = 'all';
   let systemUsers = [];
   let collaboratorDirectory = []; // nome + setor de TODOS os colaboradores (só para identificar setor)
+  let veritasConnections = {}; // numberId -> { whatsappId, status } (lido do banco do VERITAS)
+  const isInsideVeritas = window.parent && window.parent !== window;
   let holderChips = new Map();
   let selectHolderNumberId = null;
   let holderLists = new Map();
@@ -837,6 +839,10 @@ document.addEventListener('DOMContentLoaded', () => {
       
       setupReadonlyMode();
       await loadSystemUsersList();
+      if (isInsideVeritas) {
+        loadVeritasConnections();
+        setInterval(loadVeritasConnections, 20000);
+      }
       
       // Solicitar permissão para notificações do Windows
       if ('Notification' in window && Notification.permission !== 'granted' && Notification.permission !== 'denied') {
@@ -2741,7 +2747,7 @@ document.addEventListener('DOMContentLoaded', () => {
               </div>
             </div>
             <div class="phone-display">
-              ${renderVeritasDot(num)}📞 ${formatPhoneNumberHTML(num.phone_number)}
+              ${renderVeritasDot(num)}📞 ${formatPhoneNumberHTML(num.phone_number)}${renderVeritasQrButton(num)}
             </div>
             ${num.in_hand === 1 ? `
             <div class="flags-area">
@@ -2774,6 +2780,17 @@ document.addEventListener('DOMContentLoaded', () => {
                 sendWSMessage('UPDATE_NUMBER_STATUS', { numberId: num.id, status: newStatus, versao: getNumberVersion(num.id) });
                 showToast(`Status atualizado para "${newStatus}"!`, 'success', 5000);
               }
+            });
+          }
+
+          // Mini botão de QR: pede ao VERITAS (página que envolve o CRM) para abrir o QR da conexão
+          const qrBtn = row.querySelector('.btn-veritas-qr');
+          if (qrBtn) {
+            qrBtn.addEventListener('click', (e) => {
+              e.stopPropagation();
+              const whatsappId = parseInt(qrBtn.getAttribute('data-whatsapp-id'), 10);
+              if (!whatsappId) return;
+              window.parent.postMessage({ type: 'crm:open-qr', whatsappId }, window.location.origin);
             });
           }
 
@@ -5019,6 +5036,29 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // --- Funções Adicionadas (Busca de Usuários, Toast, Lupa e Setores) ---
   
+  // Conexões do VERITAS por chip, para o mini botão de QR (só quando o CRM está dentro do VERITAS).
+  async function loadVeritasConnections() {
+    try {
+      const response = await fetch('/api/veritas/connections');
+      if (!response.ok) return;
+      const data = await response.json();
+      if (JSON.stringify(data) !== JSON.stringify(veritasConnections)) {
+        veritasConnections = data;
+        renderDevices();
+      }
+    } catch (err) {
+      console.error('Erro ao buscar conexões do VERITAS:', err);
+    }
+  }
+
+  // Mini botão de QR: aparece só em chip cadastrado no VERITAS e que não está conectado.
+  function renderVeritasQrButton(num) {
+    if (!isInsideVeritas || !num) return '';
+    const conn = veritasConnections[num.id];
+    if (!conn || conn.status === 'CONNECTED') return '';
+    return `<button type="button" class="btn-veritas-qr" data-whatsapp-id="${conn.whatsappId}" title="Abrir QR Code para conectar este número"><svg viewBox="0 0 24 24" width="13" height="13" fill="currentColor" aria-hidden="true"><path d="M3 3h8v8H3V3zm2 2v4h4V5H5zm8-2h8v8h-8V3zm2 2v4h4V5h-4zM3 13h8v8H3v-8zm2 2v4h4v-4H5zm11-2h2v2h-2v-2zm-3 0h2v3h-2v-3zm5 3h3v2h-3v-2zm-5 2h3v3h-3v-3zm5 2h3v1h-3v-1zm1-7h2v3h-2v-3z"/></svg></button>`;
+  }
+
   async function loadSystemUsersList() {
     try {
       const response = await fetch('/api/users/list');

@@ -856,6 +856,71 @@ app.post('/api/integrations/veritas/heartbeat', requireVeritasToken, async (req,
   }
 });
 
+// --- Conexões do VERITAS por chip (para o mini botão de QR no CRM) ---
+// Lê o banco do VERITAS direto (somente leitura) e liga cada chip à sua conexão:
+// 1º pelo número da sessão do WhatsApp; 2º pelos 4 últimos dígitos no nome da conexão (se só uma bater).
+let veritasConnCache = { at: 0, data: null };
+async function loadVeritasConnectionsByNumber() {
+  if (veritasConnCache.data && Date.now() - veritasConnCache.at < 10000) return veritasConnCache.data;
+  const sqlite3 = require('sqlite3');
+  const { open } = require('sqlite');
+  const veritasDbPath = path.resolve(__dirname, '..', 'backend', 'whaticket.sqlite');
+  const result = {};
+  if (!fs.existsSync(veritasDbPath)) return result;
+
+  const vDb = await open({ filename: veritasDbPath, driver: sqlite3.Database, mode: sqlite3.OPEN_READONLY });
+  let rows = [];
+  try {
+    rows = await vDb.all('SELECT id, name, status, session FROM Whatsapps');
+  } finally {
+    await vDb.close();
+  }
+
+  const digits = v => String(v || '').replace(/\D/g, '');
+  const norm = d => (d.startsWith('55') && d.length >= 12 ? d.slice(2) : d);
+  const samePhone = (a, b) => {
+    if (!a || !b) return false;
+    const x = norm(a), y = norm(b);
+    if (x === y) return true;
+    return x.length >= 10 && y.length >= 10 && x.slice(0, 2) === y.slice(0, 2) && x.slice(-8) === y.slice(-8);
+  };
+  const conns = rows.map(r => {
+    let phone = '';
+    try {
+      const sess = r.session ? JSON.parse(r.session) : null;
+      const meId = sess && ((sess.creds && sess.creds.me && sess.creds.me.id) || (sess.me && sess.me.id));
+      if (meId) phone = digits(String(meId).split('@')[0].split(':')[0]);
+    } catch (e) {}
+    return { id: r.id, name: String(r.name || ''), status: String(r.status || ''), phone };
+  });
+
+  const numbers = await crmService.numberRepo.getAll();
+  for (const num of numbers) {
+    const d = digits(num.phone_number);
+    if (d.length < 8) continue;
+    let conn = conns.find(c => samePhone(c.phone, d));
+    if (!conn) {
+      const byName = conns.filter(c => digits(c.name).endsWith(d.slice(-4)));
+      if (byName.length === 1) conn = byName[0];
+    }
+    if (conn) result[num.id] = { whatsappId: conn.id, status: conn.status.toUpperCase() };
+  }
+  veritasConnCache = { at: Date.now(), data: result };
+  return result;
+}
+
+app.get('/api/veritas/connections', async (req, res) => {
+  if (!req.session.userId) {
+    return res.status(401).json({ error: 'Não autenticado' });
+  }
+  try {
+    return res.json(await loadVeritasConnectionsByNumber());
+  } catch (err) {
+    console.error('Erro ao ler conexões do VERITAS:', err);
+    return res.status(500).json({ error: 'Erro interno do servidor' });
+  }
+});
+
 app.get('/api/integrations/veritas/status', async (req, res) => {
   try {
     const summary = await crmService.getVeritasSummary();

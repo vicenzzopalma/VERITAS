@@ -1,5 +1,6 @@
-import React, { useEffect, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { makeStyles, Box, CircularProgress } from "@material-ui/core";
+import QrcodeModal from "../../components/QrcodeModal";
 
 const useStyles = makeStyles(() => ({
   root: {
@@ -31,6 +32,28 @@ const WhatsappControl = () => {
   const classes = useStyles();
   const [token, setToken] = useState("");
   const [ready, setReady] = useState(false);
+  const [qrWhatsappId, setQrWhatsappId] = useState(null);
+
+  // O CRM (iframe, mesma origem) pede para abrir o QR de uma conexão pelo mini botão de QR.
+  useEffect(() => {
+    const onMessage = event => {
+      if (event.origin !== window.location.origin) return;
+      const data = event.data || {};
+      if (data.type === "crm:open-qr" && Number.isInteger(data.whatsappId) && data.whatsappId > 0) {
+        setQrWhatsappId(data.whatsappId);
+      }
+    };
+    window.addEventListener("message", onMessage);
+    return () => window.removeEventListener("message", onMessage);
+  }, []);
+
+  const handleCloseQr = useCallback(() => setQrWhatsappId(null), []);
+
+  // Fixo por token: abrir/fechar o QR não pode recarregar o CRM.
+  const iframeSrc = useMemo(
+    () => (token ? `/crm/?sso_token=${encodeURIComponent(token)}&_t=${Date.now()}` : "/crm/"),
+    [token]
+  );
 
   useEffect(() => {
     let currentToken = localStorage.getItem("token") || "";
@@ -58,8 +81,6 @@ const WhatsappControl = () => {
     );
   }
 
-  const iframeSrc = token ? `/crm/?sso_token=${encodeURIComponent(token)}&_t=${Date.now()}` : "/crm/";
-
   return (
     <div className={classes.root}>
       <iframe
@@ -68,6 +89,9 @@ const WhatsappControl = () => {
         className={classes.iframe}
         allow="camera; microphone; clipboard-read; clipboard-write"
       />
+      {qrWhatsappId && (
+        <QrcodeModal open whatsAppId={qrWhatsappId} onClose={handleCloseQr} />
+      )}
     </div>
   );
 };
