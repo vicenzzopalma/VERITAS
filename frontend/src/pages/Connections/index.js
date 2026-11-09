@@ -1041,7 +1041,9 @@ const Connections = () => {
 					chip &&
 					((chip.status && String(chip.status).toLowerCase().includes(term)) ||
 						(chip.name && String(chip.name).toLowerCase().includes(term)));
-				return nameMatch || numberMatch || sectorMatch || statusMatch || proxyMatch || timerMatch;
+				// Aparelho do CRM: busca exata ("1" acha o aparelho 1, não o 12)
+				const deviceMatch = chip && chip.device_name && String(chip.device_name).trim().toLowerCase() === term;
+				return nameMatch || numberMatch || sectorMatch || statusMatch || proxyMatch || timerMatch || deviceMatch;
 			});
 		}
 
@@ -1232,6 +1234,12 @@ const Connections = () => {
 		} catch (err) {
 			toastError(err);
 		}
+	};
+
+	// Nome do aparelho no CRM (ex.: "12") do chip ligado a esta conexão.
+	const getDeviceName = whatsApp => {
+		const chip = getMatchedChip(whatsApp);
+		return chip && chip.device_name ? String(chip.device_name) : "";
 	};
 
 	const renderSectorPill = sector => (
@@ -1482,7 +1490,7 @@ const Connections = () => {
 	const renderSkeletons = () =>
 		[0, 1, 2, 3, 4, 5].map(i => (
 			<TableRow key={i}>
-				{[0, 1, 2, 3, 4, 5, 6, 7].map(j => (
+				{[0, 1, 2, 3, 4, 5, 6, 7, 8].map(j => (
 					<TableCell key={j} className={classes.td}>
 						<Skeleton height={20} />
 					</TableCell>
@@ -1510,6 +1518,9 @@ const Connections = () => {
 						)}
 					</div>
 				</TableCell>
+				<TableCell className={classes.td} style={{ whiteSpace: "nowrap", fontWeight: 600, fontVariantNumeric: "tabular-nums" }}>
+					{getDeviceName(whatsApp) || "—"}
+				</TableCell>
 				<TableCell className={classes.td} style={{ whiteSpace: "nowrap", fontVariantNumeric: "tabular-nums" }}>
 					{getWhatsAppNumber(whatsApp) || "—"}
 				</TableCell>
@@ -1536,6 +1547,7 @@ const Connections = () => {
 					<TableHead>
 						<TableRow>
 							<TableCell className={classes.th}>Nome</TableCell>
+							<TableCell className={classes.th}>Aparelho</TableCell>
 							<TableCell className={classes.th}>Número</TableCell>
 							<TableCell className={classes.th}>Status</TableCell>
 							<TableCell className={classes.th}>Setor</TableCell>
@@ -1624,6 +1636,7 @@ const Connections = () => {
 								col.items.map(whatsApp => {
 									const archived = isArchivedWhatsapp(whatsApp);
 									const phone = getWhatsAppNumber(whatsApp);
+									const deviceName = getDeviceName(whatsApp);
 									return (
 										<div key={whatsApp.id} className={classes.boardCard}>
 											<Box display="flex" alignItems="flex-start" justifyContent="space-between" style={{ gap: 6 }}>
@@ -1642,7 +1655,7 @@ const Connections = () => {
 														)}
 													</div>
 													<span className={classes.mutedText} style={{ display: "block", fontVariantNumeric: "tabular-nums" }}>
-														{phone || "—"}
+														{deviceName ? `Aparelho ${deviceName} · ` : ""}{phone || "—"}
 													</span>
 												</Box>
 												<div style={{ flexShrink: 0 }}>{renderStatusToolTips(whatsApp)}</div>
