@@ -1,5 +1,5 @@
 import React, { useState, useContext, useEffect } from "react";
-import { useLocation } from "react-router-dom";
+import { useHistory, useLocation } from "react-router-dom";
 import clsx from "clsx";
 import { ThemeProvider as MUIThemeProvider } from "@material-ui/core/styles";
 import {
@@ -25,6 +25,7 @@ import ExitToApp from "@material-ui/icons/ExitToApp";
 import UnfoldMore from "@material-ui/icons/UnfoldMore";
 
 import MainListItems from "./MainListItems";
+import useCrmReleaseNotifications from "../hooks/useCrmReleaseNotifications";
 import NotificationsPopOver from "../components/NotificationsPopOver";
 import UserModal from "../components/UserModal";
 import { AuthContext } from "../context/Auth/AuthContext";
@@ -319,6 +320,10 @@ const LoggedInLayout = ({ children }) => {
   });
   const { handleLogout, loading, user } = useContext(AuthContext);
   const { darkMode, toggleTheme } = useThemeContext();
+  const history = useHistory();
+
+  // Aviso do navegador quando um chip do CRM sai do bloqueio (em qualquer tela)
+  useCrmReleaseNotifications(user, () => history.push("/whatsapp-control"));
 
   useEffect(() => {
     try {
