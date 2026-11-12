@@ -17,9 +17,10 @@ async function start() {
     await sequelize.sync();
     logger.info("Database synced successfully");
 
-    // Garantir usuário admin padrão
-    const adminCount = await User.count({ where: { email: "admin@whaticket.com" } });
-    if (adminCount === 0) {
+    // Cria o admin padrão só em instalação nova (sem nenhum master). Assim um admin
+    // apagado de propósito não volta sozinho a cada reinício.
+    const masterCount = await User.count({ where: { profile: "admin_master" } });
+    if (masterCount === 0) {
       const defaultAdminPassword =
         process.env.DEFAULT_ADMIN_PASSWORD ||
         (process.env.NODE_ENV === "production" ? undefined : "admin");
