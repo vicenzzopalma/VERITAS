@@ -1354,6 +1354,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!systemUsers.some(u => u.id === payload.id)) {
           systemUsers.push(payload);
         }
+        refreshCollaboratorDirectory();
         break;
       }
       case 'COLLABORATOR_UPDATED': {
@@ -1361,6 +1362,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (idx !== -1) {
           systemUsers[idx] = payload;
         }
+        refreshCollaboratorDirectory();
         break;
       }
       case 'COLLABORATOR_DELETED': {
@@ -1368,6 +1370,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (idx !== -1) {
           systemUsers.splice(idx, 1);
         }
+        refreshCollaboratorDirectory();
         break;
       }
       case 'AGENT_STATUS_UPDATE':
@@ -1516,11 +1519,9 @@ document.addEventListener('DOMContentLoaded', () => {
     const searchFirstWord = nameLower.split(' ')[0];
     const ignoreWords = ['reserva', 'pesquisa', 'pa', 'fixa', 'backoffice', 'sem'];
     if (searchFirstWord && !ignoreWords.includes(searchFirstWord)) {
-      colab = list.find(u => {
-        const uFirstWord = u.name.split(' ')[0].toLowerCase().trim();
-        return uFirstWord === searchFirstWord;
-      });
-      if (colab) return colab;
+      // Só vale se o primeiro nome for único: "João Ribas" não pode virar "João Pedro".
+      const sameFirst = list.filter(u => u.name.split(' ')[0].toLowerCase().trim() === searchFirstWord);
+      if (sameFirst.length === 1) return sameFirst[0];
     }
 
     return null;
@@ -5063,6 +5064,20 @@ document.addEventListener('DOMContentLoaded', () => {
     const conn = veritasConnections[num.id];
     if (!conn || conn.status === 'CONNECTED') return '';
     return `<button type="button" class="btn-veritas-qr" data-whatsapp-id="${conn.whatsappId}" title="Abrir QR Code para conectar este número"><svg viewBox="0 0 24 24" width="13" height="13" fill="currentColor" aria-hidden="true"><path d="M3 3h8v8H3V3zm2 2v4h4V5H5zm8-2h8v8h-8V3zm2 2v4h4V5h-4zM3 13h8v8H3v-8zm2 2v4h4v-4H5zm11-2h2v2h-2v-2zm-3 0h2v3h-2v-3zm5 3h3v2h-3v-2zm-5 2h3v3h-3v-3zm5 2h3v1h-3v-1zm1-7h2v3h-2v-3z"/></svg></button>`;
+  }
+
+  // Recarrega o diretório (nome + setor) usado para achar o dono do chip.
+  // Sem isso, colaborador recém-cadastrado só era reconhecido após recarregar a página.
+  async function refreshCollaboratorDirectory() {
+    try {
+      const dirResponse = await fetch('/api/collaborators/directory');
+      if (dirResponse.ok) {
+        collaboratorDirectory = await dirResponse.json();
+        renderDevices();
+      }
+    } catch (err) {
+      console.error('Erro ao atualizar diretório de colaboradores:', err);
+    }
   }
 
   async function loadSystemUsersList() {

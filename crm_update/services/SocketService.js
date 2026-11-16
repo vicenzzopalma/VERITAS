@@ -96,8 +96,9 @@ class SocketService {
           const searchFirstWord = nameLower.split(' ')[0];
           const ignoreWords = ['reserva', 'pesquisa', 'pa', 'fixa', 'backoffice', 'sem'];
           if (searchFirstWord && !ignoreWords.includes(searchFirstWord)) {
-            colab = collaborators.find(c => c.name.split(' ')[0].toLowerCase().trim() === searchFirstWord);
-            if (colab) return colab.sector;
+            // Só vale se o primeiro nome for único (evita "João Ribas" -> "João Pedro").
+            const sameFirst = collaborators.filter(c => c.name.split(' ')[0].toLowerCase().trim() === searchFirstWord);
+            if (sameFirst.length === 1) return sameFirst[0].sector;
           }
           return null;
         };
@@ -259,8 +260,9 @@ class SocketService {
                 const searchFirstWord = nameLower.split(' ')[0];
                 const ignoreWords = ['reserva', 'pesquisa', 'pa', 'fixa', 'backoffice', 'sem'];
                 if (searchFirstWord && !ignoreWords.includes(searchFirstWord)) {
-                  colab = collaborators.find(c => c.name.split(' ')[0].toLowerCase().trim() === searchFirstWord);
-                  if (colab) return colab.sector;
+                  // Só vale se o primeiro nome for único (evita "João Ribas" -> "João Pedro").
+                  const sameFirst = collaborators.filter(c => c.name.split(' ')[0].toLowerCase().trim() === searchFirstWord);
+                  if (sameFirst.length === 1) return sameFirst[0].sector;
                 }
                 return null;
               };
