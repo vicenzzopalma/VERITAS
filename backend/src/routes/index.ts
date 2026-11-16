@@ -11,6 +11,7 @@ import whatsappSessionRoutes from "./whatsappSessionRoutes";
 import queueRoutes from "./queueRoutes";
 import quickAnswerRoutes from "./quickAnswerRoutes";
 import apiRoutes from "./apiRoutes";
+import marcelaRoutes from "./marcelaRoutes";
 import auditRoutes from "./auditRoutes";
 import dashboardRoutes from "./dashboardRoutes";
 import sectorRoutes from "./sectorRoutes";
@@ -31,5 +32,6 @@ routes.use(whatsappSessionRoutes);
 routes.use(queueRoutes);
 routes.use(quickAnswerRoutes);
 routes.use("/api/messages", apiRoutes);
+routes.use(marcelaRoutes);
 
 export default routes;
