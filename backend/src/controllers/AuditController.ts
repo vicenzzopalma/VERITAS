@@ -43,14 +43,18 @@ export const listChats = async (req: Request, res: Response): Promise<Response> 
 };
 
 export const searchGlobal = async (req: Request, res: Response): Promise<Response> => {
-  const { search, limit } = req.query as {
+  const { search, limit, mode, whatsappId } = req.query as {
     search?: string;
     limit?: string;
+    mode?: string;
+    whatsappId?: string;
   };
 
   const results = await SearchGlobalAuditService({
     search: search || "",
-    limit: limit ? Number(limit) : 20,
+    mode: mode === "message" ? "message" : "contact",
+    whatsappId: whatsappId || undefined,
+    limit: limit ? Number(limit) : 30,
     user: req.user
   });
 

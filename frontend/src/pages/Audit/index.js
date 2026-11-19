@@ -76,6 +76,7 @@ import MediaViewerModal from "../../components/MediaViewerModal";
 import ContactDrawer from "../../components/ContactDrawer";
 import { getContactDisplayName, formatPhoneNumber, isPendingResolution, PENDING_TOOLTIP } from "../../helpers/contactHelper";
 import { StatCard, StatusPill, EmptyState } from "../../components/ui";
+import { getSearchWords, highlightText } from "../../helpers/searchHighlight";
 
 const useStyles = makeStyles((theme) => {
   const c = theme.custom;
@@ -134,7 +135,7 @@ const useStyles = makeStyles((theme) => {
     },
     globalSearchContainer: {
       position: "relative",
-      width: 300,
+      width: 400,
       flex: "none",
       minWidth: 0,
       [theme.breakpoints.down("sm")]: { width: "100%" },
@@ -224,6 +225,50 @@ const useStyles = makeStyles((theme) => {
       padding: theme.spacing(3, 2),
       textAlign: "center",
       color: c.textMuted,
+    },
+    // Botões pequenos Contato / Mensagem dentro das barras de busca
+    modeToggle: {
+      display: "inline-flex",
+      flex: "none",
+      padding: 2,
+      gap: 2,
+      borderRadius: 6,
+      backgroundColor: c.surface,
+      border: `1px solid ${c.border}`,
+    },
+    modeBtn: {
+      height: 20,
+      padding: "0 7px",
+      borderRadius: 4,
+      fontSize: "0.68rem",
+      fontWeight: 650,
+      color: c.textMuted,
+      whiteSpace: "nowrap",
+      transition: "background-color .15s, color .15s",
+      "&:hover": { color: theme.palette.text.primary },
+    },
+    modeBtnActive: {
+      backgroundColor: theme.palette.primary.main,
+      color: "#fff",
+      "&:hover": { color: "#fff" },
+    },
+    msgResultBody: {
+      fontSize: "0.78rem",
+      color: theme.palette.text.primary,
+      lineHeight: 1.35,
+      marginTop: 3,
+      display: "-webkit-box",
+      WebkitLineClamp: 2,
+      WebkitBoxOrient: "vertical",
+      overflow: "hidden",
+      wordBreak: "break-word",
+    },
+    deviceHitRow: {
+      display: "flex",
+      flexWrap: "wrap",
+      gap: 6,
+      padding: theme.spacing(1, 2),
+      borderBottom: `1px solid ${c.border}`,
     },
 
     ribbonRow: {
@@ -849,6 +894,28 @@ const useStyles = makeStyles((theme) => {
   };
 });
 
+// Botões pequenos para escolher onde a busca procura
+const SEARCH_MODES = [
+  { value: "contact", label: "Contato", hint: "Nome ou número do contato" },
+  { value: "message", label: "Mensagem", hint: "Texto escrito nas conversas" },
+];
+
+const SearchModeToggle = ({ classes, value, onChange }) => (
+  <div className={classes.modeToggle} role="group" aria-label="Tipo de busca">
+    {SEARCH_MODES.map((m) => (
+      <Tooltip key={m.value} title={m.hint}>
+        <ButtonBase
+          className={clsx(classes.modeBtn, value === m.value && classes.modeBtnActive)}
+          aria-pressed={value === m.value}
+          onClick={() => onChange(m.value)}
+        >
+          {m.label}
+        </ButtonBase>
+      </Tooltip>
+    ))}
+  </div>
+);
+
 const ListSkeleton = () => (
   <Box p={0.5}>
     {[0, 1, 2, 3, 4, 5].map((i) => (
@@ -1221,10 +1288,19 @@ const Audit = () => {
   const [globalPopperOpen, setGlobalPopperOpen] = useState(false);
   const globalSearchRef = useRef(null);
   const globalSearchTimeout = useRef(null);
+  const globalSearchSeq = useRef(0);
+  // "contact" = nome/número do contato · "message" = texto das mensagens
+  const [globalSearchMode, setGlobalSearchMode] = useState("contact");
+  const [globalResultsQuery, setGlobalResultsQuery] = useState("");
 
   // Filtros de busca local
   const [chatSearchInput, setChatSearchInput] = useState("");
   const [chatSearch, setChatSearch] = useState("");
+  // Mesma lógica da barra global, restrita ao celular selecionado
+  const [chatSearchMode, setChatSearchMode] = useState("contact");
+  const [deviceMsgResults, setDeviceMsgResults] = useState([]);
+  const [deviceMsgLoading, setDeviceMsgLoading] = useState(false);
+  const deviceMsgSeq = useRef(0);
   const [searchTermInput, setSearchTermInput] = useState("");
   const [searchTerm, setSearchTerm] = useState("");
   const [startDate, setStartDate] = useState("");
@@ -1263,13 +1339,24 @@ const Audit = () => {
       if (selectedSector !== "TODOS" && devSector !== selectedSector) {
         return false;
       }
-      if (!globalSearchInput || !globalSearchInput.trim()) return true;
-      const term = globalSearchInput.trim().toLowerCase();
-      const nameMatch = device.name?.toLowerCase().includes(term);
-      const idMatch = String(device.id).includes(term);
-      return nameMatch || idMatch;
+      // A busca global NÃO filtra mais a fita de aparelhos: antes, digitar o nome
+      // de um contato escondia todos os celulares e a busca parecia não achar nada.
+      return true;
     });
-  }, [devices, allowedSectors, selectedSector, globalSearchInput]);
+  }, [devices, allowedSectors, selectedSector]);
+
+  // Aparelhos cujo nome bate com a busca (atalho no topo do popup, modo Contato)
+  const matchedDevicesForSearch = useMemo(() => {
+    const words = getSearchWords(globalSearchInput);
+    if (!words.length || !Array.isArray(devices)) return [];
+    return devices
+      .filter((d) => !allowedSectors || allowedSectors.includes(d.sector || "Junior"))
+      .filter((d) => {
+        const name = getSearchWords(d.name || "").join(" ");
+        return words.every((w) => name.includes(w));
+      })
+      .slice(0, 6);
+  }, [globalSearchInput, devices, allowedSectors]);
 
   // Se o aparelho selecionado não pertencer ao setor ativo, auto-seleciona o primeiro do setor
   useEffect(() => {
@@ -1281,26 +1368,13 @@ const Audit = () => {
     }
   }, [filteredDevices, selectedDevice]);
 
-  // Auto-seleciona o smartphone se a busca filtrar exatamente 1 aparelho correspondente
-  useEffect(() => {
-    if (globalSearchInput && globalSearchInput.trim()) {
-      const term = globalSearchInput.trim().toLowerCase();
-      const matched = devices.filter(
-        (d) => d.name?.toLowerCase().includes(term) || String(d.id).includes(term)
-      );
-      if (matched.length === 1 && selectedDevice?.id !== matched[0].id) {
-        handleSelectDevice(matched[0]);
-      }
-    }
-  }, [globalSearchInput, devices]);
-
   const messagesContainerRef = useRef(null);
   const messagesEndRef = useRef(null);
   const chatSearchTimeout = useRef(null);
   const searchTermTimeout = useRef(null);
 
   // 1. Busca Global em Todos os Aparelhos
-  const executeGlobalSearch = async (val) => {
+  const executeGlobalSearch = async (val, mode = globalSearchMode) => {
     if (!val || val.trim().length === 0) {
       setGlobalResults([]);
       setGlobalPopperOpen(false);
@@ -1308,19 +1382,82 @@ const Audit = () => {
       return;
     }
 
+    // Descarta respostas antigas que cheguem depois de uma busca mais nova
+    const seq = ++globalSearchSeq.current;
     setGlobalLoading(true);
     setGlobalPopperOpen(true);
 
     try {
       const { data } = await api.get("/audit/search-all", {
-        params: { search: val.trim() },
+        params: { search: val.trim(), mode, limit: mode === "message" ? 60 : 40 },
       });
+      if (seq !== globalSearchSeq.current) return;
       setGlobalResults(Array.isArray(data) ? data : []);
+      setGlobalResultsQuery(val.trim());
     } catch (err) {
+      if (seq === globalSearchSeq.current) setGlobalResults([]);
       console.error("Erro na busca global:", err);
     } finally {
-      setGlobalLoading(false);
+      if (seq === globalSearchSeq.current) setGlobalLoading(false);
     }
+  };
+
+  const handleGlobalModeChange = (mode) => {
+    if (mode === globalSearchMode) return;
+    setGlobalSearchMode(mode);
+    setGlobalResults([]);
+    if (globalSearchTimeout.current) clearTimeout(globalSearchTimeout.current);
+    if (globalSearchInput.trim()) executeGlobalSearch(globalSearchInput, mode);
+  };
+
+  // Busca de mensagens restrita ao celular selecionado (modo Mensagem da barra lateral)
+  const executeDeviceMessageSearch = async (val) => {
+    const seq = ++deviceMsgSeq.current;
+    if (!selectedDevice?.id || !val || !val.trim()) {
+      setDeviceMsgResults([]);
+      setDeviceMsgLoading(false);
+      return;
+    }
+    setDeviceMsgLoading(true);
+    try {
+      const { data } = await api.get("/audit/search-all", {
+        params: { search: val.trim(), mode: "message", whatsappId: selectedDevice.id, limit: 100 },
+      });
+      if (seq !== deviceMsgSeq.current) return;
+      setDeviceMsgResults(Array.isArray(data) ? data : []);
+    } catch (err) {
+      if (seq === deviceMsgSeq.current) setDeviceMsgResults([]);
+      toastError(err);
+    } finally {
+      if (seq === deviceMsgSeq.current) setDeviceMsgLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (chatSearchMode === "message") {
+      executeDeviceMessageSearch(chatSearch);
+    } else {
+      deviceMsgSeq.current += 1;
+      setDeviceMsgResults([]);
+      setDeviceMsgLoading(false);
+    }
+  }, [chatSearchMode, chatSearch, selectedDevice?.id]);
+
+  // Abre a conversa de um resultado de mensagem já filtrando pelo termo buscado
+  const openMessageResult = (result, query) => {
+    const targetChat = {
+      ticketId: result.ticketId,
+      whatsappId: result.whatsappId,
+      contact: result.contact,
+      lastMessage: result.body,
+      totalMessages: result.totalMessages,
+      deletedMessages: result.deletedMessages,
+      updatedAt: result.createdAt || new Date().toISOString(),
+    };
+    setSelectedChat(targetChat);
+    setChats((prev) => [targetChat, ...prev.filter((c) => c.ticketId !== targetChat.ticketId)]);
+    setSearchTermInput(query);
+    setSearchTerm(query);
   };
 
   const handleGlobalSearchChange = (e) => {
@@ -1346,6 +1483,7 @@ const Audit = () => {
 
   // Ao clicar em um resultado da busca global: seleciona o smartphone e a conversa!
   const handleSelectGlobalResult = (result) => {
+    const query = globalResultsQuery || globalSearchInput.trim();
     setGlobalPopperOpen(false);
     setGlobalSearchInput("");
 
@@ -1355,6 +1493,22 @@ const Audit = () => {
       name: result.deviceName,
       status: result.deviceStatus,
     };
+
+    // Se o aparelho é de outro setor, solta o filtro de setor para ele não ser trocado
+    const targetSector = targetDevice.sector || "Junior";
+    if (selectedSector !== "TODOS" && selectedSector !== targetSector) {
+      setSelectedSector("TODOS");
+    }
+
+    if (result.type === "message") {
+      handleSelectDevice(targetDevice);
+      openMessageResult(result, query);
+      return;
+    }
+
+    // Resultado de contato: abre a conversa inteira, sem filtro de termo
+    setSearchTermInput("");
+    setSearchTerm("");
 
     const targetChat = {
       ticketId: result.ticketId,
@@ -1508,7 +1662,7 @@ const Audit = () => {
 
     try {
       const { data } = await api.get(`/audit/devices/${selectedDevice.id}/chats`, {
-        params: { search: chatSearch, pageNumber: page, limit: 50 },
+        params: { search: chatSearchMode === "contact" ? chatSearch : "", pageNumber: page, limit: 50 },
       });
       const newChats = data.chats || [];
       setHasMoreChats(data.hasMore || false);
@@ -1552,7 +1706,7 @@ const Audit = () => {
 
   useEffect(() => {
     fetchChats(true, 1);
-  }, [selectedDevice?.id, chatSearch]);
+  }, [selectedDevice?.id, chatSearch, chatSearchMode]);
 
   // 3. Carregar mensagens da conversa ou filtros (com histórico completo)
   const fetchMessages = async (showLoading = false, page = 1, appendOlder = false, fetchAll = false) => {
@@ -1788,7 +1942,11 @@ const Audit = () => {
               <SearchIcon className={classes.omniIcon} />
               <InputBase
                 className={classes.omniInput}
-                placeholder="Buscar palavra, número ou contato..."
+                placeholder={
+                  globalSearchMode === "message"
+                    ? "Buscar texto nas mensagens..."
+                    : "Buscar nome ou número do contato..."
+                }
                 value={globalSearchInput}
                 onChange={handleGlobalSearchChange}
                 onKeyDown={(e) => {
@@ -1796,14 +1954,20 @@ const Audit = () => {
                     if (globalSearchTimeout.current) clearTimeout(globalSearchTimeout.current);
                     executeGlobalSearch(globalSearchInput);
                   }
+                  if (e.key === "Escape") setGlobalPopperOpen(false);
                 }}
                 onFocus={() => {
                   if (globalSearchInput.trim().length > 0) setGlobalPopperOpen(true);
                 }}
-                inputProps={{ "aria-label": "Buscar palavra, número ou contato em todos os aparelhos" }}
+                inputProps={{
+                  "aria-label":
+                    globalSearchMode === "message"
+                      ? "Buscar texto nas mensagens de todos os aparelhos"
+                      : "Buscar nome ou número do contato em todos os aparelhos",
+                }}
               />
               {globalLoading ? (
-                <CircularProgress size={16} style={{ marginRight: 8 }} />
+                <CircularProgress size={14} style={{ margin: "0 4px" }} />
               ) : globalSearchInput ? (
                 <IconButton
                   size="small"
@@ -1815,9 +1979,12 @@ const Audit = () => {
                 >
                   <ClearIcon fontSize="small" />
                 </IconButton>
-              ) : (
-                <span className={classes.omniHint}>Todos os aparelhos</span>
-              )}
+              ) : null}
+              <SearchModeToggle
+                classes={classes}
+                value={globalSearchMode}
+                onChange={handleGlobalModeChange}
+              />
             </div>
 
             <Popper
@@ -1825,36 +1992,80 @@ const Audit = () => {
               anchorEl={globalSearchRef.current}
               placement="bottom-start"
               disablePortal
-              style={{ zIndex: 1400, width: "100%" }}
+              style={{ zIndex: 1400, width: isMobile ? "100%" : 520, maxWidth: "calc(100vw - 32px)" }}
             >
               <Paper className={classes.popperPaper}>
-                {globalLoading ? (
+                {globalSearchMode === "contact" && matchedDevicesForSearch.length > 0 && (
+                  <div className={classes.deviceHitRow}>
+                    {matchedDevicesForSearch.map((d) => (
+                      <ButtonBase
+                        key={d.id}
+                        className={classes.deviceBadge}
+                        onClick={() => {
+                          setGlobalPopperOpen(false);
+                          setGlobalSearchInput("");
+                          if (selectedSector !== "TODOS" && selectedSector !== (d.sector || "Junior")) {
+                            setSelectedSector("TODOS");
+                          }
+                          handleSelectDevice(d);
+                        }}
+                        title="Abrir este celular"
+                      >
+                        <PhoneAndroidIcon />
+                        {d.name}
+                      </ButtonBase>
+                    ))}
+                  </div>
+                )}
+                {globalLoading && globalResults.length === 0 ? (
                   <div className={classes.popperState}>
                     <CircularProgress size={22} />
                     <Typography variant="body2" style={{ marginTop: 8, fontWeight: 600 }}>
-                      Buscando em todos os aparelhos e mensagens...
+                      {globalSearchMode === "message"
+                        ? "Procurando nas mensagens de todos os aparelhos..."
+                        : "Procurando contatos em todos os aparelhos..."}
                     </Typography>
                   </div>
                 ) : globalResults.length === 0 ? (
                   <EmptyState
                     icon={<FindInPageIcon />}
                     tone="neutral"
-                    title="Nenhum resultado encontrado nos aparelhos"
-                    description="Tente outra palavra, número, contato ou nome de aparelho."
+                    title={
+                      globalSearchMode === "message"
+                        ? "Nenhuma mensagem com esse texto"
+                        : "Nenhum contato com esse nome ou número"
+                    }
+                    description={
+                      globalSearchMode === "message"
+                        ? "Todas as palavras precisam aparecer na mensagem. Para achar uma pessoa, use Contato."
+                        : "Para procurar algo que foi escrito na conversa, use Mensagem."
+                    }
+                    action={
+                      <Button
+                        size="small"
+                        color="primary"
+                        onClick={() =>
+                          handleGlobalModeChange(globalSearchMode === "message" ? "contact" : "message")
+                        }
+                      >
+                        Buscar em {globalSearchMode === "message" ? "Contato" : "Mensagem"}
+                      </Button>
+                    }
                   />
-                ) : (
+                ) : globalSearchMode === "message" ? (
                   <List disablePadding>
                     <div className={classes.popperHeader}>
-                      Encontrado em {globalResults.length} aparelho(s) · clique para abrir
+                      {globalResults.length}
+                      {globalResults.length >= 60 ? "+" : ""} mensagem(ns) · mais recentes primeiro
                     </div>
                     {globalResults.map((res) => (
                       <ListItem
-                        key={`${res.whatsappId}-${res.ticketId}`}
+                        key={`msg-${res.messageId}`}
                         className={classes.globalResultItem}
                         onClick={() => handleSelectGlobalResult(res)}
                       >
                         <ListItemAvatar style={{ minWidth: 46 }}>
-                          <Avatar className={classes.resultAvatar}>
+                          <Avatar className={classes.resultAvatar} src={res.contact?.profilePicUrl}>
                             {getContactDisplayName(res.contact).charAt(0).toUpperCase()}
                           </Avatar>
                         </ListItemAvatar>
@@ -1865,6 +2076,70 @@ const Audit = () => {
                               <Typography variant="subtitle2" noWrap style={{ fontWeight: 700, minWidth: 0 }}>
                                 {getContactDisplayName(res.contact)}
                               </Typography>
+                              <Box display="flex" alignItems="center" flex="none" style={{ gap: 6 }}>
+                                <span className={classes.deviceBadge}>
+                                  <PhoneAndroidIcon />
+                                  {res.deviceName}
+                                </span>
+                                <Typography variant="caption" color="textSecondary" style={{ fontSize: "0.7rem" }}>
+                                  {res.createdAt ? format(parseISO(res.createdAt), "dd/MM/yy HH:mm") : ""}
+                                </Typography>
+                              </Box>
+                            </Box>
+                          }
+                          secondary={
+                            <div className={classes.msgResultBody}>
+                              {res.isDeleted && (
+                                <span style={{ marginRight: 6, display: "inline-block" }}>
+                                  <StatusPill tone="error" dot={false}>
+                                    <BlockIcon style={{ fontSize: 11 }} /> apagada
+                                  </StatusPill>
+                                </span>
+                              )}
+                              <strong style={{ fontWeight: 650 }}>{res.fromMe ? "Enviada: " : "Recebida: "}</strong>
+                              {highlightText(res.body, globalResultsQuery, { maxContext: 70 })}
+                            </div>
+                          }
+                        />
+                      </ListItem>
+                    ))}
+                  </List>
+                ) : (
+                  <List disablePadding>
+                    {globalResults.map((res, idx) => {
+                      const prev = globalResults[idx - 1];
+                      const group = res.matchedBy === "device" ? `device-${res.whatsappId}` : "contact";
+                      const prevGroup = prev
+                        ? prev.matchedBy === "device" ? `device-${prev.whatsappId}` : "contact"
+                        : null;
+                      const groupCount = globalResults.filter((r) =>
+                        group === "contact" ? r.matchedBy !== "device" : r.matchedBy === "device" && r.whatsappId === res.whatsappId
+                      ).length;
+                      return (
+                      <React.Fragment key={`${res.whatsappId}-${res.ticketId}`}>
+                      {group !== prevGroup && (
+                        <div className={classes.popperHeader}>
+                          {group === "contact"
+                            ? `${groupCount} contato(s) com esse nome ou número`
+                            : `${groupCount} número(s) que falaram com o celular ${res.deviceName}`}
+                        </div>
+                      )}
+                      <ListItem
+                        className={classes.globalResultItem}
+                        onClick={() => handleSelectGlobalResult(res)}
+                      >
+                        <ListItemAvatar style={{ minWidth: 46 }}>
+                          <Avatar className={classes.resultAvatar} src={res.contact?.profilePicUrl}>
+                            {getContactDisplayName(res.contact).charAt(0).toUpperCase()}
+                          </Avatar>
+                        </ListItemAvatar>
+                        <ListItemText
+                          disableTypography
+                          primary={
+                            <Box display="flex" justifyContent="space-between" alignItems="center" style={{ gap: 8 }}>
+                              <Typography variant="subtitle2" noWrap style={{ fontWeight: 700, minWidth: 0 }}>
+                                {highlightText(getContactDisplayName(res.contact), globalResultsQuery)}
+                              </Typography>
                               <span className={classes.deviceBadge}>
                                 <PhoneAndroidIcon />
                                 {res.deviceName}
@@ -1874,6 +2149,9 @@ const Audit = () => {
                           secondary={
                             <Box display="flex" justifyContent="space-between" alignItems="center" mt={0.4} style={{ gap: 8 }}>
                               <Typography variant="caption" color="textSecondary" noWrap style={{ minWidth: 0 }}>
+                                {res.contact?.number && !res.contact?.isGroup
+                                  ? `${formatPhoneNumber(res.contact.number)} · `
+                                  : ""}
                                 {res.lastMessage || "Conversa iniciada"}
                               </Typography>
                               <Box display="flex" alignItems="center" flex="none" style={{ gap: 6 }}>
@@ -1891,7 +2169,9 @@ const Audit = () => {
                           }
                         />
                       </ListItem>
-                    ))}
+                      </React.Fragment>
+                      );
+                    })}
                   </List>
                 )}
               </Paper>
@@ -2069,16 +2349,34 @@ const Audit = () => {
               <SearchIcon />
               <InputBase
                 className={classes.compactInput}
-                placeholder="Buscar no celular selecionado..."
+                placeholder={
+                  chatSearchMode === "message"
+                    ? "Texto nas mensagens deste celular..."
+                    : "Nome ou número neste celular..."
+                }
                 value={chatSearchInput}
                 onChange={handleChatSearchChange}
-                inputProps={{ "aria-label": "Buscar no celular selecionado" }}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    if (chatSearchTimeout.current) clearTimeout(chatSearchTimeout.current);
+                    setChatSearch(chatSearchInput);
+                  }
+                }}
+                inputProps={{
+                  "aria-label":
+                    chatSearchMode === "message"
+                      ? "Buscar texto nas mensagens do celular selecionado"
+                      : "Buscar nome ou número no celular selecionado",
+                }}
               />
-              {chatSearchInput && (
+              {deviceMsgLoading ? (
+                <CircularProgress size={14} style={{ margin: "0 4px" }} />
+              ) : chatSearchInput ? (
                 <IconButton size="small" onClick={() => { setChatSearchInput(""); setChatSearch(""); }}>
                   <ClearIcon fontSize="small" />
                 </IconButton>
-              )}
+              ) : null}
+              <SearchModeToggle classes={classes} value={chatSearchMode} onChange={setChatSearchMode} />
             </div>
           </div>
 
@@ -2096,7 +2394,64 @@ const Audit = () => {
               }
             }}
           >
-            {loadingChats ? (
+            {chatSearchMode === "message" && chatSearch.trim() ? (
+              deviceMsgLoading && deviceMsgResults.length === 0 ? (
+                <ListSkeleton />
+              ) : deviceMsgResults.length === 0 ? (
+                <EmptyState
+                  icon={<FindInPageIcon />}
+                  tone="neutral"
+                  title="Nenhuma mensagem com esse texto"
+                  description="Todas as palavras precisam aparecer na mensagem deste celular."
+                  action={
+                    <Button size="small" color="primary" onClick={() => setChatSearchMode("contact")}>
+                      Buscar em Contato
+                    </Button>
+                  }
+                />
+              ) : (
+                <>
+                  <div className={classes.popperHeader} style={{ borderRadius: 8 }}>
+                    {deviceMsgResults.length}
+                    {deviceMsgResults.length >= 100 ? "+" : ""} mensagem(ns) neste celular
+                  </div>
+                  {deviceMsgResults.map((res) => (
+                    <div
+                      key={`dmsg-${res.messageId}`}
+                      className={clsx(
+                        classes.chatItem,
+                        selectedChat?.ticketId === res.ticketId && classes.chatItemSelected
+                      )}
+                      onClick={() => openMessageResult(res, chatSearch.trim())}
+                    >
+                      <Avatar className={classes.chatAvatar} src={res.contact?.profilePicUrl}>
+                        {getContactDisplayName(res.contact).charAt(0).toUpperCase()}
+                      </Avatar>
+                      <div className={classes.chatInfo}>
+                        <Box display="flex" justifyContent="space-between" alignItems="center">
+                          <Typography className={classes.chatName}>
+                            {getContactDisplayName(res.contact)}
+                          </Typography>
+                          <Typography className={classes.chatDate}>
+                            {res.createdAt ? format(parseISO(res.createdAt), "dd/MM/yy HH:mm") : ""}
+                          </Typography>
+                        </Box>
+                        <div className={classes.msgResultBody}>
+                          <strong style={{ fontWeight: 650 }}>{res.fromMe ? "Enviada: " : "Recebida: "}</strong>
+                          {highlightText(res.body, chatSearch, { maxContext: 60 })}
+                        </div>
+                        {res.isDeleted && (
+                          <span className={classes.miniPill}>
+                            <BlockIcon />
+                            apagada
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </>
+              )
+            ) : loadingChats ? (
               <ListSkeleton />
             ) : chats.length === 0 ? (
               <EmptyState
@@ -2150,7 +2505,9 @@ const Audit = () => {
                       <div className={classes.chatInfo}>
                         <Box display="flex" justifyContent="space-between" alignItems="center">
                           <Typography className={classes.chatName}>
-                            {getContactDisplayName(chat.contact)}
+                            {chatSearchMode === "contact" && chatSearch
+                              ? highlightText(getContactDisplayName(chat.contact), chatSearch)
+                              : getContactDisplayName(chat.contact)}
                           </Typography>
                           <Typography className={classes.chatDate}>
                             {chat.updatedAt ? format(parseISO(chat.updatedAt), "dd/MM HH:mm") : ""}
@@ -2697,7 +3054,7 @@ const Audit = () => {
                         !message.body.endsWith(".ogg") &&
                         !message.body.startsWith(".kfKTb") && (
                           <Typography variant="body2" style={{ whiteSpace: "pre-wrap", lineHeight: 1.45, marginTop: 4 }}>
-                            {message.body}
+                            {searchTerm ? highlightText(message.body, searchTerm) : message.body}
                           </Typography>
                         )}
 

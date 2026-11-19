@@ -3,7 +3,7 @@ import Message from "../../models/Message";
 import Ticket from "../../models/Ticket";
 import Contact from "../../models/Contact";
 import Whatsapp from "../../models/Whatsapp";
-import { getSearchTerms } from "../../helpers/searchTermHelper";
+import { foldedContainsAll, getSearchTerms } from "../../helpers/searchTermHelper";
 import {
   getWhatsappAccessWhere,
   WhatsappAccessUser
@@ -86,15 +86,10 @@ const ListAuditMessagesService = async ({
   }
 
   if (search && search.trim()) {
+    // Todas as palavras precisam aparecer (AND), ignorando acento e caixa
     const searchTerms = getSearchTerms(search);
     if (searchTerms.length > 0) {
-      whereConditions[Op.or] = searchTerms.map((term) => ({
-        body: { [Op.like]: `%${term}%` }
-      }));
-    } else {
-      whereConditions.body = {
-        [Op.like]: `%${search.trim()}%`
-      };
+      whereConditions[Op.and] = foldedContainsAll("`Message`.`body`", searchTerms)[Op.and];
     }
   }
 

@@ -9,7 +9,7 @@ import User from "../../models/User";
 import ShowUserService from "../UserServices/ShowUserService";
 import Whatsapp from "../../models/Whatsapp";
 import { getPhoneSearchVariants } from "../../helpers/phoneSearchHelper";
-import { getSearchTerms } from "../../helpers/searchTermHelper";
+import { getLegacySearchTerms as getSearchTerms } from "../../helpers/searchTermHelper";
 import { getOperationalTicketSectorFilter } from "./TicketAccessPolicy";
 
 interface Request {

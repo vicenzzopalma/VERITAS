@@ -1,10 +1,10 @@
-import { Op, fn, where, col } from "sequelize";
+import { Op } from "sequelize";
 import sequelize from "../../database";
 import Ticket from "../../models/Ticket";
 import Contact from "../../models/Contact";
 import Message from "../../models/Message";
 import { getPhoneSearchVariants } from "../../helpers/phoneSearchHelper";
-import { getSearchTerms } from "../../helpers/searchTermHelper";
+import { foldedContainsAll, getSearchTerms } from "../../helpers/searchTermHelper";
 
 interface Request {
   whatsappId: number | string;
@@ -52,31 +52,24 @@ const ListAuditChatsService = async ({
 
   const contactOrConditions: any[] = [];
   if (cleanSearch) {
-    const searchPatterns = searchTerms.length > 0 ? searchTerms : [cleanSearch];
+    // Nome precisa conter TODAS as palavras (sem acento/caixa) ou o número bater
+    if (searchTerms.length > 0) {
+      contactOrConditions.push(foldedContainsAll("`contact`.`name`", searchTerms));
+    }
 
-    for (const term of searchPatterns) {
-      contactOrConditions.push(
-        where(fn("LOWER", col("contact.name")), "LIKE", `%${term}%`)
-      );
-
-      const phoneVariants = getPhoneSearchVariants(term);
+    const digits = (search || "").replace(/\D/g, "");
+    if (digits.length >= 3) {
+      const phoneVariants = getPhoneSearchVariants(search || "").filter((v) => /^\d+$/.test(v));
       for (const variant of phoneVariants) {
         contactOrConditions.push({
           "$contact.number$": { [Op.like]: `%${variant}%` }
         });
       }
-
-      const isShortDigits = /^\d{1,5}$/.test(term);
-      if (!isShortDigits) {
-        contactOrConditions.push(
-          where(fn("LOWER", col("lastMessage")), "LIKE", `%${term}%`)
-        );
-      }
     }
 
     ticketWhere = {
       ...ticketWhere,
-      [Op.or]: contactOrConditions
+      [Op.or]: contactOrConditions.length > 0 ? contactOrConditions : [{ id: -1 }]
     };
   }
 
