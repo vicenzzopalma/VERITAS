@@ -12,16 +12,50 @@ const TAP_TIMEOUT_MS = 10000;
 export const marcelaTapId = (): number =>
   Number(process.env.MARCELA_WHATSAPP_ID || 0);
 
+// Conexões atendidas pelo robô: a principal (MARCELA_WHATSAPP_ID + MARCELA_INSTANCE)
+// e as de MARCELA_CONEXOES_EXTRAS, JSON {"<id da conexão>": "<instância>"}.
+let conexoesMemo: { chave: string; mapa: Map<number, string> } | null = null;
+
+export const marcelaConexoes = (): Map<number, string> => {
+  const principal = marcelaTapId();
+  const instancia = process.env.MARCELA_INSTANCE || "veritas2";
+  const extras = process.env.MARCELA_CONEXOES_EXTRAS || "";
+  const chave = `${principal}|${instancia}|${extras}`;
+  if (conexoesMemo?.chave === chave) return conexoesMemo.mapa;
+
+  const mapa = new Map<number, string>();
+  if (principal) mapa.set(principal, instancia);
+  if (extras.trim()) {
+    try {
+      Object.entries(JSON.parse(extras)).forEach(([id, nome]) => {
+        const conexao = Number(id);
+        const valido =
+          Number.isInteger(conexao) &&
+          conexao > 0 &&
+          typeof nome === "string" &&
+          nome.trim() !== "" &&
+          !mapa.has(conexao) &&
+          ![...mapa.values()].includes(nome.trim());
+        if (valido) mapa.set(conexao, (nome as string).trim());
+      });
+    } catch (err) {
+      logger.warn({ info: "MARCELA_CONEXOES_EXTRAS inválido", err: err?.message });
+    }
+  }
+  conexoesMemo = { chave, mapa };
+  return mapa;
+};
+
 export function shouldTap(sessionId: number, msg: any): boolean {
   if (!process.env.MARCELA_BOT_URL) return false;
-  const tapId = marcelaTapId();
-  if (!tapId || sessionId !== tapId) return false;
+  if (!marcelaConexoes().has(sessionId)) return false;
 
   const remoteJid: string | undefined = msg?.key?.remoteJid;
   if (!remoteJid || typeof remoteJid !== "string") return false;
 
   const groupJid = process.env.MARCELA_GROUP_JID;
-  if (groupJid && remoteJid === groupJid) return true;
+  // O grupo entra só pela conexão principal, para não chegar duas vezes ao robô.
+  if (groupJid && remoteJid === groupJid) return sessionId === marcelaTapId();
   if (remoteJid.endsWith("@s.whatsapp.net")) return true;
   if (remoteJid.endsWith("@lid")) return true;
 
@@ -62,10 +96,12 @@ export const jsonReplacer = (_key: string, value: any): any => {
   return value;
 };
 
-export function tapMarcela(event: string, data: any): void {
+export function tapMarcela(event: string, data: any, sessionId: number): void {
   try {
     const botUrl = process.env.MARCELA_BOT_URL;
     if (!botUrl) return;
+    const instance = marcelaConexoes().get(sessionId);
+    if (!instance) return;
 
     let url: URL;
     try {
@@ -82,7 +118,7 @@ export function tapMarcela(event: string, data: any): void {
     const payload = JSON.stringify(
       {
         event,
-        instance: process.env.MARCELA_INSTANCE || "veritas2",
+        instance,
         data
       },
       jsonReplacer

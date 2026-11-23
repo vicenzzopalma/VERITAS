@@ -2,6 +2,7 @@ import { Request, Response } from "express";
 import { AnyMessageContent, MiscMessageGenerationOptions } from "whaileys";
 
 import { getWbot } from "../providers/WhatsApp/Implementations/whaileys";
+import { marcelaConexoes } from "../helpers/marcelaTap";
 import { logger } from "../utils/logger";
 
 // Envio pela conexão da Marcela (MARCELA_WHATSAPP_ID) direto no socket do
@@ -21,6 +22,7 @@ interface SendBody {
   participante?: string;
   texto_citado?: string;
   emoji?: string;
+  instancia?: string;
 }
 
 const TIPOS: Tipo[] = ["texto", "documento", "reagir"];
@@ -53,6 +55,13 @@ const validate = (body: SendBody): string | null => {
   return null;
 };
 
+// Sem instância, a conexão principal. Instância desconhecida nunca sai por outro número.
+const conexaoDoEnvio = (instancia?: string): number | null => {
+  if (!instancia) return Number(process.env.MARCELA_WHATSAPP_ID || 2);
+  const achada = [...marcelaConexoes().entries()].find(([, nome]) => nome === instancia);
+  return achada ? achada[0] : null;
+};
+
 export const send = async (req: Request, res: Response): Promise<Response> => {
   const body = (req.body || {}) as SendBody;
 
@@ -63,7 +72,10 @@ export const send = async (req: Request, res: Response): Promise<Response> => {
 
   const tipo = body.tipo as Tipo;
   const jid = toJid(body.numero as string);
-  const id = Number(process.env.MARCELA_WHATSAPP_ID || 2);
+  const id = conexaoDoEnvio(body.instancia);
+  if (id === null) {
+    return res.status(400).json({ ok: false, erro: "instância desconhecida" });
+  }
 
   try {
     const wbot = getWbot(id);

@@ -58,7 +58,7 @@ import {
 } from "../types";
 import { WhatsappProvider } from "../whatsappProvider";
 import { sleep } from "../../../utils/sleep";
-import { shouldTap, tapMarcela, marcelaTapId } from "../../../helpers/marcelaTap";
+import { shouldTap, tapMarcela, marcelaConexoes } from "../../../helpers/marcelaTap";
 import {
   handleMessage,
   handleMessageAck,
@@ -1449,7 +1449,7 @@ const initializeSession = async (whatsapp: Whatsapp): Promise<void> => {
     messages.forEach(msg => {
       msgCache.save(msg);
       // Repasse cru ao robô da Marcela (no-op sem env); filtros do CRM seguem abaixo.
-      if (shouldTap(sessionId, msg)) tapMarcela("messages.upsert", msg);
+      if (shouldTap(sessionId, msg)) tapMarcela("messages.upsert", msg, sessionId);
       logger.debug({
         info: "[RAW] Message received",
         sessionId,
@@ -1570,8 +1570,8 @@ const initializeSession = async (whatsapp: Whatsapp): Promise<void> => {
     const { connection, lastDisconnect, qr } = update;
 
     // Estado da conexão da Marcela ao robô dela (no-op sem env).
-    if (connection && sessionId === marcelaTapId()) {
-      tapMarcela("CONNECTION_UPDATE", { state: connection });
+    if (connection && marcelaConexoes().has(sessionId)) {
+      tapMarcela("CONNECTION_UPDATE", { state: connection }, sessionId);
     }
 
     if (connection === "close") {
