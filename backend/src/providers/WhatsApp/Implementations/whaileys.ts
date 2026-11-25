@@ -1386,7 +1386,15 @@ const initializeSession = async (whatsapp: Whatsapp): Promise<void> => {
       const result = await importHistorySet(
         sessionId,
         messages,
-        { fromMs: Date.now() - days * 24 * 60 * 60 * 1000, pauseEvery: 50, pauseMs: 100 },
+        {
+          fromMs: Date.now() - days * 24 * 60 * 60 * 1000,
+          // mídia antiga exige reupload pelo celular: só os últimos N dias
+          mediaSinceMs:
+            Date.now() -
+            (Number(process.env.HISTORY_SYNC_MEDIA_DAYS) || 7) * 24 * 60 * 60 * 1000,
+          pauseEvery: 50,
+          pauseMs: 100
+        },
         {
           getWbot: (id: number) => sessions.get(id),
           helpers: historyHelpers,

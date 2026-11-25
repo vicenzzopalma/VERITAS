@@ -238,6 +238,8 @@ interface ImportContext {
   status: RecoveryStatus;
   dryRun: boolean;
   downloadMedia: boolean;
+  /** só baixa mídia de mensagens a partir deste instante (ms) */
+  mediaSinceMs?: number;
   reportFile?: string;
 }
 
@@ -248,7 +250,7 @@ interface ImportContext {
 export const importRecoveredMessage = async (
   msg: any,
   candidate: ChatCandidate,
-  ticketRef: { ticket: Ticket | null },
+  ticketRef: { ticket: Ticket | null; created?: boolean },
   ctx: ImportContext
 ): Promise<"imported" | "exists" | "skipped"> => {
   const { helpers } = ctx.deps;
@@ -295,6 +297,7 @@ export const importRecoveredMessage = async (
       createdAt,
       updatedAt: createdAt
     } as any);
+    ticketRef.created = true;
     ctx.status.ticketsCreated += 1;
     if (existing.length) finalId = `${ticketRef.ticket.id}_${waId}`;
   }
@@ -305,7 +308,7 @@ export const importRecoveredMessage = async (
 
   if (payload.hasMedia) {
     let media: any;
-    if (ctx.downloadMedia) {
+    if (ctx.downloadMedia && (!ctx.mediaSinceMs || ts >= ctx.mediaSinceMs)) {
       try {
         media = await helpers.convertToMediaPayload(msg, ctx.wbot);
       } catch {
@@ -356,6 +359,23 @@ export const importRecoveredMessage = async (
   } catch (err: any) {
     if (err?.name === "SequelizeUniqueConstraintError") return "exists";
     throw err;
+  }
+
+  if (ticketRef.created) {
+    // ticket criado pela importação: datas e última mensagem da própria conversa
+    // (o Sequelize grava updatedAt = agora no create, o que o poria no topo da lista)
+    await (Ticket as any).sequelize.query(
+      `UPDATE Tickets SET updatedAt = :ts, lastMessage = :body
+        WHERE id = :id AND (updatedAt > :now0 OR updatedAt < :ts)`,
+      {
+        replacements: {
+          ts: toDbDate(createdAt.getTime()),
+          body: body.slice(0, 255),
+          id: ticketRef.ticket.id,
+          now0: toDbDate(Date.now() - 6 * 3600 * 1000)
+        }
+      }
+    );
   }
 
   appendReport(ctx.reportFile, {
@@ -933,6 +953,7 @@ export interface FileImportOptions {
   toMs?: number;
   dryRun?: boolean;
   downloadMedia?: boolean;
+  mediaSinceMs?: number;
   pauseEvery?: number;
   pauseMs?: number;
 }
@@ -1104,6 +1125,7 @@ export const importMessages = async (
       status,
       dryRun: status.dryRun,
       downloadMedia: options.downloadMedia !== false,
+      mediaSinceMs: options.mediaSinceMs,
       reportFile: status.reportFile
     };
 
