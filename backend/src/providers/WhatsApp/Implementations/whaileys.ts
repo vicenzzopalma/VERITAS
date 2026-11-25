@@ -60,7 +60,8 @@ import { WhatsappProvider } from "../whatsappProvider";
 import { sleep } from "../../../utils/sleep";
 import {
   attachOfflineQueueDrainer,
-  createLimiter
+  createLimiter,
+  installEventBufferTaskTimeout
 } from "../../../helpers/offlineQueueDrainer";
 import { shouldTap, tapMarcela, marcelaConexoes } from "../../../helpers/marcelaTap";
 import {
@@ -91,6 +92,15 @@ interface Session extends WASocket {
 }
 
 const sessions = new Map<number, Session>();
+
+// Uma tarefa pendurada no buffer do whaileys congelava todos os eventos da
+// conexão. Ver helpers/offlineQueueDrainer.ts.
+installEventBufferTaskTimeout(
+  // eslint-disable-next-line @typescript-eslint/no-var-requires, global-require
+  require("whaileys/lib/Utils/event-buffer"),
+  Number(process.env.WHAILEYS_BUFFER_TASK_TIMEOUT_MS) || 30000,
+  logger
+);
 
 // Concorrência global do processamento de messages.upsert (todas as conexões).
 const upsertLimiter = createLimiter(

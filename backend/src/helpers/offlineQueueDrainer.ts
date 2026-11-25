@@ -37,6 +37,8 @@ export interface DrainOptions {
   idleMs?: number;
   /** espera máxima por lote, mesmo com tráfego ao vivo no socket */
   maxWaitMs?: number;
+  /** espera máxima pelo ev.flush() de cada lote */
+  flushTimeoutMs?: number;
 }
 
 const WS_OPEN = 1;
@@ -64,7 +66,8 @@ export const attachOfflineQueueDrainer = (
     logger,
     batchSize = 100,
     idleMs = 1500,
-    maxWaitMs = 15000
+    maxWaitMs = 15000,
+    flushTimeoutMs = 10000
   }: DrainOptions
 ): void => {
   let finished = false;
@@ -107,8 +110,13 @@ export const attachOfflineQueueDrainer = (
         await sock.sendNode(buildOfflineBatchNode(batchSize));
         batches += 1;
         await waitBatch();
-        // libera ao VERITAS o que já chegou, sem esperar a fila inteira
-        await sock.ev.flush();
+        // libera ao VERITAS o que já chegou, sem esperar a fila inteira.
+        // O flush espera as tarefas bufferizadas do whaileys; uma tarefa
+        // pendurada não pode parar a drenagem.
+        await Promise.race([
+          Promise.resolve(sock.ev.flush()).catch(() => undefined),
+          wait(flushTimeoutMs)
+        ]);
       }
       logger.info({
         info: "[Offline Queue] Fila offline drenada",
@@ -139,6 +147,73 @@ export const attachOfflineQueueDrainer = (
     });
     drain(Math.max(count, batchSize)).catch(() => undefined);
   });
+};
+
+interface EventBufferLike {
+  processInBuffer: (task: Promise<unknown>) => void;
+  [k: string]: any;
+}
+
+/**
+ * Embrulha uma tarefa do buffer: depois de `timeoutMs` ela conta como
+ * concluída para o buffer (a tarefa original segue rodando).
+ */
+export const boundBufferTask = (
+  task: Promise<unknown>,
+  timeoutMs: number,
+  onTimeout?: () => void
+): Promise<unknown> => {
+  let timer: NodeJS.Timeout | undefined;
+  const timeout = new Promise(resolve => {
+    timer = setTimeout(() => {
+      if (onTimeout) onTimeout();
+      resolve(undefined);
+    }, timeoutMs);
+  });
+  return Promise.race([
+    task.then(
+      () => undefined,
+      () => undefined
+    ),
+    timeout
+  ]).finally(() => {
+    if (timer) clearTimeout(timer);
+  });
+};
+
+/**
+ * O buffer de eventos do whaileys só libera os eventos (inclusive
+ * messages.upsert) quando TODAS as tarefas registradas em processInBuffer
+ * terminam. Uma única tarefa pendurada (vimos handleMessage preso no
+ * processingMutex) congelava a conexão inteira. Aqui cada tarefa passa a ter
+ * prazo máximo para o buffer; vale para os sockets criados depois da chamada.
+ */
+export const installEventBufferTaskTimeout = (
+  eventBufferModule: { makeEventBuffer: (...args: any[]) => EventBufferLike },
+  timeoutMs: number,
+  logger?: DrainLogger
+): boolean => {
+  const mod = eventBufferModule as any;
+  if (mod.__veritasTaskTimeout) return false;
+  const original = mod.makeEventBuffer;
+  mod.makeEventBuffer = (...args: any[]) => {
+    const ev: EventBufferLike = original(...args);
+    const originalProcess = ev.processInBuffer.bind(ev);
+    ev.processInBuffer = (task: Promise<unknown>) =>
+      originalProcess(
+        boundBufferTask(task, timeoutMs, () => {
+          if (logger) {
+            logger.warn({
+              info: "[Offline Queue] tarefa do buffer excedeu o prazo; liberando eventos",
+              timeoutMs
+            });
+          }
+        })
+      );
+    return ev;
+  };
+  mod.__veritasTaskTimeout = true;
+  return true;
 };
 
 /** Limita quantas tarefas rodam ao mesmo tempo (fila FIFO). */

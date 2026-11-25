@@ -1,8 +1,10 @@
 import { EventEmitter } from "events";
 import {
   attachOfflineQueueDrainer,
+  boundBufferTask,
   buildOfflineBatchNode,
-  createLimiter
+  createLimiter,
+  installEventBufferTaskTimeout
 } from "../../../helpers/offlineQueueDrainer";
 
 const silentLogger = { info: jest.fn(), warn: jest.fn() };
@@ -99,6 +101,59 @@ describe("attachOfflineQueueDrainer", () => {
     const sentAtClose = sent.length;
     await new Promise(r => setTimeout(r, 300));
     expect(sent.length).toBeLessThanOrEqual(sentAtClose + 1);
+  });
+});
+
+describe("flush pendurado", () => {
+  it("segue pedindo lotes mesmo se ev.flush nunca termina", async () => {
+    const { sock, sent, left } = makeFakeSocket(300);
+    sock.ev.flush.mockImplementation(() => new Promise(() => undefined));
+    attachOfflineQueueDrainer(sock, {
+      sessionId: 8,
+      logger: silentLogger,
+      idleMs: 30,
+      maxWaitMs: 500,
+      flushTimeoutMs: 50
+    });
+
+    sock.ws.emit("CB:ib,,offline_preview", previewNode(300));
+
+    await waitFor(() => left() === 0);
+    expect(sent).toHaveLength(3);
+  });
+});
+
+describe("installEventBufferTaskTimeout", () => {
+  it("tarefa pendurada deixa de segurar o buffer depois do prazo", async () => {
+    const registered: Promise<unknown>[] = [];
+    const fakeModule = {
+      makeEventBuffer: () => ({
+        processInBuffer: (task: Promise<unknown>) => {
+          registered.push(task);
+        }
+      })
+    };
+    const onWarn = jest.fn();
+    expect(
+      installEventBufferTaskTimeout(fakeModule, 40, {
+        info: jest.fn(),
+        warn: onWarn
+      })
+    ).toBe(true);
+    // segunda instalação é ignorada
+    expect(installEventBufferTaskTimeout(fakeModule, 40)).toBe(false);
+
+    const ev = fakeModule.makeEventBuffer();
+    ev.processInBuffer(new Promise(() => undefined));
+    await expect(registered[0]).resolves.toBeUndefined();
+    expect(onWarn).toHaveBeenCalledTimes(1);
+  });
+
+  it("tarefa normal termina sem acionar o prazo", async () => {
+    const onTimeout = jest.fn();
+    await boundBufferTask(Promise.reject(new Error("x")), 1000, onTimeout);
+    await boundBufferTask(Promise.resolve(1), 1000, onTimeout);
+    expect(onTimeout).not.toHaveBeenCalled();
   });
 });
 
