@@ -2732,6 +2732,7 @@ document.addEventListener('DOMContentLoaded', () => {
                   <option value="Em Uso" ${num.status === 'Em Uso' ? 'selected' : ''}>Em Uso</option>
                   <option value="Banido" ${num.status === 'Banido' ? 'selected' : ''}>Banido</option>
                   <option value="Banido Definitivo" ${num.status === 'Banido Definitivo' ? 'selected' : ''}>Banido Definitivo</option>
+                  <option value="Restrito 6 horas" ${num.status === 'Restrito 6 horas' ? 'selected' : ''}>Restrito 6h</option>
                   <option value="Restrito 24 horas" ${num.status === 'Restrito 24 horas' ? 'selected' : ''}>Restrito 24h</option>
                   <option value="Restrito 7 dias" ${num.status === 'Restrito 7 dias' ? 'selected' : ''}>Restrito 7d</option>
                   <option value="Restrito Customizado" ${num.status === 'Restrito Customizado' ? 'selected' : ''}>Restrito Custom...</option>
@@ -3900,7 +3901,9 @@ document.addEventListener('DOMContentLoaded', () => {
         // Fallback no caso do chip antigo não possuir restricted_at
         const untilTime = new Date(numObj.restricted_until).getTime();
         let calculatedStart = Date.now();
-        if (statusType === 'Restrito 24 horas') {
+        if (statusType === 'Restrito 6 horas') {
+          calculatedStart = untilTime - (6 * 60 * 60 * 1000);
+        } else if (statusType === 'Restrito 24 horas') {
           calculatedStart = untilTime - (24 * 60 * 60 * 1000);
         } else if (statusType === 'Restrito 7 dias') {
           calculatedStart = untilTime - (7 * 24 * 60 * 60 * 1000);
@@ -3983,7 +3986,7 @@ document.addEventListener('DOMContentLoaded', () => {
         durationGroup.style.display = 'none';
         document.getElementById('restriction-custom-time').required = false;
       } else {
-        const labelText = statusType === 'Restrito 24 horas' ? '24 Horas' : '7 Dias';
+        const labelText = statusType === 'Restrito 6 horas' ? '6 Horas' : (statusType === 'Restrito 24 horas' ? '24 Horas' : '7 Dias');
         title.textContent = `Ajustar Restrição - ${labelText}`;
         durationGroup.style.display = 'none';
         document.getElementById('restriction-custom-time').required = false;
@@ -4003,7 +4006,7 @@ document.addEventListener('DOMContentLoaded', () => {
         durationGroup.style.display = 'none';
         document.getElementById('restriction-custom-time').required = false;
       } else {
-        const labelText = statusType === 'Restrito 24 horas' ? '24 Horas' : '7 Dias';
+        const labelText = statusType === 'Restrito 6 horas' ? '6 Horas' : (statusType === 'Restrito 24 horas' ? '24 Horas' : '7 Dias');
         title.textContent = `Configurar Restrição - ${labelText}`;
         durationGroup.style.display = 'none';
         document.getElementById('restriction-custom-time').required = false;

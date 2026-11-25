@@ -529,7 +529,9 @@ class CrmService {
       if (status.startsWith('Restrito') || status === 'Banido' || status === 'Banido Definitivo') {
         restrictedAt = new Date(baseTime).toISOString();
         let offsetMs = 0;
-        if (status === 'Restrito 24 horas') {
+        if (status === 'Restrito 6 horas') {
+          offsetMs = 6 * 60 * 60 * 1000;
+        } else if (status === 'Restrito 24 horas') {
           offsetMs = 24 * 60 * 60 * 1000;
         } else if (status === 'Restrito 7 dias') {
           offsetMs = 7 * 24 * 60 * 60 * 1000;
