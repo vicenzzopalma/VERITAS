@@ -1,7 +1,7 @@
 import { Request, Response } from "express";
 import { AnyMessageContent, MiscMessageGenerationOptions } from "whaileys";
 
-import { getWbot } from "../providers/WhatsApp/Implementations/whaileys";
+import { getWbot, loggerWhaileys } from "../providers/WhatsApp/Implementations/whaileys"; // Item #21
 import { marcelaConexoes } from "../helpers/marcelaTap";
 import { logger } from "../utils/logger";
 
@@ -134,4 +134,90 @@ export const send = async (req: Request, res: Response): Promise<Response> => {
     });
     return res.status(500).json({ ok: false, erro: String(err?.message || err) });
   }
+};
+
+// Item #21 (24/11): o WhatsApp só manda o "archived" das conversas JÁ arquivadas no snapshot do app-state
+// (coleção regular_low). Zera só a versão regular_low da conexão e pede o snapshot (resyncAppState, isInitialSync
+// false = chats.update sem condicional). O tap de chats.update leva cada conversa ao robô. Sem logout, sem QR, sem
+// mensagem. Se o snapshot falhar, a versão de antes volta.
+const COLECAO_ARQUIVO = "regular_low";
+
+export const resyncArquivadas = async (req: Request, res: Response): Promise<Response> => {
+  const id = Number((req.body && req.body.conexao) || req.query.conexao);
+  if (!Number.isInteger(id) || id <= 0) {
+    return res.status(400).json({ ok: false, erro: "conexao obrigatória" });
+  }
+  let wbot: any;
+  try {
+    wbot = getWbot(id);
+  } catch (err) {
+    return res.status(404).json({ ok: false, erro: "conexão não iniciada" });
+  }
+  const chaves = wbot.authState && wbot.authState.keys;
+  if (!chaves || typeof wbot.resyncAppState !== "function") {
+    return res.status(500).json({ ok: false, erro: "socket sem resyncAppState/authState" });
+  }
+  const versao = async (): Promise<any> =>
+    (await chaves.get("app-state-sync-version", [COLECAO_ARQUIVO]))[COLECAO_ARQUIVO] || null;
+  const vistos = new Map<string, boolean>();
+  const ouvir = (updates: any[]): void => {
+    (updates || []).forEach((u: any) => {
+      if (u && typeof u.id === "string" && !u.id.endsWith("@g.us") && typeof u.archived === "boolean") {
+        vistos.set(u.id, u.archived);
+      }
+    });
+  };
+  const antes = await versao();
+  const falhas: string[] = [];
+  const loggerSocket: any = loggerWhaileys();
+  const infoOriginal = loggerSocket && loggerSocket.info;
+  wbot.ev.on("chats.update", ouvir);
+  try {
+    if (loggerSocket && typeof infoOriginal === "function") {
+      loggerSocket.info = (...args: any[]) => {
+        const texto = args.map(a => (typeof a === "string" ? a : "")).join(" ");
+        if (/failed to sync state/.test(texto)) {
+          const erro = args.find(a => a && typeof a === "object" && a.error);
+          falhas.push(String((erro && erro.error) || texto).split("\n")[0].slice(0, 300));
+        }
+        return infoOriginal.apply(loggerSocket, args);
+      };
+    }
+    await chaves.set({ "app-state-sync-version": { [COLECAO_ARQUIVO]: null } });
+    await wbot.resyncAppState([COLECAO_ARQUIVO], false);
+    await sleep(3000);
+  } catch (err) {
+    falhas.push(String(err?.message || err).slice(0, 300));
+  } finally {
+    wbot.ev.off("chats.update", ouvir);
+    if (loggerSocket && typeof infoOriginal === "function") loggerSocket.info = infoOriginal;
+  }
+  let depois = await versao();
+  let restaurada = false;
+  if (!depois && antes) {
+    await chaves.set({ "app-state-sync-version": { [COLECAO_ARQUIVO]: antes } });
+    depois = await versao();
+    restaurada = true;
+  }
+  const arquivadas = [...vistos.values()].filter(Boolean).length;
+  logger.info({
+    info: "marcela resync-arquivadas",
+    conexao: id,
+    versaoAntes: antes ? antes.version : null,
+    versaoDepois: depois ? depois.version : null,
+    arquivadas,
+    desarquivadas: vistos.size - arquivadas,
+    falhas: falhas.length
+  });
+  return res.json({
+    ok: !!depois && !restaurada,
+    conexao: id,
+    versao_antes: antes ? antes.version : null,
+    versao_depois: depois ? depois.version : null,
+    versao_restaurada: restaurada,
+    chats_com_estado: vistos.size,
+    arquivadas,
+    desarquivadas: vistos.size - arquivadas,
+    falhas
+  });
 };

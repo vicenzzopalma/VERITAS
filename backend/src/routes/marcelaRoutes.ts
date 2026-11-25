@@ -12,4 +12,11 @@ marcelaRoutes.post(
   MarcelaController.send
 );
 
+// Item #21 (24/11): retrato inteiro das conversas arquivadas (snapshot regular_low) de uma conexão.
+marcelaRoutes.post(
+  "/internal/marcela/resync-arquivadas",
+  isMarcelaInternal,
+  MarcelaController.resyncArquivadas
+);
+
 export default marcelaRoutes;

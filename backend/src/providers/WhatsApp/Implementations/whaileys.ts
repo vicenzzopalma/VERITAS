@@ -63,7 +63,7 @@ import {
   createLimiter,
   installEventBufferTaskTimeout
 } from "../../../helpers/offlineQueueDrainer";
-import { shouldTap, tapMarcela, marcelaConexoes } from "../../../helpers/marcelaTap";
+import { shouldTap, tapMarcela, marcelaConexoes, marcelaInstanciaArquivo } from "../../../helpers/marcelaTap"; // Item #21
 import {
   handleMessage,
   handleMessageAck,
@@ -83,6 +83,9 @@ type WALogger = NonNullable<Parameters<typeof makeInMemoryStore>[0]["logger"]>;
 const whaileyLogger = pino({
   level: process.env.WHAILEYS_LOG_LEVEL || "silent"
 }) as unknown as WALogger;
+
+// Item #21: o resync das arquivadas lê o motivo de falha que o whaileys só manda ao logger.
+export const loggerWhaileys = (): any => whaileyLogger;
 
 type Store = ReturnType<typeof makeInMemoryStore>;
 
@@ -401,6 +404,15 @@ const useSessionAuthState = async (whatsapp: Whatsapp) => {
             ids
           });
 
+          // Item #21: keyData das chaves de app-state vem do banco como base64; o whaileys precisa de bytes.
+          if (type === "app-state-sync-key" && marcelaInstanciaArquivo(sessionId)) {
+            Object.keys(data || {}).forEach(id => {
+              const v: any = (data as any)[id];
+              if (v && typeof v.keyData === "string") {
+                (data as any)[id] = { ...v, keyData: Buffer.from(v.keyData, "base64") };
+              }
+            });
+          }
           return data;
         },
         set: async (data: SignalDataSet) => {
@@ -2085,6 +2097,26 @@ const initializeSession = async (whatsapp: Whatsapp): Promise<void> => {
       } catch (err) {
         logger.debug({ info: "Error in chats.upsert", err });
       }
+    }
+  });
+
+  // Item #20 (24/11): repassa ao robô da Marcela só o estado "arquivada" das conversas (conexões do tap).
+  wbot.ev.on("chats.update", updates => {
+    try {
+      const instanciaArquivo = marcelaInstanciaArquivo(sessionId); // Item #21: + MARCELA_ARQUIVO_EXTRAS
+      if (!instanciaArquivo) return;
+      const arquivo = (updates || [])
+        .filter(
+          (u: any) =>
+            u &&
+            typeof u.id === "string" &&
+            !u.id.endsWith("@g.us") &&
+            typeof u.archived === "boolean"
+        )
+        .map((u: any) => ({ id: u.id, archived: u.archived }));
+      if (arquivo.length) tapMarcela("chats.update", arquivo, sessionId, instanciaArquivo); // Item #21
+    } catch (err) {
+      logger.debug({ info: "Error in chats.update (marcela)", err });
     }
   });
 

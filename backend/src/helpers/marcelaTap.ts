@@ -96,11 +96,26 @@ export const jsonReplacer = (_key: string, value: any): any => {
   return value;
 };
 
-export function tapMarcela(event: string, data: any, sessionId: number): void {
+// Item #21 (24/11): conexões que repassam SÓ o arquivamento (chats.update) ao robô, sem mensagens.
+// MARCELA_ARQUIVO_EXTRAS = JSON {"<id da conexão>": "<instância>"} (ex.: {"135": "marcela"}).
+export const marcelaInstanciaArquivo = (sessionId: number): string | undefined => {
+  const principal = marcelaConexoes().get(sessionId);
+  if (principal) return principal;
+  try {
+    const extras = JSON.parse(process.env.MARCELA_ARQUIVO_EXTRAS || "{}");
+    const nome = extras && extras[String(sessionId)];
+    return typeof nome === "string" && nome.trim() ? nome.trim() : undefined;
+  } catch (err) {
+    logger.warn({ info: "MARCELA_ARQUIVO_EXTRAS inválido", err: err?.message });
+    return undefined;
+  }
+};
+
+export function tapMarcela(event: string, data: any, sessionId: number, instancia?: string): void {
   try {
     const botUrl = process.env.MARCELA_BOT_URL;
     if (!botUrl) return;
-    const instance = marcelaConexoes().get(sessionId);
+    const instance = instancia || marcelaConexoes().get(sessionId);
     if (!instance) return;
 
     let url: URL;
