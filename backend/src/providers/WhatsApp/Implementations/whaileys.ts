@@ -65,6 +65,12 @@ import {
 } from "../../../helpers/offlineQueueDrainer";
 import { shouldTap, tapMarcela, marcelaConexoes, marcelaInstanciaArquivo } from "../../../helpers/marcelaTap"; // Item #21
 import {
+  arquivoAtivo as retornoIaArquivoAtivo,
+  decodificarChavesAppState,
+  iniciarCicloArquivo,
+  registrarChatsUpdate
+} from "../../../helpers/retornoIaArquivo"; // Fase 0a do negociador
+import {
   handleMessage,
   handleMessageAck,
   saveMediaFile,
@@ -414,6 +420,9 @@ const useSessionAuthState = async (whatsapp: Whatsapp) => {
                 (data as any)[id] = { ...v, keyData: Buffer.from(v.keyData, "base64") };
               }
             });
+          } else if (type === "app-state-sync-key" && retornoIaArquivoAtivo(sessionId)) {
+            // Fase 0a do negociador: mesma decodificação para as conexões de RETORNO_IA_ARQUIVO_CONEXOES.
+            decodificarChavesAppState(data);
           }
           return data;
         },
@@ -1825,6 +1834,11 @@ const initializeSession = async (whatsapp: Whatsapp): Promise<void> => {
     if (connection === "open") {
       await flushPendingCredsSave(sessionId);
 
+      // Fase 0a do negociador: liga (uma vez) o ciclo de sincronização das arquivadas.
+      if (retornoIaArquivoAtivo(sessionId)) {
+        iniciarCicloArquivo({ getWbot, loggerSocket: whaileyLogger });
+      }
+
       await whatsapp.update({
         status: "CONNECTED",
         qrcode: "",
@@ -2046,6 +2060,9 @@ const initializeSession = async (whatsapp: Whatsapp): Promise<void> => {
       logger.debug({ info: "Error in chats.update (marcela)", err });
     }
   });
+
+  // Fase 0a do negociador: fonte de arquivadas das conexões do retorno_ia (no-op com RETORNO_IA_ARQUIVO_CONEXOES vazia).
+  wbot.ev.on("chats.update", updates => registrarChatsUpdate(sessionId, updates));
 
   wbot.ev.on("messages.update", async updates => {
     await Promise.all(

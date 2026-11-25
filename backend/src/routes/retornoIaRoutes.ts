@@ -11,4 +11,11 @@ retornoIaRoutes.post(
   RetornoIaController.send
 );
 
+// Fase 0a do negociador: fonte de arquivadas por conexão (só leitura), mesmo token e IPs.
+retornoIaRoutes.get(
+  "/internal/retorno-ia/arquivadas",
+  RetornoIaController.autorizar,
+  RetornoIaController.arquivadas
+);
+
 export default retornoIaRoutes;
