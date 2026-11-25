@@ -1055,6 +1055,16 @@ const getMessageData = async (
   };
 };
 
+// Usado pelo HistoryRecoveryService (recuperação de histórico sob demanda).
+export const historyHelpers = {
+  shouldHandleMessage,
+  convertToMessagePayload,
+  convertToContactPayload,
+  convertToMediaPayload,
+  parseMessageTimestamp,
+  hasMedia
+};
+
 export const getWbot = (sessionId: number): Session => {
   const wbot = sessions.get(sessionId);
 
@@ -1295,6 +1305,17 @@ const initializeSession = async (whatsapp: Whatsapp): Promise<void> => {
 
   // Fila sequencial de sincronização de histórico retroativo (1 conversa por vez - últimas 24h)
   wbot.ev.on("messaging-history.set", async ({ chats, contacts, messages, isLatest, syncType }) => {
+    // Histórico pedido sob demanda (fetchMessageHistory) é tratado só pelo
+    // HistoryRecoveryService, que grava sem reabrir ticket nem notificar.
+    if (syncType === proto.HistorySync.HistorySyncType.ON_DEMAND) {
+      logger.info({
+        info: "messaging-history.set ON_DEMAND (recuperação de histórico)",
+        sessionId,
+        chatsCount: chats?.length || 0,
+        messagesCount: messages?.length || 0
+      });
+      return;
+    }
     try {
       logger.info({
         info: "messaging-history.set event received",

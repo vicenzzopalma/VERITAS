@@ -13,6 +13,7 @@ import quickAnswerRoutes from "./quickAnswerRoutes";
 import apiRoutes from "./apiRoutes";
 import marcelaRoutes from "./marcelaRoutes";
 import retornoIaRoutes from "./retornoIaRoutes";
+import historyRecoveryRoutes from "./historyRecoveryRoutes";
 import auditRoutes from "./auditRoutes";
 import dashboardRoutes from "./dashboardRoutes";
 import sectorRoutes from "./sectorRoutes";
@@ -35,5 +36,6 @@ routes.use(quickAnswerRoutes);
 routes.use("/api/messages", apiRoutes);
 routes.use(marcelaRoutes);
 routes.use(retornoIaRoutes);
+routes.use(historyRecoveryRoutes);
 
 export default routes;
