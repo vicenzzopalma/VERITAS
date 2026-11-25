@@ -189,6 +189,40 @@ export const importFile = async (req: Request, res: Response): Promise<Response>
   return res.status(202).json({ ok: true, started: id });
 };
 
+// Importa o que já está no store em memória da sessão (histórico recebido).
+export const importStore = async (req: Request, res: Response): Promise<Response> => {
+  const body = req.body || {};
+  const id = Number(body.whatsappId);
+  const fromMs = toMs(body.from);
+  if (!id || !fromMs) {
+    return res.status(400).json({ ok: false, erro: "whatsappId e from são obrigatórios" });
+  }
+  if (running) return res.status(409).json({ ok: false, erro: "recuperação em andamento" });
+  const service = loadService(Boolean(body.reload));
+  const deps = loadDeps();
+  running = true;
+  service
+    .importFromStore(
+      id,
+      {
+        fromMs,
+        toMs: toMs(body.to),
+        dryRun: Boolean(body.dryRun),
+        downloadMedia: body.downloadMedia !== false,
+        pauseEvery: num(body.pauseEvery) ?? 50,
+        pauseMs: num(body.pauseMs) ?? 100
+      },
+      deps
+    )
+    .catch((err: any) =>
+      logger.error({ info: "[History Recovery] falha no store", sessionId: id, err: err?.message })
+    )
+    .finally(() => {
+      running = false;
+    });
+  return res.status(202).json({ ok: true, started: id });
+};
+
 export const probe = async (req: Request, res: Response): Promise<Response> => {
   const body = req.body || {};
   const service = loadService(Boolean(body.reload) && !running);

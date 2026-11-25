@@ -1182,3 +1182,17 @@ export const importMessages = async (
   logger.info({ info: "[History Recovery] importação de arquivo concluída", ...status });
   return status;
 };
+
+/** Importa o que já está no store em memória da sessão (ex.: histórico de um re-pareamento). */
+export const importFromStore = async (
+  sessionId: number,
+  options: FileImportOptions,
+  deps: RecoveryDeps
+): Promise<RecoveryStatus> => {
+  const wbot = deps.getWbot(sessionId);
+  const all: any[] = [];
+  Object.values(wbot?.store?.messages || {}).forEach((list: any) => {
+    (list?.array || []).forEach((m: any) => all.push(m));
+  });
+  return importMessages(sessionId, { messages: all, label: "store" }, options, deps);
+};
