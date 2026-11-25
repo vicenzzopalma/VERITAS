@@ -58,6 +58,10 @@ import {
 } from "../types";
 import { WhatsappProvider } from "../whatsappProvider";
 import { sleep } from "../../../utils/sleep";
+import {
+  attachOfflineQueueDrainer,
+  createLimiter
+} from "../../../helpers/offlineQueueDrainer";
 import { shouldTap, tapMarcela, marcelaConexoes } from "../../../helpers/marcelaTap";
 import {
   handleMessage,
@@ -87,6 +91,11 @@ interface Session extends WASocket {
 }
 
 const sessions = new Map<number, Session>();
+
+// Concorrência global do processamento de messages.upsert (todas as conexões).
+const upsertLimiter = createLimiter(
+  Number(process.env.MESSAGE_UPSERT_CONCURRENCY) || 8
+);
 const stores = new Map<number, Store>();
 const initializingSessions = new Set<number>();
 const reconnectTimers = new Map<number, NodeJS.Timeout>();
@@ -1237,6 +1246,10 @@ const initializeSession = async (whatsapp: Whatsapp): Promise<void> => {
 
   sessions.set(sessionId, wbot);
 
+  // Sem isso, conexões com fila offline grande ficam mudas (nenhuma mensagem
+  // nova chega ao VERITAS). Ver helpers/offlineQueueDrainer.ts.
+  attachOfflineQueueDrainer(wbot as any, { sessionId, logger });
+
   wbot.ev.on("creds.update", async (update: any) => {
     if (update?.me?.id || update?.account) {
       await saveSessionCredsImmediate(sessionId, state.creds);
@@ -1477,8 +1490,10 @@ const initializeSession = async (whatsapp: Whatsapp): Promise<void> => {
 
     if (validMessages.length === 0) return;
 
+    // A drenagem da fila offline pode entregar milhares de mensagens (com
+    // mídia) de uma vez: processa com concorrência limitada.
     await Promise.all(
-      validMessages.map(async msg => {
+      validMessages.map(msg => upsertLimiter(async () => {
         try {
           const {
             messagePayload,
@@ -1504,7 +1519,7 @@ const initializeSession = async (whatsapp: Whatsapp): Promise<void> => {
         } catch (err) {
           logger.error(err, "Error handling message upsert");
         }
-      })
+      }))
     );
   });
 
