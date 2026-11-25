@@ -106,6 +106,14 @@ installEventBufferTaskTimeout(
 const upsertLimiter = createLimiter(
   Number(process.env.MESSAGE_UPSERT_CONCURRENCY) || 8
 );
+// Drenagem da fila offline: poucas conexões por vez e só pede o próximo lote
+// quando o processamento alcançou (sem isso, dezenas de conexões drenando
+// juntas estouravam 1G de memória).
+const offlineDrainSlots = createLimiter(
+  Number(process.env.OFFLINE_DRAIN_CONCURRENCY) || 2
+);
+const OFFLINE_DRAIN_MAX_PENDING =
+  Number(process.env.OFFLINE_DRAIN_MAX_PENDING) || 50;
 const stores = new Map<number, Store>();
 const initializingSessions = new Set<number>();
 const reconnectTimers = new Map<number, NodeJS.Timeout>();
@@ -1258,7 +1266,12 @@ const initializeSession = async (whatsapp: Whatsapp): Promise<void> => {
 
   // Sem isso, conexões com fila offline grande ficam mudas (nenhuma mensagem
   // nova chega ao VERITAS). Ver helpers/offlineQueueDrainer.ts.
-  attachOfflineQueueDrainer(wbot as any, { sessionId, logger });
+  attachOfflineQueueDrainer(wbot as any, {
+    sessionId,
+    logger,
+    slots: offlineDrainSlots,
+    isBusy: () => upsertLimiter.pending() > OFFLINE_DRAIN_MAX_PENDING
+  });
 
   wbot.ev.on("creds.update", async (update: any) => {
     if (update?.me?.id || update?.account) {

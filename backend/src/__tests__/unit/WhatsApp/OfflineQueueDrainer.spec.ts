@@ -123,6 +123,47 @@ describe("flush pendurado", () => {
   });
 });
 
+describe("contrapressão", () => {
+  it("só pede o próximo lote quando isBusy libera", async () => {
+    const { sock, sent, left } = makeFakeSocket(300);
+    let busy = true;
+    attachOfflineQueueDrainer(sock, {
+      sessionId: 8,
+      logger: silentLogger,
+      idleMs: 30,
+      maxWaitMs: 500,
+      isBusy: () => busy
+    });
+    sock.ws.emit("CB:ib,,offline_preview", previewNode(300));
+    await new Promise(r => setTimeout(r, 700));
+    expect(sent).toHaveLength(0);
+    busy = false;
+    await waitFor(() => left() === 0);
+    expect(sent).toHaveLength(3);
+  });
+
+  it("respeita o limite de conexões drenando ao mesmo tempo", async () => {
+    const slots = createLimiter(1);
+    const a = makeFakeSocket(200);
+    const b = makeFakeSocket(200);
+    for (const f of [a, b]) {
+      attachOfflineQueueDrainer(f.sock, {
+        sessionId: 1,
+        logger: silentLogger,
+        idleMs: 30,
+        maxWaitMs: 500,
+        slots
+      });
+    }
+    a.sock.ws.emit("CB:ib,,offline_preview", previewNode(200));
+    b.sock.ws.emit("CB:ib,,offline_preview", previewNode(200));
+    await waitFor(() => a.sent.length >= 1);
+    expect(b.sent).toHaveLength(0);
+    await waitFor(() => a.left() === 0 && b.left() === 0);
+    expect(b.sent).toHaveLength(2);
+  });
+});
+
 describe("installEventBufferTaskTimeout", () => {
   it("tarefa pendurada deixa de segurar o buffer depois do prazo", async () => {
     const registered: Promise<unknown>[] = [];

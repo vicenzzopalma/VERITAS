@@ -39,6 +39,13 @@ export interface DrainOptions {
   maxWaitMs?: number;
   /** espera máxima pelo ev.flush() de cada lote */
   flushTimeoutMs?: number;
+  /**
+   * Contrapressão: enquanto retornar true, o próximo lote não é pedido
+   * (ex.: fila de processamento de mensagens ainda cheia).
+   */
+  isBusy?: () => boolean;
+  /** limita quantas conexões drenam ao mesmo tempo */
+  slots?: <T>(task: () => Promise<T>) => Promise<T>;
 }
 
 const WS_OPEN = 1;
@@ -67,7 +74,9 @@ export const attachOfflineQueueDrainer = (
     batchSize = 100,
     idleMs = 1500,
     maxWaitMs = 15000,
-    flushTimeoutMs = 10000
+    flushTimeoutMs = 10000,
+    isBusy,
+    slots
   }: DrainOptions
 ): void => {
   let finished = false;
@@ -97,8 +106,20 @@ export const attachOfflineQueueDrainer = (
     }
   };
 
+  const waitNotBusy = async () => {
+    const started = Date.now();
+    while (
+      isBusy &&
+      isBusy() &&
+      !finished &&
+      sock.ws.readyState === WS_OPEN &&
+      Date.now() - started < 120000
+    ) {
+      await wait(500);
+    }
+  };
+
   const drain = async (count: number) => {
-    draining = true;
     const maxBatches = Math.ceil(count / batchSize) + 50;
     let batches = 0;
     try {
@@ -107,6 +128,8 @@ export const attachOfflineQueueDrainer = (
         sock.ws.readyState === WS_OPEN &&
         batches < maxBatches
       ) {
+        await waitNotBusy();
+        if (finished || sock.ws.readyState !== WS_OPEN) break;
         await sock.sendNode(buildOfflineBatchNode(batchSize));
         batches += 1;
         await waitBatch();
@@ -132,8 +155,6 @@ export const attachOfflineQueueDrainer = (
         batches,
         err
       });
-    } finally {
-      draining = false;
     }
   };
 
@@ -145,7 +166,13 @@ export const attachOfflineQueueDrainer = (
       sessionId,
       pending: count
     });
-    drain(Math.max(count, batchSize)).catch(() => undefined);
+    draining = true;
+    const run = () => drain(Math.max(count, batchSize));
+    (slots ? slots(run) : run())
+      .catch(() => undefined)
+      .finally(() => {
+        draining = false;
+      });
   });
 };
 
@@ -227,7 +254,7 @@ export const createLimiter = (concurrency: number) => {
     if (run) run();
   };
 
-  return <T>(task: () => Promise<T>): Promise<T> =>
+  const limit = <T>(task: () => Promise<T>): Promise<T> =>
     new Promise<T>((resolve, reject) => {
       queue.push(() => {
         active += 1;
@@ -240,4 +267,8 @@ export const createLimiter = (concurrency: number) => {
       });
       next();
     });
+
+  /** tarefas rodando + aguardando */
+  limit.pending = () => active + queue.length;
+  return limit;
 };
