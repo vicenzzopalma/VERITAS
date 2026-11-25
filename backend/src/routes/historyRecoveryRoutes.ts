@@ -25,5 +25,10 @@ historyRecoveryRoutes.post(
   HistoryRecoveryController.autorizar,
   HistoryRecoveryController.probe
 );
+historyRecoveryRoutes.post(
+  "/internal/history-recovery/import",
+  HistoryRecoveryController.autorizar,
+  HistoryRecoveryController.importFile
+);
 
 export default historyRecoveryRoutes;

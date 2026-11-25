@@ -372,6 +372,76 @@ export const importRecoveredMessage = async (
   return "imported";
 };
 
+/**
+ * O celular responde ao pedido pela identidade LID, mas a whaileys 6.5.1 só
+ * mantém atualizada a sessão Signal do endereço PN do próprio aparelho; a
+ * resposta falha com "No matching sessions found for message". Como PN e LID
+ * são o mesmo aparelho (mesma identidade), copia a sessão PN para o endereço
+ * LID antes do pedido, como o Baileys v7 faz na migração de sessões.
+ */
+export const syncOwnLidSession = async (wbot: any): Promise<boolean> => {
+  const keys = wbot?.authState?.keys;
+  const me = wbot?.authState?.creds?.me || wbot?.user || {};
+  if (!keys?.get || !keys?.set || !me.id || !me.lid) return false;
+  const pnAddr = `${String(me.id).split(":")[0].split("@")[0]}.0`;
+  const lidAddr = `${String(me.lid).split(":")[0].split("@")[0]}.0`;
+  const found = await keys.get("session", [pnAddr]);
+  const record = found?.[pnAddr];
+  if (!record) return false;
+  await keys.set({ session: { [lidAddr]: record } });
+  return true;
+};
+
+/**
+ * Envia o pedido de histórico ao celular principal.
+ * A whaileys 6.5.1 endereça o pedido ao LID da própria conta e o servidor
+ * responde ack 479; "pn" endereça ao número (device 0), como o WhatsApp Web.
+ */
+export const sendHistoryRequest = async (
+  wbot: any,
+  count: number,
+  key: { remoteJid: string; id: string; fromMe: boolean },
+  timestampMs: number,
+  target: "pn" | "lid" | "lib" = (process.env.HISTORY_RECOVERY_TARGET as any) || "pn"
+): Promise<string> => {
+  // o handler genérico de messaging-history.set ignora o histórico enquanto isso
+  // eslint-disable-next-line no-param-reassign
+  wbot.onDemandHistoryUntil = Date.now() + 120000;
+  if (target === "lib") {
+    return wbot.fetchMessageHistory(count, key, timestampMs);
+  }
+  // eslint-disable-next-line global-require, @typescript-eslint/no-var-requires
+  const { proto, jidNormalizedUser } = require("whaileys");
+  const me = wbot?.authState?.creds?.me || wbot?.user || {};
+  if (target === "pn" && process.env.HISTORY_RECOVERY_SYNC_LID_SESSION !== "0") {
+    await syncOwnLidSession(wbot);
+  }
+  const dest = jidNormalizedUser(target === "lid" ? me.lid : me.id);
+  const accountLid = me.lid ? jidNormalizedUser(me.lid) : undefined;
+  const pdoMessage: any = {
+    historySyncOnDemandRequest: {
+      chatJid: key.remoteJid,
+      oldestMsgFromMe: key.fromMe,
+      oldestMsgId: key.id,
+      oldestMsgTimestampMs: timestampMs,
+      onDemandMsgCount: count,
+      ...(accountLid ? { accountLid } : {})
+    },
+    peerDataOperationRequestType:
+      proto.Message.PeerDataOperationRequestType.HISTORY_SYNC_ON_DEMAND
+  };
+  return wbot.relayMessage(
+    dest,
+    {
+      protocolMessage: {
+        peerDataOperationRequestMessage: pdoMessage,
+        type: proto.Message.ProtocolMessage.Type.PEER_DATA_OPERATION_REQUEST_MESSAGE
+      }
+    },
+    { additionalAttributes: { category: "peer", push_priority: "high_force" } }
+  );
+};
+
 /** Espera o próximo messaging-history.set ON_DEMAND desta conversa. */
 export const waitOnDemandHistory = (
   wbot: any,
@@ -502,7 +572,8 @@ export const recoverChat = async (
       status.requests += 1;
       const waiting = waitOnDemandHistory(wbot, jids, opts.timeoutMs);
       try {
-        await wbot.fetchMessageHistory(
+        await sendHistoryRequest(
+          wbot,
           opts.batchSize,
           { remoteJid: jid, id: anchor.id, fromMe: anchor.fromMe },
           anchor.timestampMs
@@ -692,18 +763,151 @@ export const probeChatHistory = async (
   anchor: Anchor,
   count: number,
   timeoutMs: number,
-  helpers: Pick<HistoryHelpers, "parseMessageTimestamp">
+  helpers: Pick<HistoryHelpers, "parseMessageTimestamp">,
+  target?: "pn" | "lid" | "lib"
 ): Promise<any> => {
+  // captura de diagnóstico: o que chega do próprio aparelho durante a espera
+  const seen: any[] = [];
+  const rawTasks: Promise<void>[] = [];
+  const meUsers = [wbot?.user?.id, wbot?.user?.lid, wbot?.authState?.creds?.me?.lid]
+    .filter(Boolean)
+    .map((j: string) => j.split(":")[0].split("@")[0]);
+
+  const onUpsert = (u: any) => {
+    for (const m of u?.messages || []) {
+      const ru = String(m?.key?.remoteJid || "").split(":")[0].split("@")[0];
+      if (meUsers.includes(ru) || m?.messageStubType) {
+        seen.push({
+          ev: "upsert-any",
+          type: u?.type,
+          id: m?.key?.id,
+          remoteJid: m?.key?.remoteJid,
+          stub: m?.messageStubType,
+          params: m?.messageStubParameters,
+          keys: Object.keys(m?.message || {})
+        });
+      }
+      const pm = m?.message?.protocolMessage;
+      if (pm?.historySyncNotification) {
+        rawTasks.push(
+          (async () => {
+            try {
+              // eslint-disable-next-line global-require, @typescript-eslint/no-var-requires
+              const { downloadContentFromMessage, proto: P } = require("whaileys");
+              const n = pm.historySyncNotification;
+              let buf: Buffer;
+              if (n.initialHistBootstrapInlinePayload) {
+                buf = require("zlib").inflateSync(n.initialHistBootstrapInlinePayload);
+              } else {
+                const stream = await downloadContentFromMessage(n, "md-msg-hist", { options: {} });
+                const parts: Buffer[] = [];
+                for await (const chunk of stream) parts.push(chunk as Buffer);
+                buf = require("zlib").inflateSync(Buffer.concat(parts));
+              }
+              const h = P.HistorySync.decode(buf);
+              seen.push({
+                ev: "raw-bytes",
+                fileLength: String(n.fileLength || ""),
+                inflated: buf.length,
+                hex: buf.slice(0, 400).toString("hex")
+              });
+              seen.push({
+                ev: "raw-history",
+                syncType: h.syncType,
+                chunkOrder: h.chunkOrder,
+                progress: h.progress,
+                conversations: (h.conversations || []).map((c: any) => ({
+                  id: c.id,
+                  msgs: (c.messages || []).length,
+                  endOfHistoryTransfer: c.endOfHistoryTransfer,
+                  endType: c.endOfHistoryTransferType,
+                  first: c.messages?.[0]?.message?.key?.id,
+                  firstTs: String(c.messages?.[0]?.message?.messageTimestamp || ""),
+                  last: c.messages?.[c.messages.length - 1]?.message?.key?.id,
+                  lastTs: String(c.messages?.[c.messages.length - 1]?.message?.messageTimestamp || "")
+                })),
+                keys: Object.keys(h.toJSON ? h.toJSON() : h)
+              });
+            } catch (err: any) {
+              seen.push({ ev: "raw-history-error", err: err?.message });
+            }
+          })()
+        );
+      }
+      if (pm) {
+        seen.push({
+          ev: "upsert",
+          type: pm.type,
+          hist: pm.historySyncNotification
+            ? {
+                syncType: pm.historySyncNotification.syncType,
+                chunk: pm.historySyncNotification.chunkOrder,
+                peerDataRequestSessionId: pm.historySyncNotification.peerDataRequestSessionId
+              }
+            : undefined,
+          pdo: pm.peerDataOperationRequestResponseMessage
+            ? JSON.stringify(pm.peerDataOperationRequestResponseMessage).slice(0, 600)
+            : undefined
+        });
+      }
+    }
+  };
+  const onPdo = (d: any) => seen.push({ ev: "pdo-response", n: d?.messages?.length });
+  const onHist = (d: any) =>
+    seen.push({
+      ev: "history.set",
+      keys: Object.keys(d || {}),
+      syncType: String(d?.syncType),
+      progress: d?.progress,
+      n: d?.messages?.length,
+      chats: (d?.chats || []).map((c: any) => JSON.stringify(c).slice(0, 400)),
+      contacts: (d?.contacts || []).length
+    });
+  let reqId = "";
+  const onFrame = (node: any) => {
+    const attrs = node?.attrs || {};
+    const fromUser = String(attrs.from || "").split(":")[0].split("@")[0];
+    if ((reqId && attrs.id === reqId) || (fromUser && meUsers.includes(fromUser) && node.tag !== "iq")) {
+      seen.push({
+        ev: "frame",
+        tag: node.tag,
+        attrs,
+        children: Array.isArray(node.content) ? node.content.map((c: any) => c?.tag) : typeof node.content
+      });
+    }
+  };
+  wbot.ws?.on?.("frame", onFrame);
+  wbot.ev.on("messages.upsert", onUpsert);
+  wbot.ev.on("messages.pdo-response", onPdo);
+  wbot.ev.on("messaging-history.set", onHist);
+  const cleanup = () => {
+    wbot.ws?.off?.("frame", onFrame);
+    wbot.ev.off("messages.upsert", onUpsert);
+    wbot.ev.off("messages.pdo-response", onPdo);
+    wbot.ev.off("messaging-history.set", onHist);
+  };
   const waiting = waitOnDemandHistory(wbot, [jid], timeoutMs);
-  const requestId = await wbot.fetchMessageHistory(
-    count,
-    { remoteJid: jid, id: anchor.id, fromMe: anchor.fromMe },
-    anchor.timestampMs
-  );
+  let requestId: string;
+  try {
+    requestId = await sendHistoryRequest(
+      wbot,
+      count,
+      { remoteJid: jid, id: anchor.id, fromMe: anchor.fromMe },
+      anchor.timestampMs,
+      target
+    );
+    reqId = requestId;
+  } catch (err: any) {
+    cleanup();
+    return { error: err?.message || String(err), seen };
+  }
   const result = await waiting;
-  if (!result) return { requestId, responded: false };
+  await Promise.all(rawTasks);
+  cleanup();
+  if (!result) return { requestId, responded: false, seen };
   const ts = result.messages.map(m => helpers.parseMessageTimestamp(m.messageTimestamp));
   return {
+    seen,
     requestId,
     responded: true,
     total: result.messages.length,
@@ -717,4 +921,264 @@ export const probeChatHistory = async (
       type: Object.keys(m?.message || {})[0]
     }))
   };
+};
+
+/* ------------------------------------------------------------------------ */
+/* Importação a partir de arquivo (outra cópia da mesma conta WhatsApp,      */
+/* ex.: instância Evolution vinculada ao mesmo número).                      */
+/* ------------------------------------------------------------------------ */
+
+export interface FileImportOptions {
+  fromMs: number;
+  toMs?: number;
+  dryRun?: boolean;
+  downloadMedia?: boolean;
+  pauseEvery?: number;
+  pauseMs?: number;
+}
+
+const digitsOf = (jid?: string | null): string =>
+  String(jid || "").split("@")[0].split(":")[0].replace(/\D/g, "");
+
+/** LID e número (PN) de um key do WhatsApp, inclusive com remoteJidAlt (Evolution/Baileys v7). */
+export const jidPair = (key: any): { lid?: string; pn?: string } => {
+  const jids: string[] = [key?.remoteJid, key?.remoteJidAlt, key?.senderPn, key?.senderLid].filter(
+    Boolean
+  );
+  const lidJid = jids.find(j => j.endsWith("@lid"));
+  const pnJid = jids.find(j => j.endsWith("@s.whatsapp.net"));
+  return {
+    lid: lidJid ? `${digitsOf(lidJid)}@lid` : undefined,
+    pn: pnJid ? digitsOf(pnJid) : undefined
+  };
+};
+
+/** Acha o contato pelo LID ou número; cria sem emitir eventos se não existir. */
+export const findOrCreateContactSilently = async (
+  key: any,
+  pushName: string | undefined,
+  dryRun: boolean
+): Promise<Contact | null> => {
+  const { lid, pn } = jidPair(key);
+  if (!lid && !pn) return null;
+  const or: any[] = [];
+  if (lid) or.push({ lid }, { lid: lid.replace("@lid", "") }, { number: digitsOf(lid) });
+  if (pn) or.push({ number: pn });
+  const found = await Contact.findAll({ where: { [Op.or]: or } });
+  // preferência: mesmo LID, depois número real, depois o que houver
+  const byLid = lid
+    ? found.find(c => c.lid === lid || c.lid === lid.replace("@lid", ""))
+    : undefined;
+  const byPn = pn ? found.find(c => c.number === pn) : undefined;
+  const existing = byLid || byPn || found[0];
+  if (existing) return existing;
+  if (dryRun) return null;
+  const name = (!key?.fromMe && pushName) || pn || digitsOf(lid);
+  return Contact.create({
+    name,
+    number: pn || digitsOf(lid),
+    lid: lid || null,
+    isGroup: false,
+    email: ""
+  } as any);
+};
+
+export const importMessagesFromFile = async (
+  sessionId: number,
+  file: string,
+  options: FileImportOptions,
+  deps: RecoveryDeps
+): Promise<RecoveryStatus> => importMessages(sessionId, { file }, options, deps);
+
+/**
+ * Grava, sem efeitos colaterais, mensagens de um messaging-history.set comum
+ * (pareamento novo / RECENT). Substitui o handleMessage nesse caminho, que
+ * reabria/criava tickets pendentes e trocava o lastMessage por texto antigo.
+ */
+export const importHistorySet = async (
+  sessionId: number,
+  messages: any[],
+  options: FileImportOptions,
+  deps: RecoveryDeps
+): Promise<RecoveryStatus> =>
+  importMessages(sessionId, { messages, label: "historico" }, options, deps);
+
+export const importMessages = async (
+  sessionId: number,
+  source: { file?: string; messages?: any[]; label?: string },
+  options: FileImportOptions,
+  deps: RecoveryDeps
+): Promise<RecoveryStatus> => {
+  const toMs = options.toMs || Date.now();
+  const status: RecoveryStatus = {
+    sessionId,
+    state: "running",
+    dryRun: Boolean(options.dryRun),
+    fromMs: options.fromMs,
+    toMs,
+    startedAt: new Date().toISOString(),
+    chatsTotal: 0,
+    chatsDone: 0,
+    chatsWithResponse: 0,
+    chatsWithImports: 0,
+    requests: 0,
+    responses: 0,
+    timeouts: 0,
+    received: 0,
+    inWindow: 0,
+    imported: 0,
+    alreadyInDb: 0,
+    ignoredType: 0,
+    mediaFailed: 0,
+    ticketsCreated: 0,
+    errors: 0
+  };
+  statuses.set(sessionId, status);
+  cancelled.delete(sessionId);
+  try {
+    fs.mkdirSync(reportDir(), { recursive: true });
+    status.reportFile = path.join(
+      reportDir(),
+      `${source.label || "arquivo"}-sessao-${sessionId}-${Date.now()}${status.dryRun ? "-dry" : ""}.jsonl`
+    );
+  } catch {
+    status.reportFile = undefined;
+  }
+
+  try {
+    const { helpers } = deps;
+    const raw: any[] = source.messages
+      ? source.messages
+      : fs
+          .readFileSync(source.file as string, "utf8")
+          .split("\n")
+          .filter(Boolean)
+          .map(line => {
+            try {
+              return JSON.parse(line);
+            } catch {
+              status.errors += 1;
+              return null;
+            }
+          })
+          .filter(Boolean);
+    const seenIds = new Set<string>();
+    const msgs: any[] = [];
+    for (const m of raw) {
+      status.received += 1;
+      const id = m?.key?.id;
+      if (!id || seenIds.has(id)) continue;
+      seenIds.add(id);
+      if (!m.message || !helpers.shouldHandleMessage(m)) {
+        status.ignoredType += 1;
+        continue;
+      }
+      const ts = helpers.parseMessageTimestamp(m.messageTimestamp);
+      if (ts < options.fromMs || ts > toMs) continue;
+      msgs.push(m);
+    }
+    status.inWindow = msgs.length;
+
+    // agrupa por conversa para reaproveitar contato/ticket
+    const byChat = new Map<string, any[]>();
+    msgs.forEach(m => {
+      const { lid, pn } = jidPair(m.key);
+      const k = lid || pn || m.key.remoteJid;
+      if (!byChat.has(k)) byChat.set(k, []);
+      (byChat.get(k) as any[]).push(m);
+    });
+    status.chatsTotal = byChat.size;
+
+    const live = deps.getWbot(sessionId);
+    const wbot = live?.user?.id
+      ? live
+      : {
+          updateMediaMessage: async () => {
+            throw new Error("sessão desconectada: sem reupload");
+          }
+        };
+    const ctx: ImportContext = {
+      sessionId,
+      wbot,
+      deps,
+      status,
+      dryRun: status.dryRun,
+      downloadMedia: options.downloadMedia !== false,
+      reportFile: status.reportFile
+    };
+
+    let n = 0;
+    for (const [chatKey, chatMsgs] of byChat.entries()) {
+      if (cancelled.has(sessionId)) {
+        status.state = "cancelled";
+        break;
+      }
+      chatMsgs.sort(
+        (a, b) =>
+          helpers.parseMessageTimestamp(a.messageTimestamp) -
+          helpers.parseMessageTimestamp(b.messageTimestamp)
+      );
+      try {
+        const incoming = chatMsgs.find(m => !m.key.fromMe);
+        const contact = await findOrCreateContactSilently(
+          chatMsgs[0].key,
+          incoming?.pushName,
+          status.dryRun
+        );
+        const candidate: ChatCandidate = {
+          contactId: contact ? contact.id : -1,
+          number: contact ? contact.number : "",
+          lid: contact ? contact.lid : null
+        };
+        const ticketRef = {
+          ticket: contact ? await findTicketFor(contact.id, sessionId) : null
+        };
+        let importedHere = 0;
+        for (const m of chatMsgs) {
+          try {
+            if (!contact && !status.dryRun) {
+              status.errors += 1;
+              status.lastError = `sem contato para ${chatKey}`;
+            } else {
+              const r = await importRecoveredMessage(m, candidate, ticketRef, ctx);
+              if (r === "imported") {
+                importedHere += 1;
+                status.imported += 1;
+              } else if (r === "exists") {
+                status.alreadyInDb += 1;
+              }
+            }
+          } catch (err: any) {
+            status.errors += 1;
+            status.lastError = `import ${m?.key?.id}: ${err?.message || err}`;
+          }
+          n += 1;
+          if (options.pauseEvery && n % options.pauseEvery === 0) {
+            await sleep(options.pauseMs ?? 200);
+          }
+        }
+        if (importedHere) status.chatsWithImports += 1;
+        appendReport(status.reportFile, {
+          kind: "chat",
+          sessionId,
+          chat: chatKey,
+          contactId: candidate.contactId,
+          imported: importedHere,
+          total: chatMsgs.length
+        });
+      } catch (err: any) {
+        status.errors += 1;
+        status.lastError = `chat ${chatKey}: ${err?.message || err}`;
+      }
+      status.chatsDone += 1;
+    }
+    if (status.state === "running") status.state = "done";
+  } catch (err: any) {
+    status.state = "failed";
+    status.lastError = err?.message || String(err);
+  }
+  status.finishedAt = new Date().toISOString();
+  appendReport(status.reportFile, { kind: "summary", ...status });
+  logger.info({ info: "[History Recovery] importação de arquivo concluída", ...status });
+  return status;
 };

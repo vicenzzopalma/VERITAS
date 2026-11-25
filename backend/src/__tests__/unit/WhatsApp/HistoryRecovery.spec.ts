@@ -6,7 +6,8 @@ import {
   shouldFetchMore,
   toDbDate,
   waitOnDemandHistory,
-  ON_DEMAND_SYNC_TYPE
+  ON_DEMAND_SYNC_TYPE,
+  jidPair
 } from "../../../services/WbotServices/HistoryRecoveryService";
 
 const helpers = {
@@ -79,6 +80,17 @@ describe("HistoryRecoveryService", () => {
     const r = await p;
     expect(r?.messages.map(m => m.key.id)).toEqual(["B"]);
     expect(ee.listenerCount("messaging-history.set")).toBe(0);
+  });
+
+  it("extrai LID e número de keys com remoteJidAlt (Evolution)", () => {
+    expect(
+      jidPair({ remoteJid: "59339352105099@lid", remoteJidAlt: "557196380686@s.whatsapp.net" })
+    ).toEqual({ lid: "59339352105099@lid", pn: "557196380686" });
+    expect(jidPair({ remoteJid: "557196380686:3@s.whatsapp.net" })).toEqual({
+      lid: undefined,
+      pn: "557196380686"
+    });
+    expect(jidPair({ remoteJid: "123@g.us" })).toEqual({ lid: undefined, pn: undefined });
   });
 
   it("devolve null no timeout e remove o listener", async () => {

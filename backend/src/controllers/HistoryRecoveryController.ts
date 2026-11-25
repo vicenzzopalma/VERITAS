@@ -1,3 +1,4 @@
+import path from "path";
 import { NextFunction, Request, Response } from "express";
 
 import {
@@ -146,6 +147,48 @@ export const cancel = async (req: Request, res: Response): Promise<Response> => 
   return res.json({ ok: true, queue: [...queue] });
 };
 
+// Importa mensagens (WebMessageInfo em JSONL) de outra cópia da mesma conta,
+// ex.: instância Evolution vinculada ao mesmo número. O arquivo precisa estar
+// dentro de HISTORY_RECOVERY_DIR.
+export const importFile = async (req: Request, res: Response): Promise<Response> => {
+  const body = req.body || {};
+  const id = Number(body.whatsappId);
+  const fromMs = toMs(body.from);
+  const file = path.resolve(String(body.file || ""));
+  const base = process.env.HISTORY_RECOVERY_DIR ? path.resolve(process.env.HISTORY_RECOVERY_DIR) : "";
+  if (!id || !fromMs || !body.file) {
+    return res.status(400).json({ ok: false, erro: "whatsappId, from e file são obrigatórios" });
+  }
+  if (!base || !file.startsWith(base + path.sep)) {
+    return res.status(400).json({ ok: false, erro: "arquivo fora de HISTORY_RECOVERY_DIR" });
+  }
+  if (running) return res.status(409).json({ ok: false, erro: "recuperação em andamento" });
+  const service = loadService(Boolean(body.reload));
+  const deps = loadDeps();
+  running = true;
+  service
+    .importMessagesFromFile(
+      id,
+      file,
+      {
+        fromMs,
+        toMs: toMs(body.to),
+        dryRun: Boolean(body.dryRun),
+        downloadMedia: body.downloadMedia !== false,
+        pauseEvery: num(body.pauseEvery) ?? 50,
+        pauseMs: num(body.pauseMs) ?? 200
+      },
+      deps
+    )
+    .catch((err: any) =>
+      logger.error({ info: "[History Recovery] falha na importação", sessionId: id, err: err?.message })
+    )
+    .finally(() => {
+      running = false;
+    });
+  return res.status(202).json({ ok: true, started: id });
+};
+
 export const probe = async (req: Request, res: Response): Promise<Response> => {
   const body = req.body || {};
   const service = loadService(Boolean(body.reload) && !running);
@@ -163,7 +206,8 @@ export const probe = async (req: Request, res: Response): Promise<Response> => {
       },
       Number(body.count) || 50,
       Number(body.timeoutMs) || 30000,
-      deps.helpers
+      deps.helpers,
+      body.target
     );
     return res.json({ ok: true, result });
   } catch (err: any) {

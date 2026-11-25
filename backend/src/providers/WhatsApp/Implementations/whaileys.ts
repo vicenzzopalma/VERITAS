@@ -67,11 +67,13 @@ import { shouldTap, tapMarcela, marcelaConexoes, marcelaInstanciaArquivo } from 
 import {
   handleMessage,
   handleMessageAck,
+  saveMediaFile,
   ContactPayload,
   MessagePayload,
   MediaPayload,
   WhatsappContextPayload
 } from "../../../handlers/handleWhatsappEvents";
+import { importHistorySet } from "../../../services/WbotServices/HistoryRecoveryService";
 import {
   saveLidMapping,
   resolveLidToPhoneNumber,
@@ -1307,7 +1309,12 @@ const initializeSession = async (whatsapp: Whatsapp): Promise<void> => {
   wbot.ev.on("messaging-history.set", async ({ chats, contacts, messages, isLatest, syncType }) => {
     // Histórico pedido sob demanda (fetchMessageHistory) é tratado só pelo
     // HistoryRecoveryService, que grava sem reabrir ticket nem notificar.
-    if (syncType === proto.HistorySync.HistorySyncType.ON_DEMAND) {
+    // O buffer de eventos da whaileys consolida o evento e descarta syncType,
+    // então o pedido também marca a sessão (onDemandHistoryUntil).
+    if (
+      syncType === proto.HistorySync.HistorySyncType.ON_DEMAND ||
+      Number((wbot as any).onDemandHistoryUntil || 0) > Date.now()
+    ) {
       logger.info({
         info: "messaging-history.set ON_DEMAND (recuperação de histórico)",
         sessionId,
@@ -1372,138 +1379,29 @@ const initializeSession = async (whatsapp: Whatsapp): Promise<void> => {
 
       if (!messages || messages.length === 0) return;
 
-      // 3. Filtrar mensagens recentes (últimos 7 dias para cobrir noites, fins de semana e feriados)
-      const now = Date.now();
-      const historyRetentionMs = 7 * 24 * 60 * 60 * 1000; // 7 dias de retenção
-      const minTimestamp = now - historyRetentionMs;
-
-      const validHistoryMessages = messages.filter(msg => {
-        if (!msg.message || !shouldHandleMessage(msg)) return false;
-        const ts = parseMessageTimestamp(msg.messageTimestamp);
-        return !isNaN(ts) && ts >= minTimestamp;
-      });
-
+      // 3. Grava o histórico sem efeitos colaterais (não reabre/cria ticket
+      // pendente, não mexe em lastMessage/não lidas, sem socket nem fila).
+      // Janela: HISTORY_SYNC_IMPORT_DAYS (padrão 7 dias).
+      const days = Number(process.env.HISTORY_SYNC_IMPORT_DAYS) || 7;
+      const result = await importHistorySet(
+        sessionId,
+        messages,
+        { fromMs: Date.now() - days * 24 * 60 * 60 * 1000, pauseEvery: 50, pauseMs: 100 },
+        {
+          getWbot: (id: number) => sessions.get(id),
+          helpers: historyHelpers,
+          saveMediaFile
+        }
+      );
       logger.info({
-        info: "Filtered history messages (7 days retention)",
+        info: "[History Sync] histórico gravado (importação silenciosa)",
+        sessionId,
+        days,
         total: messages.length,
-        valid: validHistoryMessages.length,
-        sessionId
-      });
-
-      if (validHistoryMessages.length === 0) return;
-
-      // 4. Agrupar mensagens por conversa (Chat JID)
-      const chatsMap = new Map<string, WAMessage[]>();
-      for (const msg of validHistoryMessages) {
-        const chatJid = msg.key?.remoteJid || "";
-        if (!chatJid) continue;
-        if (!chatsMap.has(chatJid)) {
-          chatsMap.set(chatJid, []);
-        }
-        chatsMap.get(chatJid)!.push(msg);
-      }
-
-      // 5. Processamento SEQUENCIAL: 1 CONVERSA DE CADA VEZ
-      const totalChats = chatsMap.size;
-      let chatIndex = 0;
-
-      for (const [chatJid, chatMsgs] of chatsMap.entries()) {
-        chatIndex++;
-        logger.info({
-          info: `[History Sync] Processando conversa (${chatIndex}/${totalChats})`,
-          chatJid,
-          messagesCount: chatMsgs.length,
-          sessionId
-        });
-
-        // Ordenar mensagens da conversa em ordem cronológica (mais antiga para mais recente)
-        chatMsgs.sort((a, b) => parseMessageTimestamp(a.messageTimestamp) - parseMessageTimestamp(b.messageTimestamp));
-
-        let lastMsgText = "";
-
-        // Pré-carrega de uma vez só todos os IDs já existentes desta conversa usando o índice primário (sub-milissegundo)
-        const candidateIds: string[] = [];
-        for (const m of chatMsgs) {
-          if (m.key?.id) {
-            candidateIds.push(m.key.id);
-            candidateIds.push(`${sessionId}_${m.key.id}`);
-          }
-        }
-
-        const existingDbMessages = candidateIds.length > 0
-          ? await Message.findAll({
-              where: { id: { [Op.in]: candidateIds } },
-              attributes: ["id"]
-            })
-          : [];
-        const existingSet = new Set(existingDbMessages.map(m => m.id));
-
-        for (const msg of chatMsgs) {
-          try {
-            if (!msg.key.id) continue;
-
-            // Checagem instantânea em memória O(1)
-            if (existingSet.has(msg.key.id) || existingSet.has(`${sessionId}_${msg.key.id}`)) {
-              continue;
-            }
-
-            const msgTs = new Date(parseMessageTimestamp(msg.messageTimestamp));
-
-            const {
-              messagePayload,
-              contactPayload,
-              contextPayload,
-              mediaPayload
-            } = await getMessageData(msg, wbot);
-
-            await handleMessage(
-              messagePayload,
-              contactPayload,
-              contextPayload,
-              mediaPayload,
-              true, // isHistoricalSync (não dispara bots/chatbots)
-              msgTs // Timestamp original exato do WhatsApp
-            );
-
-            lastMsgText = messagePayload.body || mediaPayload?.filename || "";
-
-            // Micro-pausa de 30ms para manter a CPU e event loop 100% livres
-            await sleep(30);
-          } catch (err) {
-            logger.debug({
-              info: "Error processing individual history message",
-              err,
-              msgId: msg.key.id
-            });
-          }
-        }
-
-        // Atualizar o lastMessage do ticket correspondente à conversa
-        try {
-          if (chatMsgs.length > 0 && lastMsgText) {
-            const lastMsg = chatMsgs[chatMsgs.length - 1];
-            const contactPayload = await convertToContactPayload(chatJid, lastMsg, wbot);
-            const contact = await Contact.findOne({ where: { number: contactPayload.number } });
-            if (contact) {
-              const ticket = await Ticket.findOne({
-                where: { contactId: contact.id, whatsappId: sessionId }
-              });
-              if (ticket) {
-                await ticket.update({ lastMessage: lastMsgText });
-              }
-            }
-          }
-        } catch {
-          /* ignore */
-        }
-
-        // Pausa suave de 100ms entre conversas para não sobrecarregar
-        await sleep(100);
-      }
-
-      logger.info({
-        info: `[History Sync] Sincronização retroativa concluída com sucesso (${totalChats} conversas processadas)`,
-        sessionId
+        inWindow: result.inWindow,
+        imported: result.imported,
+        alreadyInDb: result.alreadyInDb,
+        errors: result.errors
       });
     } catch (err) {
       logger.error({
