@@ -1,8 +1,7 @@
-import { Op } from "sequelize";
+import { Op, WhereOptions } from "sequelize";
 
 import Contact from "../../models/Contact";
 import LidMapping from "../../models/LidMapping";
-import Ticket from "../../models/Ticket";
 import {
   analisarLids,
   conflitosRegistrados,
@@ -11,96 +10,66 @@ import {
   MapeamentoLid,
   ResolucaoLid
 } from "../../helpers/lidConflitos";
-import { retratoArquivo } from "../../helpers/retornoIaArquivo";
 
-// Fase 0a do negociador: LID → telefone por conexão, para a porta resolver as conversas
-// em @lid (arquivadas, SAIR, posse). Só SELECT; não grava nada, não chama o WhatsApp
+// Fase 0a do negociador: LID → telefone para a porta resolver conversas em @lid
+// (arquivadas, SAIR, posse). Só SELECT; não grava nada, não chama o WhatsApp
 // (ao contrário do resolveLidToPhoneNumber, que pode consultar via USync e gravar).
 //
-// LIDs da conexão = LIDs dos contatos com ticket nela + LidMappings gravados por ela +
-// os pedidos explicitamente (`extras`, por exemplo as arquivadas em @lid).
+// Revisão final A1 (26/11): só por LID pedido (poucos por chamada). O modo "conexão inteira"
+// saiu: varria todos os tickets da conexão e fazia `lid LIKE 'X%'`, que no SQLite não usa
+// o idx_contacts_lid (LIKE não distingue maiúsculas) e virava SCAN em 182 mil contatos.
+// Agora tudo é igualdade ou faixa sobre índice (EXPLAIN QUERY PLAN no relatório):
+//   lid IN ('X@lid','X')            -> idx_contacts_lid (lid=?)
+//   lid >= 'X:' AND lid < 'X;'      -> idx_contacts_lid (faixa; formato 'X:dispositivo@lid')
+//   number IN ('X')                 -> idx_contacts_number (contato com o LID no number)
+//   LidMappings.lid IN (...)        -> chave primária
 
-const LOTE = 100;
-export const MAX_LIDS_PEDIDOS = 500;
+export const MAX_LIDS_PEDIDOS = 50;
 
-const emLotes = <T>(itens: T[], tamanho = LOTE): T[][] => {
-  const lotes: T[][] = [];
-  for (let i = 0; i < itens.length; i += tamanho)
-    lotes.push(itens.slice(i, i + tamanho));
-  return lotes;
-};
+export class ConsultaCancelada extends Error {
+  constructor() {
+    super("ERR_CONSULTA_CANCELADA");
+  }
+}
+
+export interface Sinal {
+  aborted: boolean;
+}
+
+export const filtroContatosPorLid = (lids: string[]): WhereOptions => ({
+  isGroup: false,
+  [Op.or]: [
+    {
+      lid: {
+        [Op.in]: lids.reduce(
+          (acc: string[], l) => acc.concat([`${l}@lid`, l]),
+          []
+        )
+      }
+    },
+    { number: { [Op.in]: lids } },
+    ...lids.map(l => ({ lid: { [Op.gte]: `${l}:`, [Op.lt]: `${l};` } }))
+  ]
+});
 
 export interface FontesLid {
-  lidsDaConexao: (conexao: number) => Promise<string[]>;
   mapeamentos: (lids: string[], conexao: number) => Promise<MapeamentoLid[]>;
   contatos: (lids: string[]) => Promise<ContatoLid[]>;
 }
 
 export const fontesBanco: FontesLid = {
-  lidsDaConexao: async conexao => {
-    const tickets = (await Ticket.findAll({
-      where: { whatsappId: conexao },
-      attributes: ["contactId"],
+  mapeamentos: async lids =>
+    (await LidMapping.findAll({
+      where: { lid: { [Op.in]: lids } },
+      attributes: ["lid", "phoneNumber", "whatsappId"],
       raw: true
-    })) as unknown as { contactId: number }[];
-    const ids = [...new Set(tickets.map(t => t.contactId).filter(Boolean))];
-    const lids: string[] = [];
-    // eslint-disable-next-line no-restricted-syntax
-    for (const lote of emLotes(ids, 500)) {
-      // eslint-disable-next-line no-await-in-loop
-      const contatos = (await Contact.findAll({
-        where: { id: lote, isGroup: false },
-        attributes: ["lid", "number"],
-        raw: true
-      })) as unknown as { lid: string | null; number: string }[];
-      contatos.forEach(c => {
-        const l = lidLimpo(c.lid) || lidLimpo(c.number);
-        if (l) lids.push(l);
-      });
-    }
-    const gravados = (await LidMapping.findAll({
-      where: { whatsappId: conexao },
-      attributes: ["lid"],
+    })) as unknown as MapeamentoLid[],
+  contatos: async lids =>
+    (await Contact.findAll({
+      where: filtroContatosPorLid(lids),
+      attributes: ["id", "number", "lid"],
       raw: true
-    })) as unknown as { lid: string }[];
-    gravados.forEach(g => lids.push(g.lid));
-    return lids;
-  },
-  mapeamentos: async lids => {
-    const saida: MapeamentoLid[] = [];
-    // eslint-disable-next-line no-restricted-syntax
-    for (const lote of emLotes(lids)) {
-      // eslint-disable-next-line no-await-in-loop
-      const linhas = (await LidMapping.findAll({
-        where: { lid: lote },
-        attributes: ["lid", "phoneNumber", "whatsappId"],
-        raw: true
-      })) as unknown as MapeamentoLid[];
-      saida.push(...linhas);
-    }
-    return saida;
-  },
-  contatos: async lids => {
-    const saida: ContatoLid[] = [];
-    // eslint-disable-next-line no-restricted-syntax
-    for (const lote of emLotes(lids)) {
-      // eslint-disable-next-line no-await-in-loop
-      const linhas = (await Contact.findAll({
-        where: {
-          isGroup: false,
-          [Op.or]: lote.reduce(
-            (acc: any[], l: string) =>
-              acc.concat([{ lid: { [Op.like]: `${l}%` } }, { number: l }]),
-            []
-          )
-        },
-        attributes: ["id", "number", "lid"],
-        raw: true
-      })) as unknown as ContatoLid[];
-      saida.push(...linhas);
-    }
-    return saida;
-  }
+    })) as unknown as ContatoLid[]
 };
 
 export interface ResultadoLids {
@@ -112,24 +81,21 @@ export interface ResultadoLids {
   lids: ResolucaoLid[];
 }
 
+const conferir = (sinal?: Sinal): void => {
+  if (sinal && sinal.aborted) throw new ConsultaCancelada();
+};
+
+// `sinal.aborted` verdadeiro (cliente desistiu ou tempo do servidor esgotou) interrompe
+// antes de cada consulta; cada consulta é por índice e leva poucos ms.
 const ConsultarLidsService = async (
   conexao: number,
-  extras: string[] = [],
-  fontes: FontesLid = fontesBanco
+  pedidos: string[],
+  fontes: FontesLid = fontesBanco,
+  sinal?: Sinal
 ): Promise<ResultadoLids> => {
-  const pedidos = extras.map(l => lidLimpo(l)).filter(Boolean);
-  const arquivadasLid = (
-    retratoArquivo().find(r => r.conexao === conexao)?.arquivadas || []
-  )
-    .filter(j => j.endsWith("@lid"))
-    .map(j => lidLimpo(j))
-    .filter(Boolean);
-  const daConexao = pedidos.length
-    ? []
-    : [...(await fontes.lidsDaConexao(conexao)), ...arquivadasLid]
-        .map(l => lidLimpo(l))
-        .filter(Boolean);
-  const lids = [...new Set([...pedidos, ...daConexao])];
+  const lids = [
+    ...new Set(pedidos.map(l => lidLimpo(l)).filter(Boolean))
+  ].slice(0, MAX_LIDS_PEDIDOS);
   if (!lids.length) {
     return {
       conexao,
@@ -140,10 +106,11 @@ const ConsultarLidsService = async (
       lids: []
     };
   }
-  const [mapeamentos, contatos] = await Promise.all([
-    fontes.mapeamentos(lids, conexao),
-    fontes.contatos(lids)
-  ]);
+  conferir(sinal);
+  const mapeamentos = await fontes.mapeamentos(lids, conexao);
+  conferir(sinal);
+  const contatos = await fontes.contatos(lids);
+  conferir(sinal);
   // Contato cujo "number" é o próprio LID não é telefone; analisarLids já ignora.
   const resolucao = analisarLids(
     lids,

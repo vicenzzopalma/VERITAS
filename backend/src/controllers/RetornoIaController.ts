@@ -17,7 +17,9 @@ import {
 } from "../helpers/retornoIaArquivo";
 import { conexoesSessao, retratoSessoes } from "../helpers/retornoIaSessao";
 import ConsultarLidsService, {
-  MAX_LIDS_PEDIDOS
+  ConsultaCancelada,
+  MAX_LIDS_PEDIDOS,
+  Sinal
 } from "../services/RetornoIaServices/ConsultarLidsService";
 import { logger } from "../utils/logger";
 
@@ -133,7 +135,9 @@ type Codigo =
   | "ERR_ENVIO_FALHOU"
   | "ERR_SEM_MENSAGEM_ID"
   | "ERR_PEDIDO_GRANDE"
-  | "ERR_CONSULTA_FALHOU";
+  | "ERR_CONSULTA_FALHOU"
+  | "ERR_LID_OBRIGATORIO"
+  | "ERR_TEMPO_ESGOTADO";
 
 // `erro` continua existindo para o cliente atual; `codigo` é o contrato novo.
 const falha = (
@@ -405,13 +409,21 @@ export const arquivadas = (req: Request, res: Response): Response => {
 
 // Fase 0a do negociador (FMEA): LID → telefone por conexão (só leitura). Conexões em
 // RETORNO_IA_LID_CONEXOES ∩ RETORNO_IA_CONEXOES (vazia por padrão = tudo negado).
-// `lid` opcional (lista por vírgula) restringe a consulta; sem ele, todos os LIDs da
-// conexão. `conflito: true` vem com telefone nulo: quem consulta trata como desconhecido.
+// `lid` obrigatório (um ou poucos LIDs do contato, por vírgula, até MAX_LIDS_PEDIDOS).
+// O modo "conexão inteira" saiu (revisão final A1: varredura lenta demais).
+// `conflito: true` vem com telefone nulo: quem consulta trata como desconhecido.
+// Tempo do servidor: RETORNO_IA_LID_TIMEOUT_MS (padrão 1500). Cliente que desiste
+// (conexão fechada) cancela a consulta antes da próxima leitura.
 export const conexoesLid = (): number[] => {
   const liberadas = conexoesLiberadas(process.env.RETORNO_IA_CONEXOES);
   return listaConexoes(process.env.RETORNO_IA_LID_CONEXOES).filter(id =>
     liberadas.has(id)
   );
+};
+
+export const tempoLimiteLidMs = (): number => {
+  const v = Number(process.env.RETORNO_IA_LID_TIMEOUT_MS);
+  return Number.isFinite(v) && v > 0 ? v : 1500;
 };
 
 export const lids = async (req: Request, res: Response): Promise<Response> => {
@@ -428,23 +440,53 @@ export const lids = async (req: Request, res: Response): Promise<Response> => {
           .map(l => l.trim())
           .filter(Boolean)
       : [];
+  if (!pedidos.length) {
+    return falha(res, 400, "ERR_LID_OBRIGATORIO", "informe lid=");
+  }
   if (pedidos.length > MAX_LIDS_PEDIDOS) {
     return falha(res, 400, "ERR_PEDIDO_GRANDE", "lids demais no pedido");
   }
+  const sinal: Sinal = { aborted: false };
+  // "close" da resposta antes de ela ser escrita = o cliente desistiu. (O "close" do req
+  // dispara assim que um GET é lido, no Node atual, e não serve para isso.)
+  const desistiu = (): void => {
+    if (!res.writableEnded) sinal.aborted = true;
+  };
+  if (typeof res.on === "function") res.on("close", desistiu);
+  const limiteMs = tempoLimiteLidMs();
+  let relogio: NodeJS.Timeout | undefined;
+  const esgotou = new Promise<"esgotou">(resolve => {
+    relogio = setTimeout(() => {
+      sinal.aborted = true;
+      resolve("esgotou");
+    }, limiteMs);
+  });
   try {
-    const resultado = await ConsultarLidsService(id, pedidos);
+    const resultado = await Promise.race([
+      ConsultarLidsService(id, pedidos, undefined, sinal),
+      esgotou
+    ]);
+    if (resultado === "esgotou") {
+      return falha(res, 504, "ERR_TEMPO_ESGOTADO", "consulta demorou demais");
+    }
     return res.json({
       ok: true,
       agora: new Date().toISOString(),
       ...resultado
     });
   } catch (err) {
+    if (err instanceof ConsultaCancelada) {
+      return falha(res, 504, "ERR_TEMPO_ESGOTADO", "consulta cancelada");
+    }
     logger.warn({
       info: "retorno_ia lids falhou",
       conexao: id,
       err: String(err?.message || err).slice(0, 300)
     });
     return falha(res, 500, "ERR_CONSULTA_FALHOU", "falha na consulta");
+  } finally {
+    if (relogio) clearTimeout(relogio);
+    if (typeof res.off === "function") res.off("close", desistiu);
   }
 };
 
