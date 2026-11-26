@@ -18,4 +18,17 @@ retornoIaRoutes.get(
   RetornoIaController.arquivadas
 );
 
+// Fase 0a do negociador (FMEA): LID → telefone e estado da sessão, só leitura.
+retornoIaRoutes.get(
+  "/internal/retorno-ia/lids",
+  RetornoIaController.autorizar,
+  RetornoIaController.lids
+);
+
+retornoIaRoutes.get(
+  "/internal/retorno-ia/sessoes",
+  RetornoIaController.autorizar,
+  RetornoIaController.sessoes
+);
+
 export default retornoIaRoutes;

@@ -5,6 +5,11 @@ import Message from "../../models/Message";
 import LidMapping from "../../models/LidMapping";
 import { logger } from "../../utils/logger";
 import { getIO } from "../../libs/socket";
+import {
+  mesmoTelefone,
+  registrarConflito,
+  travaConflitoLigada
+} from "../../helpers/lidConflitos";
 
 // In-memory cache de resolução ultra-rápida (LID -> Phone)
 const lidPhoneCache = new Map<string, string>();
@@ -34,6 +39,29 @@ export const saveLidMapping = async (
   const cleanPhone = extractCleanPhone(rawPhone);
 
   if (!cleanLid || !cleanPhone || cleanLid === cleanPhone) return;
+
+  // Fase 0a do negociador (FMEA): o LID já aponta para outro telefone. Sem a trava, só
+  // registra (pelo cache, sem consulta extra) e sobrescreve como antes. Com
+  // VERITAS_LID_CONFLITO_TRAVA=1 confere no banco e mantém o mapeamento antigo.
+  const bloqueado = travaConflitoLigada();
+  let anterior = lidPhoneCache.get(cleanLid) || "";
+  if (bloqueado && !anterior) {
+    try {
+      const linha = await LidMapping.findByPk(cleanLid);
+      anterior = (linha && extractCleanPhone(linha.phoneNumber)) || "";
+    } catch {
+      /* sem leitura, segue como antes */
+    }
+  }
+  if (anterior && !mesmoTelefone(anterior, cleanPhone)) {
+    registrarConflito({
+      lid: cleanLid,
+      telefones: [anterior, cleanPhone],
+      origem: "mapeamento_divergente",
+      bloqueado
+    });
+    if (bloqueado) return;
+  }
 
   lidPhoneCache.set(cleanLid, cleanPhone);
   phoneLidCache.set(cleanPhone, cleanLid);
@@ -312,6 +340,26 @@ export const resolveAndAutoMerge = async (
       isGroup: false
     }
   });
+
+  // Fase 0a (FMEA): o contato do telefone já tem OUTRO LID. Registra; com a trava não funde.
+  const lidDoReal = extractCleanLid(realContact?.lid || "");
+  if (
+    corruptedContact &&
+    realContact &&
+    corruptedContact.id !== realContact.id &&
+    lidDoReal &&
+    lidDoReal !== cleanLid
+  ) {
+    const bloqueado = travaConflitoLigada();
+    registrarConflito({
+      lid: cleanLid,
+      telefones: [cleanPhone],
+      origem: "telefone_com_outro_lid",
+      contatos: [realContact.id, corruptedContact.id],
+      bloqueado
+    });
+    if (bloqueado) return realContact;
+  }
 
   if (corruptedContact && realContact && corruptedContact.id !== realContact.id) {
     logger.info({

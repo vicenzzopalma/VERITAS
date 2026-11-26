@@ -71,6 +71,7 @@ import {
   loggerArquivoDaConexao,
   registrarChatsUpdate
 } from "../../../helpers/retornoIaArquivo"; // Fase 0a do negociador
+import { registrarConexao } from "../../../helpers/retornoIaSessao"; // Fase 0a (FMEA)
 import {
   handleMessage,
   handleMessageAck,
@@ -1559,6 +1560,10 @@ const initializeSession = async (whatsapp: Whatsapp): Promise<void> => {
 
   wbot.ev.on("connection.update", async update => {
     const { connection, lastDisconnect, qr } = update;
+
+    // Fase 0a do negociador (FMEA): estado da sessão com hora, por conexão coberta
+    // (no-op com RETORNO_IA_SESSAO_CONEXOES vazia). Nunca lança.
+    registrarConexao(sessionId, update);
 
     // Estado da conexão da Marcela ao robô dela (no-op sem env).
     if (connection && marcelaConexoes().has(sessionId)) {

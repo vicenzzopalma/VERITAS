@@ -12,8 +12,13 @@ import {
   conexoesArquivo,
   retratoArquivo,
   situacaoArquivo,
-  validadeArquivoS
+  validadeArquivoS,
+  listaConexoes
 } from "../helpers/retornoIaArquivo";
+import { conexoesSessao, retratoSessoes } from "../helpers/retornoIaSessao";
+import ConsultarLidsService, {
+  MAX_LIDS_PEDIDOS
+} from "../services/RetornoIaServices/ConsultarLidsService";
 import { logger } from "../utils/logger";
 
 // Envio do retorno_ia (PA FIXA) pelos chips autorizados, direto no socket: não
@@ -126,7 +131,9 @@ type Codigo =
   | "ERR_ARQUIVADA"
   | "ERR_WAPP_NOT_INITIALIZED"
   | "ERR_ENVIO_FALHOU"
-  | "ERR_SEM_MENSAGEM_ID";
+  | "ERR_SEM_MENSAGEM_ID"
+  | "ERR_PEDIDO_GRANDE"
+  | "ERR_CONSULTA_FALHOU";
 
 // `erro` continua existindo para o cliente atual; `codigo` é o contrato novo.
 const falha = (
@@ -392,6 +399,77 @@ export const arquivadas = (req: Request, res: Response): Response => {
     ok: true,
     agora: new Date().toISOString(),
     validade_s: validadeArquivoS(),
+    conexoes: retrato
+  });
+};
+
+// Fase 0a do negociador (FMEA): LID → telefone por conexão (só leitura). Conexões em
+// RETORNO_IA_LID_CONEXOES ∩ RETORNO_IA_CONEXOES (vazia por padrão = tudo negado).
+// `lid` opcional (lista por vírgula) restringe a consulta; sem ele, todos os LIDs da
+// conexão. `conflito: true` vem com telefone nulo: quem consulta trata como desconhecido.
+export const conexoesLid = (): number[] => {
+  const liberadas = conexoesLiberadas(process.env.RETORNO_IA_CONEXOES);
+  return listaConexoes(process.env.RETORNO_IA_LID_CONEXOES).filter(id =>
+    liberadas.has(id)
+  );
+};
+
+export const lids = async (req: Request, res: Response): Promise<Response> => {
+  if (typeof res.setHeader === "function")
+    res.setHeader("Cache-Control", "no-store");
+  const id = Number(req.query.conexao);
+  if (!Number.isInteger(id) || !conexoesLid().includes(id)) {
+    return falha(res, 403, "ERR_CONEXAO_NAO_LIBERADA", "conexão não liberada");
+  }
+  const pedidos =
+    typeof req.query.lid === "string"
+      ? req.query.lid
+          .split(",")
+          .map(l => l.trim())
+          .filter(Boolean)
+      : [];
+  if (pedidos.length > MAX_LIDS_PEDIDOS) {
+    return falha(res, 400, "ERR_PEDIDO_GRANDE", "lids demais no pedido");
+  }
+  try {
+    const resultado = await ConsultarLidsService(id, pedidos);
+    return res.json({
+      ok: true,
+      agora: new Date().toISOString(),
+      ...resultado
+    });
+  } catch (err) {
+    logger.warn({
+      info: "retorno_ia lids falhou",
+      conexao: id,
+      err: String(err?.message || err).slice(0, 300)
+    });
+    return falha(res, 500, "ERR_CONSULTA_FALHOU", "falha na consulta");
+  }
+};
+
+// Fase 0a do negociador (FMEA): estado da sessão por conexão coberta
+// (RETORNO_IA_SESSAO_CONEXOES), com a hora de cada transição. Só leitura.
+export const sessoes = (req: Request, res: Response): Response => {
+  if (typeof res.setHeader === "function")
+    res.setHeader("Cache-Control", "no-store");
+  const pedida = req.query.conexao;
+  let retrato = retratoSessoes(Date.now());
+  if (pedida !== undefined) {
+    const id = Number(pedida);
+    if (!Number.isInteger(id) || !conexoesSessao().includes(id)) {
+      return falha(
+        res,
+        403,
+        "ERR_CONEXAO_NAO_LIBERADA",
+        "conexão não liberada"
+      );
+    }
+    retrato = retrato.filter(r => r.conexao === id);
+  }
+  return res.json({
+    ok: true,
+    agora: new Date().toISOString(),
     conexoes: retrato
   });
 };

@@ -10,6 +10,13 @@ import {
   extractCleanLid,
   extractCleanPhone
 } from "../WbotServices/LidResolutionService";
+import {
+  lidLimpo,
+  mesmoTelefone,
+  registrarConflito,
+  telefoneReal,
+  travaConflitoLigada
+} from "../../helpers/lidConflitos";
 
 interface ExtraInfo {
   name: string;
@@ -118,6 +125,29 @@ const CreateOrUpdateContactService = async ({
     const targetContact = contactByNumber;
     const sourceContact = contactByLid;
 
+    // Fase 0a do negociador (FMEA): o contato achado pelo LID já tem OUTRO telefone real,
+    // ou o contato do telefone já tem OUTRO LID. Fundir seria escolher um lado sozinho.
+    // Registra sempre; com VERITAS_LID_CONFLITO_TRAVA=1 não funde nem mexe em nada.
+    const telefoneDoLid = telefoneReal(sourceContact.number);
+    const lidDoTelefone = lidLimpo(targetContact.lid);
+    let origemConflito: "lid_de_outro_contato" | "telefone_com_outro_lid" | null = null;
+    if (telefoneDoLid && !mesmoTelefone(telefoneDoLid, number)) {
+      origemConflito = "lid_de_outro_contato";
+    } else if (lidDoTelefone && baseLid && lidDoTelefone !== lidLimpo(baseLid)) {
+      origemConflito = "telefone_com_outro_lid";
+    }
+    if (origemConflito) {
+      const bloqueado = travaConflitoLigada();
+      registrarConflito({
+        lid: baseLid,
+        telefones: [number, telefoneDoLid, targetContact.number],
+        origem: origemConflito,
+        contatos: [targetContact.id, sourceContact.id],
+        bloqueado
+      });
+      if (bloqueado) return targetContact;
+    }
+
     await Ticket.update(
       { contactId: targetContact.id },
       { where: { contactId: sourceContact.id } }
@@ -154,6 +184,20 @@ const CreateOrUpdateContactService = async ({
       profilePicUrl: profilePicUrl || contactByNumber.profilePicUrl
     };
 
+    // Fase 0a (FMEA): telefone que já tem outro LID recebendo um LID novo.
+    const lidAtual = lidLimpo(contactByNumber.lid);
+    if (lidAtual && baseLid && lidAtual !== lidLimpo(baseLid)) {
+      const bloqueado = travaConflitoLigada();
+      registrarConflito({
+        lid: baseLid,
+        telefones: [number, contactByNumber.number],
+        origem: "telefone_com_outro_lid",
+        contatos: [contactByNumber.id],
+        bloqueado
+      });
+      if (bloqueado) updateData.lid = contactByNumber.lid;
+    }
+
     // Atualiza o number se o existente era um LID e agora temos o número real
     if (isRealPhoneNumber(number) && (!isRealPhoneNumber(contactByNumber.number) || contactByNumber.number.length >= 14)) {
       updateData.number = number;
@@ -178,6 +222,23 @@ const CreateOrUpdateContactService = async ({
 
     if (baseLid && !contactByLid.lid) {
       updateData.lid = `${baseLid}@lid`;
+    }
+
+    // Fase 0a (FMEA): LID resolvido para um telefone diferente do que o contato já tem.
+    // O comportamento segue igual (o telefone antigo fica); só registra o conflito.
+    const telefoneAtual = telefoneReal(contactByLid.number);
+    if (
+      telefoneAtual &&
+      isRealPhoneNumber(number) &&
+      !mesmoTelefone(telefoneAtual, number)
+    ) {
+      registrarConflito({
+        lid: baseLid,
+        telefones: [number, telefoneAtual],
+        origem: "lid_de_outro_contato",
+        contatos: [contactByLid.id],
+        bloqueado: false
+      });
     }
 
     if (isRealPhoneNumber(number) && (!isRealPhoneNumber(contactByLid.number) || contactByLid.number.length >= 14)) {
