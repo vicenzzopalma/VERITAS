@@ -259,3 +259,30 @@ Na tabela da seção 9.6 mudam duas linhas:
 | `src/services/RetornoIaServices/ConsultarLidsService.ts` | `1b16d503a3dd206abb33d0e7c5acf7b3d607c70a88707d066ffbe5256a77c382` |
 
 Env nova: `RETORNO_IA_LID_TIMEOUT_MS` (padrão 1500). Mudança de contrato para o robô: `/lids` exige `lid=` (até 50) e pode responder 504 `ERR_TEMPO_ESGOTADO`, que deve ser tratado como "LID desconhecido" (fail-closed).
+
+
+## 11. Publicação DESLIGADA agendada na VPS (26/11/2026, 18:10 BRT)
+
+Autorizada pelo dono: o pacote do VERITAS sobe **desligado** depois das 18:00, com conferência das sessões antes e depois. Como o PC do escritório desliga às 18:00, a publicação roda sozinha na VPS.
+
+- **Staging:** `/opt/pafixa/staging/veritas-fase0a-20261126/`, com os 9 arquivos de `backend/src` (`265a0ea..d86af54`), `manifesto.tsv` (sha novo e sha da base de cada arquivo), `checa_build.js`, `retrato.js` e `publicar.sh`. Cópias versionadas em `docs/relatorios/publicacao-fase0a/`.
+- **Build conferido no staging sem tocar no backend vivo:** o `veritas-backend` roda de `src` com `ts-node --transpile-only` (o `dist` não é usado), então o build é a árvore `src`. `checa_build.js` confere que o staging tem exatamente os 9 arquivos do manifesto, com o sha esperado, sem CRLF, transpilando sem erro (typescript 4.9.5 do backend) e com todo import relativo resolvido. Também rodei um `tsc --noEmit` completo numa cópia do `src` vivo, antes e depois de aplicar o pacote: os mesmos 45 erros que já existiam e **nenhum erro novo**.
+- **`publicar.sh`**, nesta ordem, abortando sem tocar em nada se qualquer conferência falhar:
+  1. confere o build, que o backend vivo ainda é a base (5 alterados com o sha de `265a0ea`, 4 novos ausentes, recusando se parecer já publicado) e que as 5 envs novas estão ausentes ou vazias no `.env` e no ambiente do pm2 (só o estado, nenhum valor);
+  2. confere que o `veritas-backend` está online e o `/health` responde 200;
+  3. grava o retrato antes (status de cada conexão, pm2 e sha dos arquivos) e faz o backup de `src` e `dist` (`tgz`) e dos 5 arquivos;
+  4. copia o pacote, confere o sha de cada arquivo e roda `pm2 restart veritas-backend`, que é o único processo tocado;
+  5. espera o `/health` por até 180 s; se ele não responder, faz rollback automático (5 arquivos da base, apaga os 4 novos) e reinicia de novo;
+  6. grava os retratos aos 2, 5 e 15 min e escreve `relatorio.txt`, só com contagens (CONNECTED antes e depois) e ids que mudaram de estado.
+- Modos `--seco`, que confere e retrata sem backup, cópia nem restart, e `--rollback <dir>`.
+- **Execuções antes do agendamento:**
+  - **`--seco` às 16:32 UTC:** OK, 112 CONNECTED de 162 conexões. O PID e os restarts do `veritas-backend` e os sha vivos não mudaram.
+  - **Simulação numa sandbox da VPS**, com backend falso, `pm2` e `curl` falsos e uma guarda contra caminhos vivos:
+    - cenário publica: 9 arquivos novos conferidos, e uma segunda execução recusa;
+    - cenário backend não sobe: rollback automático, 9 arquivos na base, 2 restarts;
+    - `--rollback` manual: os 9 arquivos voltam para a base.
+
+    Sandboxes removidas depois.
+- **Agendamento:** `systemd-run --unit=veritas-fase0a-publicar --on-calendar="2026-11-26 21:10:00 UTC"`. O `systemctl list-timers` mostra `veritas-fase0a-publicar.timer` para Thu 2026-11-26 21:10:00 UTC. O timer é transitório: se a VPS reiniciar antes, nada é publicado.
+- **Cancelar:** `systemctl stop veritas-fase0a-publicar.timer`. Para conferir: `systemctl list-timers --all | grep veritas-fase0a`.
+- **Resultado:** `/opt/pafixa/backups/veritas-fase0a-<data>/relatorio.txt` (e `execucao.log`). Rollback manual, se preciso: `bash /opt/pafixa/staging/veritas-fase0a-20261126/publicar.sh --rollback /opt/pafixa/backups/veritas-fase0a-<data>`.
