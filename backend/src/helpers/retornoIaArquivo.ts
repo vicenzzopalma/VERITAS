@@ -10,6 +10,11 @@ import { logger } from "../utils/logger";
 //
 // O estado fica em memória do processo. Depois de um restart a conexão volta sem
 // sincronização boa e o robô não envia por ela até o próximo snapshot completo.
+//
+// Revisão independente (26/11): a fonte só é válida com sync confirmada dentro da validade
+// E sem falha depois dela (I2); o buffer de eventos do socket é sondado antes de aceitar a
+// sync (I1); o mapa nunca perde um "archived: true" sem um "false" explícito (I1); a falha
+// de sync é atribuída à conexão por um logger filho e só conta a coleção regular_low (I3).
 
 export const COLECAO_ARQUIVO = "regular_low";
 
@@ -24,7 +29,9 @@ export type CodigoFalhaArquivo =
   | "ERR_SEM_AUTHSTATE"
   | "ERR_SYNC_FALHOU"
   | "ERR_SYNC_TIMEOUT"
-  | "ERR_SEM_VERSAO";
+  | "ERR_SEM_VERSAO"
+  | "ERR_BUFFER_PENDENTE"
+  | "ERR_FALHA_POSTERIOR";
 
 export interface EstadoArquivo {
   conexao: number;
@@ -32,6 +39,7 @@ export interface EstadoArquivo {
   ultimaTentativa: number | null;
   ultimoErro: CodigoFalhaArquivo | null;
   snapshotCompleto: boolean;
+  falhasSync: number;
   arquivadas: Map<string, boolean>;
 }
 
@@ -100,6 +108,7 @@ const estadoDe = (conexao: number): EstadoArquivo => {
       ultimaTentativa: null,
       ultimoErro: null,
       snapshotCompleto: false,
+      falhasSync: 0,
       arquivadas: new Map()
     };
     estados.set(conexao, estado);
@@ -127,29 +136,39 @@ export const registrarChatsUpdate = (
   }
 };
 
-// Falhas de sync que o whaileys só manda ao logger ("failed to sync state ...").
-// Um único observador permanente, sem atribuição por conexão: o ciclo roda uma conexão
-// por vez, e qualquer falha vista durante a janela invalida a sincronização (fail-closed).
-type OuvinteFalha = (texto: string) => void;
-const ouvintesFalha = new Set<OuvinteFalha>();
-const MARCA_OBSERVADOR = Symbol.for("retornoIaArquivo.observador");
+// Falhas de sync que o whaileys só manda ao logger:
+//   logger.info({ name, error }, "failed to sync state from version...")
+// Cada conexão coberta usa um logger filho (só ela), então a falha é atribuída à conexão
+// certa (I3). Só conta a coleção regular_low. Falha a qualquer hora, dentro ou fora do
+// ciclo, invalida a fonte na hora (I2) e força snapshot completo no próximo ciclo.
+// O filho repassa ao `info` atual do logger base, então quem embrulha o logger base
+// (rota de resync da Marcela, Item #21) continua vendo as falhas desta conexão.
+export const ehFalhaArquivo = (args: any[]): boolean => {
+  const texto = args.map(a => (typeof a === "string" ? a : "")).join(" ");
+  if (!/failed to sync state/.test(texto)) return false;
+  const meta = args[0];
+  return !!meta && typeof meta === "object" && meta.name === COLECAO_ARQUIVO;
+};
 
-export const instalarObservadorFalhas = (loggerSocket: any): void => {
-  if (!loggerSocket || typeof loggerSocket.info !== "function") return;
-  if (loggerSocket.info[MARCA_OBSERVADOR]) return;
-  const original = loggerSocket.info;
-  const embrulho: any = function infoObservado(this: any, ...args: any[]) {
+export const registrarFalhaSync = (conexao: number): void => {
+  const estado = estadoDe(conexao);
+  estado.falhasSync += 1;
+  estado.ultimoErro = estado.ultimoErro || "ERR_FALHA_POSTERIOR";
+  estado.snapshotCompleto = false;
+};
+
+export const loggerArquivoDaConexao = (base: any, conexao: number): any => {
+  if (!base || typeof base.child !== "function") return base;
+  const filho = base.child({});
+  filho.info = function infoArquivo(this: any, ...args: any[]) {
     try {
-      const texto = args.map(a => (typeof a === "string" ? a : "")).join(" ");
-      if (/failed to sync state/.test(texto))
-        ouvintesFalha.forEach(f => f(texto));
+      if (ehFalhaArquivo(args)) registrarFalhaSync(conexao);
     } catch {
       /* nunca atrapalha o log */
     }
-    return original.apply(this, args);
+    return base.info.apply(this, args);
   };
-  embrulho[MARCA_OBSERVADOR] = true;
-  loggerSocket.info = embrulho;
+  return filho;
 };
 
 const sleep = (ms: number): Promise<void> =>
@@ -170,9 +189,28 @@ const comTimeout = <T>(p: Promise<T>, ms: number): Promise<T> =>
     );
   });
 
+// I1: true = buffer livre (abrimos e fechamos na hora); false = alguém o segura.
+export const sondarBuffer = async (
+  ev: any
+): Promise<CodigoFalhaArquivo | null> => {
+  if (
+    !ev ||
+    typeof ev.buffer !== "function" ||
+    typeof ev.flush !== "function"
+  ) {
+    return "ERR_BUFFER_PENDENTE";
+  }
+  if (!ev.buffer()) return "ERR_BUFFER_PENDENTE";
+  try {
+    await comTimeout(Promise.resolve(ev.flush()), 5000);
+    return null;
+  } catch {
+    return "ERR_BUFFER_PENDENTE";
+  }
+};
+
 export interface DepsArquivo {
   getWbot: (id: number) => any;
-  loggerSocket?: any;
   agora?: () => number;
   esperaMs?: number;
   timeoutMs?: number;
@@ -217,8 +255,6 @@ export const sincronizarConexao = async (
     return falhar("ERR_SEM_AUTHSTATE", false);
   }
 
-  instalarObservadorFalhas(deps.loggerSocket);
-
   const versao = async (): Promise<any> =>
     (await chaves.get("app-state-sync-version", [COLECAO_ARQUIVO]))[
       COLECAO_ARQUIVO
@@ -230,12 +266,10 @@ export const sincronizarConexao = async (
   const ouvir = (updates: any[]): void => {
     filtrarArquivo(updates).forEach(u => vistos.set(u.id, u.archived));
   };
-  const falhas: string[] = [];
-  const ouvinteFalha: OuvinteFalha = texto => falhas.push(texto.slice(0, 200));
+  const falhasAntes = estado.falhasSync;
 
   let codigo: CodigoFalhaArquivo | null = null;
   wbot.ev.on("chats.update", ouvir);
-  ouvintesFalha.add(ouvinteFalha);
   try {
     if (completo) {
       await chaves.set({
@@ -249,6 +283,10 @@ export const sincronizarConexao = async (
     );
     const espera = deps.esperaMs ?? PADRAO_ESPERA_MS;
     if (espera > 0) await sleep(espera);
+    // I1: se alguém mantém o buffer de eventos aberto, os chats.update do resync ficam
+    // retidos e "vistos" pode estar vazio ou incompleto. Abrir o buffer aqui só dá certo
+    // se ninguém o segura; nesse caso fechamos na hora (com o ouvinte ainda ligado).
+    codigo = await sondarBuffer(wbot.ev);
   } catch (err) {
     codigo =
       String(err?.message) === "ERR_SYNC_TIMEOUT"
@@ -256,7 +294,6 @@ export const sincronizarConexao = async (
         : "ERR_SYNC_FALHOU";
   } finally {
     wbot.ev.off("chats.update", ouvir);
-    ouvintesFalha.delete(ouvinteFalha);
   }
 
   let depois = await versao();
@@ -267,7 +304,7 @@ export const sincronizarConexao = async (
     depois = await versao();
     codigo = codigo || "ERR_SEM_VERSAO";
   }
-  if (!codigo && falhas.length) codigo = "ERR_SYNC_FALHOU";
+  if (!codigo && estado.falhasSync !== falhasAntes) codigo = "ERR_SYNC_FALHOU";
   if (!codigo && !depois) codigo = "ERR_SEM_VERSAO";
 
   if (codigo) {
@@ -282,11 +319,9 @@ export const sincronizarConexao = async (
     return falhar(codigo, completo);
   }
 
-  if (completo) {
-    estado.arquivadas = vistos;
-  } else {
-    vistos.forEach((v, k) => estado.arquivadas.set(k, v));
-  }
+  // I1: snapshot completo também mescla. Um "archived: true" só sai com um "false"
+  // explícito; conversa que sumiu do snapshot continua travada (fail-closed).
+  vistos.forEach((v, k) => estado.arquivadas.set(k, v));
   estado.snapshotCompleto = true;
   estado.ultimoErro = null;
   estado.ultimaSyncOk = agora();
@@ -300,7 +335,7 @@ export const sincronizarConexao = async (
   return { conexao, ok: true, completo, codigo: null, arquivadas };
 };
 
-// Uma conexão por vez, para a falha vista no logger ser da conexão em sincronização.
+// Uma conexão por vez, para não segurar o buffer de várias conexões ao mesmo tempo.
 let rodando = false;
 export const rodarCicloArquivo = async (
   deps: DepsArquivo
@@ -309,8 +344,11 @@ export const rodarCicloArquivo = async (
   rodando = true;
   const resultados: ResultadoSync[] = [];
   try {
+    // eslint-disable-next-line no-restricted-syntax
     for (const conexao of conexoesArquivo()) {
       try {
+        // serial de propósito: uma conexão por vez
+        // eslint-disable-next-line no-await-in-loop
         resultados.push(await sincronizarConexao(conexao, deps));
       } catch (err) {
         logger.warn({
@@ -370,13 +408,20 @@ export const retratoArquivo = (
   return conexoesArquivo().map(conexao => {
     const estado = estados.get(conexao);
     const ok = estado ? estado.ultimaSyncOk : null;
-    const idade =
-      ok === null ? null : Math.max(0, Math.floor((agora - ok) / 1000));
+    const bruta = ok === null ? null : Math.floor((agora - ok) / 1000);
+    // I2: falha depois da última sync boa invalida na hora. M3: relógio que voltou
+    // (agora antes da sync) também invalida.
+    const valida =
+      bruta !== null &&
+      bruta >= 0 &&
+      bruta <= validade &&
+      !!estado &&
+      estado.ultimoErro === null;
     return {
       conexao,
       ultima_sync_ok: ok === null ? null : new Date(ok).toISOString(),
-      idade_s: idade,
-      valida: idade !== null && idade <= validade,
+      idade_s: bruta === null ? null : Math.max(0, bruta),
+      valida,
       ultimo_erro: estado ? estado.ultimoErro : null,
       arquivadas: estado
         ? [...estado.arquivadas.entries()]
@@ -388,9 +433,23 @@ export const retratoArquivo = (
   });
 };
 
+export type SituacaoArquivo = "arquivada" | "livre" | "sem_fonte";
+
+// I4: consulta pontual para a trava da rota de envio. Sem fonte válida, não decide.
+export const situacaoArquivo = (
+  conexao: number,
+  jid: string,
+  agora: number = Date.now()
+): SituacaoArquivo => {
+  const retrato = retratoArquivo(agora).find(r => r.conexao === conexao);
+  if (!retrato || !retrato.valida) return "sem_fonte";
+  const estado = estados.get(conexao);
+  return estado && estado.arquivadas.get(jid) === true ? "arquivada" : "livre";
+};
+
+// eslint-disable-next-line no-underscore-dangle
 export const _resetArquivoParaTestes = (): void => {
   estados.clear();
-  ouvintesFalha.clear();
   rodando = false;
   if (ciclo) clearInterval(ciclo);
   ciclo = null;

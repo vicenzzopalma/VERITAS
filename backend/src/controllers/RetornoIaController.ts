@@ -8,8 +8,10 @@ import {
 } from "../middleware/isMarcelaInternal";
 import { getWbot } from "../providers/WhatsApp/Implementations/whaileys";
 import {
+  arquivoAtivo,
   conexoesArquivo,
   retratoArquivo,
+  situacaoArquivo,
   validadeArquivoS
 } from "../helpers/retornoIaArquivo";
 import { logger } from "../utils/logger";
@@ -46,6 +48,52 @@ const MIMETYPE_RE =
   /^[a-z0-9][a-z0-9!#$&^_.+-]*\/[a-z0-9][a-z0-9!#$&^_.+-]*(;\s*[a-z0-9_.+-]+=[a-z0-9_.+-]+)*$/i;
 const BASE64_RE = /^[A-Za-z0-9+/]*={0,2}$/;
 
+// Revisão M6: lista branca por tipo (o mimetype só sintático aceitava text/html, svg, .exe).
+const MIMETYPES: Record<Tipo, string[]> = {
+  texto: [],
+  documento: [
+    "application/pdf",
+    "image/jpeg",
+    "image/png",
+    "text/plain",
+    "application/msword",
+    "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    "application/vnd.ms-excel",
+    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+  ],
+  imagem: ["image/jpeg", "image/png", "image/webp"],
+  audio: [
+    "audio/ogg",
+    "audio/opus",
+    "audio/mpeg",
+    "audio/mp4",
+    "audio/aac",
+    "audio/amr"
+  ]
+};
+const EXTENSOES = [
+  "pdf",
+  "jpg",
+  "jpeg",
+  "png",
+  "webp",
+  "txt",
+  "doc",
+  "docx",
+  "xls",
+  "xlsx",
+  "ogg",
+  "opus",
+  "mp3",
+  "m4a",
+  "aac",
+  "amr"
+];
+
+// Revisão I4: trava server-side de arquivadas, desligada por padrão.
+export const travaArquivadasLigada = (): boolean =>
+  process.env.RETORNO_IA_TRAVA_ARQUIVADAS === "1";
+
 const sleep = (ms: number): Promise<void> =>
   new Promise(resolve => setTimeout(resolve, ms));
 
@@ -75,6 +123,7 @@ type Codigo =
   | "ERR_MIMETYPE_INVALIDO"
   | "ERR_NOME_ARQUIVO_INVALIDO"
   | "ERR_MIDIA_GRANDE"
+  | "ERR_ARQUIVADA"
   | "ERR_WAPP_NOT_INITIALIZED"
   | "ERR_ENVIO_FALHOU"
   | "ERR_SEM_MENSAGEM_ID";
@@ -150,14 +199,12 @@ const validarMidia = (body: SendBody, tipo: Tipo): Validado | Recusa => {
   }
   const mimetype =
     typeof body.mimetype === "string" ? body.mimetype.trim() : "";
-  const prefixo =
-    ({ imagem: "image/", audio: "audio/" } as Record<string, string>)[tipo] ||
-    "";
+  const base = mimetype.split(";")[0].trim().toLowerCase();
   if (
     !mimetype ||
     mimetype.length > 100 ||
     !MIMETYPE_RE.test(mimetype) ||
-    (prefixo && !mimetype.toLowerCase().startsWith(prefixo))
+    !MIMETYPES[tipo].includes(base)
   ) {
     return {
       status: 400,
@@ -170,7 +217,10 @@ const validarMidia = (body: SendBody, tipo: Tipo): Validado | Recusa => {
   if (
     (tipo === "documento" && !nome) ||
     nome.length > MAX_NOME_ARQUIVO ||
-    /[\\/\0]/.test(nome)
+    // eslint-disable-next-line no-control-regex
+    /[\\/\u0000-\u001f\u007f]/.test(nome) ||
+    (nome.includes(".") &&
+      !EXTENSOES.includes((nome.split(".").pop() || "").toLowerCase()))
   ) {
     return {
       status: 400,
@@ -255,6 +305,22 @@ export const send = async (req: Request, res: Response): Promise<Response> => {
 
   const jid = `${body.numero}@s.whatsapp.net`;
 
+  // Revisão I4 (defesa em profundidade, atrás de RETORNO_IA_TRAVA_ARQUIVADAS=1): conexão
+  // coberta, fonte válida e jid arquivado = recusa. Sem fonte válida a rota não decide
+  // (a porta final continua no robô). Só vê o jid por número; conversa em @lid fica
+  // com o robô, que resolve pelo LidMappings.
+  if (
+    travaArquivadasLigada() &&
+    arquivoAtivo(id) &&
+    situacaoArquivo(id, jid) === "arquivada"
+  ) {
+    logger.info({
+      info: "retorno_ia send recusado: arquivada",
+      whatsappId: id
+    });
+    return falha(res, 409, "ERR_ARQUIVADA", "conversa arquivada");
+  }
+
   // Sem sessão no processo: nada saiu, o cliente pode tentar de novo.
   let wbot: ReturnType<typeof getWbot>;
   try {
@@ -305,6 +371,8 @@ export const send = async (req: Request, res: Response): Promise<Response> => {
 // (ou de RETORNO_IA_CONEXOES) é negada. A decisão de enviar é do robô: `valida` falso
 // (sem sincronização boa dentro de RETORNO_IA_ARQUIVO_VALIDADE_S) = não enviar.
 export const arquivadas = (req: Request, res: Response): Response => {
+  if (typeof res.setHeader === "function")
+    res.setHeader("Cache-Control", "no-store");
   const pedida = req.query.conexao;
   const cobertas = conexoesArquivo();
   let retrato = retratoArquivo(Date.now());

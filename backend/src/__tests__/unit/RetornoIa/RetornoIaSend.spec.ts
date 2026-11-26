@@ -13,6 +13,7 @@ import * as C from "../../../controllers/RetornoIaController";
 // eslint-disable-next-line import/first
 import {
   registrarChatsUpdate,
+  sincronizarConexao,
   _resetArquivoParaTestes
 } from "../../../helpers/retornoIaArquivo";
 
@@ -26,6 +27,10 @@ const fakeRes = () => {
   res.json = jest.fn((b: any) => {
     res.body = b;
     return res;
+  });
+  res.headers = {};
+  res.setHeader = jest.fn((k: string, v: string) => {
+    res.headers[k] = v;
   });
   return res;
 };
@@ -338,5 +343,169 @@ describe("RetornoIa /internal/retorno-ia/arquivadas", () => {
     expect(ler({ conexao: "28" }).statusCode).toBe(403);
     expect(ler({ conexao: "28" }).body.codigo).toBe("ERR_CONEXAO_NAO_LIBERADA");
     expect(ler({ conexao: "23" }).statusCode).toBe(200);
+  });
+
+  it("M7: resposta com Cache-Control no-store", () => {
+    expect(ler().headers["Cache-Control"]).toBe("no-store");
+  });
+});
+
+describe("RetornoIa validações extras (revisão M6/M8)", () => {
+  const envOriginal = { ...process.env };
+  let wbot: ReturnType<typeof fakeWbot>;
+  beforeEach(() => {
+    process.env = { ...envOriginal };
+    process.env.RETORNO_IA_CONEXOES = "23";
+    process.env.RETORNO_IA_MAX_MIDIA_BYTES = "1024";
+    wbot = fakeWbot();
+    mockGetWbot.mockReset();
+    mockGetWbot.mockReturnValue(wbot);
+  });
+  afterAll(() => {
+    process.env = envOriginal;
+  });
+  const b64 = Buffer.from("conteudo").toString("base64");
+
+  it("tipo null vale como texto (pedido antigo)", async () => {
+    const res = await enviar({
+      whatsappId: 23,
+      numero: NUM,
+      tipo: null,
+      texto: "oi"
+    });
+    expect(res.statusCode).toBe(200);
+    expect(res.body.tipo).toBe("texto");
+  });
+
+  it("mimetype fora da lista branca é recusado (svg, html, exe)", async () => {
+    const base = { whatsappId: 23, numero: NUM, base64: b64 };
+    expect(
+      (await enviar({ ...base, tipo: "imagem", mimetype: "image/svg+xml" }))
+        .body.codigo
+    ).toBe("ERR_MIMETYPE_INVALIDO");
+    expect(
+      (
+        await enviar({
+          ...base,
+          tipo: "documento",
+          mimetype: "text/html",
+          nome_arquivo: "a.pdf"
+        })
+      ).body.codigo
+    ).toBe("ERR_MIMETYPE_INVALIDO");
+    expect(
+      (
+        await enviar({
+          ...base,
+          tipo: "documento",
+          mimetype: "application/x-msdownload",
+          nome_arquivo: "a.pdf"
+        })
+      ).body.codigo
+    ).toBe("ERR_MIMETYPE_INVALIDO");
+    expect(wbot.sendMessage).not.toHaveBeenCalled();
+  });
+
+  it("nome com caractere de controle ou extensão perigosa é recusado", async () => {
+    const base = {
+      whatsappId: 23,
+      numero: NUM,
+      base64: b64,
+      tipo: "documento",
+      mimetype: "application/pdf"
+    };
+    expect(
+      (
+        await enviar({
+          ...base,
+          nome_arquivo: `a${String.fromCharCode(10)}b.pdf`
+        })
+      ).body.codigo
+    ).toBe("ERR_NOME_ARQUIVO_INVALIDO");
+    expect(
+      (await enviar({ ...base, nome_arquivo: "x.html" })).body.codigo
+    ).toBe("ERR_NOME_ARQUIVO_INVALIDO");
+    expect((await enviar({ ...base, nome_arquivo: "boleto" })).statusCode).toBe(
+      200
+    );
+  });
+});
+
+describe("RetornoIa trava server-side de arquivadas (revisão I4)", () => {
+  const envOriginal = { ...process.env };
+  let wbot: ReturnType<typeof fakeWbot>;
+  const JID = `${NUM}@s.whatsapp.net`;
+
+  const sockOk = () => ({
+    ev: {
+      on: jest.fn(),
+      off: jest.fn(),
+      buffer: () => true,
+      flush: async () => undefined
+    },
+    authState: {
+      keys: {
+        get: async () => ({ regular_low: { version: 3 } }),
+        set: async () => undefined
+      }
+    },
+    resyncAppState: async () => undefined
+  });
+  const fonteValida = () =>
+    sincronizarConexao(23, {
+      getWbot: () => sockOk(),
+      esperaMs: 0,
+      timeoutMs: 50
+    });
+
+  beforeEach(() => {
+    _resetArquivoParaTestes();
+    process.env = { ...envOriginal };
+    process.env.RETORNO_IA_CONEXOES = "23,28";
+    process.env.RETORNO_IA_ARQUIVO_CONEXOES = "23";
+    process.env.RETORNO_IA_TRAVA_ARQUIVADAS = "1";
+    wbot = fakeWbot();
+    mockGetWbot.mockReset();
+    mockGetWbot.mockReturnValue(wbot);
+  });
+  afterAll(() => {
+    process.env = envOriginal;
+  });
+
+  it("fonte válida e jid arquivado: 409 ERR_ARQUIVADA sem tocar o socket", async () => {
+    registrarChatsUpdate(23, [{ id: JID, archived: true }]);
+    await fonteValida();
+    const res = await enviar({ whatsappId: 23, numero: NUM, texto: "oi" });
+    expect(res.statusCode).toBe(409);
+    expect(res.body.codigo).toBe("ERR_ARQUIVADA");
+    expect(mockGetWbot).not.toHaveBeenCalled();
+  });
+
+  it("fonte válida e jid não arquivado: envia", async () => {
+    registrarChatsUpdate(23, [{ id: JID, archived: false }]);
+    await fonteValida();
+    expect(
+      (await enviar({ whatsappId: 23, numero: NUM, texto: "oi" })).statusCode
+    ).toBe(200);
+  });
+
+  it("sem fonte válida a rota não decide (envia; a porta final é do robô)", async () => {
+    registrarChatsUpdate(23, [{ id: JID, archived: true }]);
+    expect(
+      (await enviar({ whatsappId: 23, numero: NUM, texto: "oi" })).statusCode
+    ).toBe(200);
+  });
+
+  it("trava desligada (padrão) ou conexão não coberta: comportamento antigo", async () => {
+    registrarChatsUpdate(23, [{ id: JID, archived: true }]);
+    await fonteValida();
+    delete process.env.RETORNO_IA_TRAVA_ARQUIVADAS;
+    expect(
+      (await enviar({ whatsappId: 23, numero: NUM, texto: "oi" })).statusCode
+    ).toBe(200);
+    process.env.RETORNO_IA_TRAVA_ARQUIVADAS = "1";
+    expect(
+      (await enviar({ whatsappId: 28, numero: NUM, texto: "oi" })).statusCode
+    ).toBe(200);
   });
 });

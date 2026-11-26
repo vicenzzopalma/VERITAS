@@ -68,6 +68,7 @@ import {
   arquivoAtivo as retornoIaArquivoAtivo,
   decodificarChavesAppState,
   iniciarCicloArquivo,
+  loggerArquivoDaConexao,
   registrarChatsUpdate
 } from "../../../helpers/retornoIaArquivo"; // Fase 0a do negociador
 import {
@@ -1224,7 +1225,11 @@ const initializeSession = async (whatsapp: Whatsapp): Promise<void> => {
   }
 
   const connOptions: UserFacingSocketConfig = {
-    logger: whaileyLogger,
+    // Fase 0a do negociador: conexão coberta ganha um logger filho, para a falha de sync
+    // do regular_low ser atribuída a ela (revisão I3). As outras seguem com o logger base.
+    logger: retornoIaArquivoAtivo(sessionId)
+      ? loggerArquivoDaConexao(whaileyLogger, sessionId)
+      : whaileyLogger,
     browser: Browsers.ubuntu(process.env.WHATSAPP_BROWSER_NAME || "Chrome"),
     agent,
     fetchAgent,
@@ -1836,7 +1841,7 @@ const initializeSession = async (whatsapp: Whatsapp): Promise<void> => {
 
       // Fase 0a do negociador: liga (uma vez) o ciclo de sincronização das arquivadas.
       if (retornoIaArquivoAtivo(sessionId)) {
-        iniciarCicloArquivo({ getWbot, loggerSocket: whaileyLogger });
+        iniciarCicloArquivo({ getWbot });
       }
 
       await whatsapp.update({
