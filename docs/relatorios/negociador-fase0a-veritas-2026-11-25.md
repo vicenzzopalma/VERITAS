@@ -219,3 +219,43 @@ Esta tabela substitui a da seção 6. O backup e o rollback passam a cobrir tamb
 3. **`Contacts.lid LIKE 'L%'`** é filtrado depois por igualdade exata; não confunde LIDs com prefixo comum.
 4. **Trava de conflito** muda o CRM quando ligada: o contato do LID e o do telefone ficam separados, com tickets em cada um, até alguém resolver. É o comportamento pedido ("nunca escolher um sozinho").
 5. **Sessão** depende de o whaileys emitir `connection.update`. Uma sessão removida sem evento (`removeSession`) fica no último estado conhecido. A porta deve também exigir `estado: "open"` recente e cruzar com o `Whatsapps.status`.
+
+
+## 10. Revisão final A1 (26/11/2026): consulta de LID indexável e com tempo limite
+
+**Achado da revisão:** o `ConsultarLidsService` fazia um OR de `lid LIKE 'X%'` em lotes de 100, e o modo por conexão varria todos os tickets do chip. No SQLite, o `LIKE` não distingue maiúsculas e por isso não usa o `idx_contacts_lid`: virava `SCAN Contacts` (182.935 linhas). O chip 59 levaria cerca de 60 s por chamada, contra 2 s de timeout no cliente. Commit da correção: `44ada81`.
+
+### 10.1 O que mudou
+- **Consulta indexável** (`filtroContatosPorLid`): `lid IN ('X@lid','X')`, `number IN ('X')` e a faixa `lid >= 'X:' AND lid < 'X;'`. A faixa cobre o formato com dispositivo `X:n@lid` (7 contatos hoje) e, pela ordem binária, não pega LID vizinho. O `LidMappings` é lido pela chave primária (`lid IN (...)`). Não sobra nenhum `LIKE`.
+- **`lid=` obrigatório**, com até 50 LIDs por chamada; sem ele, a rota responde 400 `ERR_LID_OBRIGATORIO`. O modo "conexão inteira" foi **retirado** em vez de paginado: o robô já sabe quais LIDs precisa (os da conversa e as arquivadas em `@lid` de `/arquivadas`).
+- **Cancelamento:** o servidor tem tempo limite (`RETORNO_IA_LID_TIMEOUT_MS`, padrão 1500 ms, abaixo dos 2 s do cliente), e o `close` da resposta antes de ela ser escrita (cliente desistiu) aborta um sinal. O serviço confere o sinal antes de cada leitura e para; a rota responde 504 `ERR_TEMPO_ESGOTADO`. Uma leitura já iniciada no SQLite não é interrompida no meio, mas cada uma leva poucos ms. O `close` do `req` não serve para isso, porque no Node atual ele dispara assim que um GET é lido.
+
+### 10.2 Plano e latência medidos na VPS
+Só leitura: `node` lido pelo stdin (nada gravado na VPS), `sqlite3.OPEN_READONLY` sobre `whaticket.sqlite`, `nice -n 19` e `timeout`. Nenhum processo foi parado ou reiniciado. Carga da máquina no momento: load 1,6 em 4 CPUs. O SQL medido é o texto exato que o Sequelize 5.22.5 (a mesma versão da VPS) gera para `filtroContatosPorLid`, e os LIDs de amostra são reais, de contatos com ticket na conexão 59 (não impressos).
+
+| Consulta | EXPLAIN QUERY PLAN |
+|---|---|
+| antiga (`lid LIKE 'X%' OR number = 'X'`) | `SCAN Contacts` |
+| nova, Contacts | `MULTI-INDEX OR`: `SEARCH ... idx_contacts_lid (lid=?)`, `SEARCH ... idx_contacts_number (number=?)` e `SEARCH ... idx_contacts_lid (lid>? AND lid<?)` por LID |
+| nova, LidMappings | `SEARCH LidMapping USING INDEX sqlite_autoindex_LidMappings_1 (lid=?)` |
+
+| Pedido (LidMappings + Contacts, 60 rodadas) | p50 | p95 | máx |
+|---|---|---|---|
+| 1 LID | 0,94 ms | 2,08 ms | 2,30 ms |
+| 5 LIDs | 1,10 ms | 3,53 ms | 4,66 ms |
+| 50 LIDs | 2,05 ms | 3,35 ms | 3,88 ms |
+| antiga, 1 LID (5 rodadas) | 35,5 ms | | 48,0 ms |
+
+A meta de 200 ms por chamada fica com folga de duas ordens de grandeza. Fica de fora da medição a sobrecarga do Express e do Sequelize (montar o SQL e mapear as linhas), que é da ordem de milissegundos para até 50 linhas.
+
+### 10.3 Testes e pacote
+`ConsultarLids.spec.ts` foi reescrito (11 testes). Ele cobre o filtro sem `LIKE` (só `IN` e faixa, que pega `X:12@lid` e não pega `X@lid` nem `X9@lid`), a resolução e o conflito, o teto de 50, o sinal abortado entre as leituras, `lid=` obrigatório, pedido grande, tempo esgotado (504 com o sinal abortado), cliente que fecha a conexão, falha do banco sem detalhe e `/sessoes`. Suítes RetornoIa e WhatsApp: **8 suítes, 96 testes OK**. eslint e `tsc` sem erro nos arquivos tocados.
+
+Na tabela da seção 9.6 mudam duas linhas:
+
+| Arquivo | sha256 (`44ada81`) |
+|---|---|
+| `src/controllers/RetornoIaController.ts` | `a59e5ae849dc37a02961559f7fd530e5d163fc6ce614edc5b519567e086f0afc` |
+| `src/services/RetornoIaServices/ConsultarLidsService.ts` | `1b16d503a3dd206abb33d0e7c5acf7b3d607c70a88707d066ffbe5256a77c382` |
+
+Env nova: `RETORNO_IA_LID_TIMEOUT_MS` (padrão 1500). Mudança de contrato para o robô: `/lids` exige `lid=` (até 50) e pode responder 504 `ERR_TEMPO_ESGOTADO`, que deve ser tratado como "LID desconhecido" (fail-closed).
