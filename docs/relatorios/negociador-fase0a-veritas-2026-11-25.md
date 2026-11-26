@@ -153,3 +153,69 @@ A revisão (`docs/relatorios/revisao-independente-2026-11-25.md`, mantida no com
 Não alterado de propósito: **M1** (502 sem `key.id`, quase impossível, dívida para o cliente novo), **M2** (compatível), **M5** (efeito de decodificar o `keyData`, já documentado no item 2 da seção 7; nada desloga nem marca ticket como lido) e o saneamento de `ext` em `handleWhatsappEvents.ts` (preexistente; a lista branca de extensões na rota já fecha o caminho do robô).
 
 Correção de um dado deste relatório: a versão de 25/11 dizia que os arquivos eram CRLF. São **LF** na base, na VPS e nos commits; a contagem anterior estava errada. Os sha256 não mudam com isso.
+
+
+## 9. Itens da FMEA (26/11/2026): LID por conexão, estado da sessão e fusão de contato
+
+Origem: FMEA do negociador de 25/11, modos "a porta por LID bloqueia cerca de 98% dos contatos porque não lê o LidMappings do VERITAS", "chip em qrcode esconde o humano" e "fusão de contato LID e LID resolvido para outro contato". Commit `90b3292`. Base reconferida: os arquivos tocados (`CreateOrUpdateContactService.ts`, `LidResolutionService.ts`, `whaileys.ts`, controller e rotas) seguiam iguais à VPS antes da mudança.
+
+### 9.1 `GET /internal/retorno-ia/lids?conexao=N[&lid=a,b]`
+- Mesmo `autorizar` (token + IPs). Conexão fora de `RETORNO_IA_LID_CONEXOES` ∩ `RETORNO_IA_CONEXOES` = 403 (lista vazia por padrão, tudo negado).
+- Só SELECT em `LidMappings`, `Contacts` e `Tickets` (`services/RetornoIaServices/ConsultarLidsService.ts`). Não chama USync nem grava nada, ao contrário de `resolveLidToPhoneNumber`.
+- LIDs da conexão = LIDs dos contatos com ticket nela + `LidMappings` gravados por ela + arquivadas em `@lid` da fonte de arquivadas. Com `lid=`, só os pedidos (até 500; acima disso, 400 `ERR_PEDIDO_GRANDE`).
+- Por LID: `telefone` (um só candidato), `conflito`, `candidatos` (só quando há conflito) e `fontes`. Dois telefones diferentes para o mesmo LID, ou um conflito registrado na fusão, dão `conflito: true` com **`telefone: null`**. A porta trata como desconhecido e nunca escolhe um lado. O mesmo número com ou sem o 9º dígito (e com ou sem 55) não conta como conflito.
+- Totais: `total`, `resolvidos`, `conflitos` e `sem_telefone`, para a métrica "barrado só por LID desconhecido" da FMEA. Erro de banco = 500 `ERR_CONSULTA_FALHOU`, sem detalhe. `Cache-Control: no-store`.
+
+### 9.2 Tap de `connection.update` e `GET /internal/retorno-ia/sessoes[?conexao=N]`
+- `helpers/retornoIaSessao.ts`, ligado na primeira linha do handler de `connection.update` do `whaileys.ts`. Nunca lança. No-op com `RETORNO_IA_SESSAO_CONEXOES` vazia (padrão); só entram conexões que também estão em `RETORNO_IA_CONEXOES`.
+- Estados: `open`, `connecting`, `close` e `qrcode` (um update com QR). Por conexão: `estado`, `desde`, `conectada_desde` (início do `open` contínuo atual, que zera em qualquer outro estado), `conectada_ha_s`, `observado_desde` e os últimos 50 eventos com hora e código de desconexão. O QR em si nunca é guardado.
+- Sem evento desde o início do processo = `desconhecido`. Estado só em memória: depois de um restart, nada antes de `observado_desde` conta como contínuo.
+- `sessaoContinua(conexao, inicio, agora, 600)` implementa a regra da FMEA: a posse só vence com o chip `open` o intervalo inteiro e há pelo menos 10 min antes do início. Fica disponível para a porta, que mora no PA FIXA e consome a rota.
+
+### 9.3 Fusão de contato LID (`CreateOrUpdateContactService.ts`, `LidResolutionService.ts`, `helpers/lidConflitos.ts`)
+Casos tratados, sempre **registrados** (memória, até 500, e log com o LID, a origem e os ids de contato, **sem telefone**):
+
+| Origem | Quando | Sem trava (padrão) | Com `VERITAS_LID_CONFLITO_TRAVA=1` |
+|---|---|---|---|
+| `lid_de_outro_contato` | o contato achado pelo LID já tem **outro telefone real** e seria fundido ao contato do telefone novo | funde como antes e marca | **não funde**: não move ticket nem mensagem, não apaga contato, não atualiza nada |
+| `telefone_com_outro_lid` | o contato do telefone já tem outro LID (fusão, troca de LID ou `resolveAndAutoMerge`) | troca/funde como antes e marca | mantém o LID antigo e não funde |
+| `mapeamento_divergente` | `saveLidMapping` com o LID já apontando para outro telefone | sobrescreve como antes e marca (conferido pelo cache, sem consulta extra) | confere no banco e **mantém o mapeamento antigo** |
+| `lid_de_outro_contato` (sem fusão) | contato do LID com telefone real diferente do resolvido | igual a antes (o telefone antigo fica) e marca | igual |
+
+A fusão legítima, de um contato que guardava o LID no campo `number` (sem telefone), segue igual nos dois modos. O conflito registrado aparece em `/lids` como `conflito: true`, e a resolução continua sendo humana. Esses registros ficam só em memória: um restart os apaga, mas, com a trava ligada, o desacordo continua no banco (o mapeamento antigo contra o contato), e o `/lids` volta a acusar.
+
+### 9.4 Envs novas (todas vazias por padrão)
+
+| Env | Efeito |
+|---|---|
+| `RETORNO_IA_LID_CONEXOES` | libera `/lids` por conexão |
+| `RETORNO_IA_SESSAO_CONEXOES` | liga o tap de `connection.update` e libera `/sessoes` |
+| `VERITAS_LID_CONFLITO_TRAVA` | `1` suspende a fusão, a troca de LID e a sobrescrita do mapeamento em conflito |
+
+Sem nenhuma delas, o comportamento é idêntico ao de produção. A única diferença é uma linha de log `lid conflito` quando a situação ocorre.
+
+### 9.5 Testes
+47 novos: `LidConflitos.spec.ts` (8), `RetornoIaSessao.spec.ts` (6), `ConsultarLids.spec.ts` (8: serviço com fontes injetadas e as duas rotas) e `FusaoLid.spec.ts` (8, com os modelos simulados: fusão legítima, outro contato com e sem trava, 9º dígito, telefone com outro LID com e sem trava, `saveLidMapping` e `resolveAndAutoMerge`). Com as suítes RetornoIa e WhatsApp: **8 suítes, 93 testes OK**. O eslint não acusa erro nos arquivos novos. Nos dois serviços antigos, só aparece o mesmo padrão de formatação que a base já tinha. O `tsc` não acusa erro nos arquivos tocados (os de `whaileys.ts` já existiam).
+
+### 9.6 Pacote atualizado (sha256 dos blobs de `90b3292`, LF)
+
+| Arquivo | sha256 |
+|---|---|
+| `src/controllers/RetornoIaController.ts` | `6cf170a51750064a6dcd7db93c6070978b84af5055e10a1855405fbfddf95fb9` |
+| `src/routes/retornoIaRoutes.ts` | `973f943e5d5b8768ffb6d8ddb6bd751a2fc6965cefd1e8319ba8a129777d6821` |
+| `src/providers/WhatsApp/Implementations/whaileys.ts` | `af2919a6df0656f6db452bea0f91352a6f784eed1bee58420da6df7dfa4ce634` |
+| `src/helpers/retornoIaArquivo.ts` (novo) | `8c371cd8a657ef51ae4e60baf5794fb2203c3ea3e31158ba1dc73688b709bfab` |
+| `src/helpers/retornoIaSessao.ts` (novo) | `03180af59dc57eac1e20764103a7d21555c793a125fb351811dfe9bfa5b37f41` |
+| `src/helpers/lidConflitos.ts` (novo) | `70443d2158e61f7ca24546beb610bc71a112b37b94a7f9190e6938b9c63ac6ad` |
+| `src/services/RetornoIaServices/ConsultarLidsService.ts` (novo) | `5dd12539680d4fe9f39da0045bc6e16f8ba0577397017820febc1e48ed617832` |
+| `src/services/ContactServices/CreateOrUpdateContactService.ts` | `283b0bf9eda0e9235e01d85ac0e50cbc35f7264bab54b5d9b35f57f4fe610305` |
+| `src/services/WbotServices/LidResolutionService.ts` | `e28224bd13973dc2691202672016cff3b6e2dbda11fe9dde71973f71dd97e498` |
+
+Esta tabela substitui a da seção 6. O backup e o rollback passam a cobrir também `CreateOrUpdateContactService.ts` e `LidResolutionService.ts` (base `b11bbc3e…` e `20835fd1…`) e a remoção dos 4 arquivos novos. A ordem proposta continua: publicar com as envs vazias, depois `RETORNO_IA_SESSAO_CONEXOES` e `RETORNO_IA_LID_CONEXOES` (só leitura), e por último `VERITAS_LID_CONFLITO_TRAVA=1`, depois de contar quantos conflitos aparecem no log.
+
+### 9.7 O que revisar
+1. **`/lids` expõe telefones** das conexões liberadas ao cliente interno autenticado, como `/arquivadas`.
+2. **Custo da consulta sem `lid=`**: varre os tickets da conexão. Em chip com muitos tickets são alguns SELECTs em lotes de 100 a 500. O robô deve preferir `lid=` com os LIDs que precisa.
+3. **`Contacts.lid LIKE 'L%'`** é filtrado depois por igualdade exata; não confunde LIDs com prefixo comum.
+4. **Trava de conflito** muda o CRM quando ligada: o contato do LID e o do telefone ficam separados, com tickets em cada um, até alguém resolver. É o comportamento pedido ("nunca escolher um sozinho").
+5. **Sessão** depende de o whaileys emitir `connection.update`. Uma sessão removida sem evento (`removeSession`) fica no último estado conhecido. A porta deve também exigir `estado: "open"` recente e cruzar com o `Whatsapps.status`.
