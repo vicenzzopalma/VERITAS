@@ -42,8 +42,13 @@ import CreateOrUpdateContactService from "../../../services/ContactServices/Crea
 import { getIO } from "../../../libs/socket";
 import {
   clearPairingCode,
+  clearPairingInProgress,
   credsParaPersistir,
   ensurePairingCode,
+  isPairingInProgress,
+  isPairingProgressUpdate,
+  isWatching,
+  markPairingInProgress,
   nameEnd4,
   pairingCodeEnabled,
   PairingPayload
@@ -1106,6 +1111,24 @@ const countConnectionsEndingWith = async (end4: string): Promise<number> => {
  * Pedido da tela: número digitado (já normalizado) para a conexão em QR.
  * Recusa conexão conectada ou sem socket aguardando QR.
  */
+/** GET do modal: se a conexão está em QR e ainda sem código, tenta gerar (número do CRM). */
+export const ensurePairingCodeForSession = (whatsapp: Whatsapp): void => {
+  const wbot = sessions.get(whatsapp.id) as any;
+  if (!pairingCodeEnabled() || !wbot || whatsapp.status !== "qrcode") return;
+  ensurePairingCode({
+    whatsapp,
+    socket: wbot,
+    emit: emitPairingCode,
+    countSameEnd: countConnectionsEndingWith,
+    onError: err =>
+      logger.warn({
+        info: "Pairing code request failed",
+        sessionId: whatsapp.id,
+        err: (err as Error)?.message
+      })
+  }).catch(() => {});
+};
+
 export const requestPairingCodeForSession = async (
   whatsapp: Whatsapp,
   number: string
@@ -1365,6 +1388,15 @@ const initializeSession = async (whatsapp: Whatsapp): Promise<void> => {
   });
 
   wbot.ev.on("creds.update", async (update: any) => {
+    // item 81: o celular aceitou o código (companion_finish) ou chegou o pair-success:
+    // pareamento em andamento até a conexão abrir depois do 515.
+    // (account só vem no pair-success e registered só no companion_finish, ambos antes do open)
+    if (isPairingProgressUpdate(update, state.creds, false)) {
+      if (!isPairingInProgress(sessionId)) {
+        logger.info({ info: "Pareamento em andamento (aguardando 515 e reconexão)", sessionId });
+      }
+      markPairingInProgress(sessionId);
+    }
     if (update?.me?.id || update?.account) {
       await saveSessionCredsImmediate(sessionId, state.creds);
     } else {
@@ -1671,6 +1703,7 @@ const initializeSession = async (whatsapp: Whatsapp): Promise<void> => {
         errorMessage?.toLowerCase().includes("not-authorized");
 
       if (isRestrictedOrBanned) {
+        clearPairingInProgress(sessionId); // item 81: pareamento (se havia) acabou
         logger.warn({
           info: "Session logged out, banned or credentials revoked (401/403/banned). Resetting session to avoid reconnection loop.",
           sessionId,
@@ -1771,6 +1804,7 @@ const initializeSession = async (whatsapp: Whatsapp): Promise<void> => {
         (Boolean(whatsapp.qrcode) && statusCode === 408 && errorMessage !== "Connection was lost");
 
       if (isQrTimeout) {
+        clearPairingInProgress(sessionId); // item 81: socket do pareamento morreu
         logger.warn({
           info: "QR Code expired. Stopping attempts until user requests new QR.",
           sessionId,
@@ -1896,6 +1930,7 @@ const initializeSession = async (whatsapp: Whatsapp): Promise<void> => {
     if (connection === "open") {
       await flushPendingCredsSave(sessionId);
       clearPairingCode(sessionId);
+      clearPairingInProgress(sessionId);
 
       // Fase 0a do negociador: liga (uma vez) o ciclo de sincronização das arquivadas.
       if (retornoIaArquivoAtivo(sessionId)) {
@@ -2047,7 +2082,8 @@ const initializeSession = async (whatsapp: Whatsapp): Promise<void> => {
       logger.info({ info: "QR Code generated", sessionId });
 
       // item 81: código de pareamento junto do QR (nunca em log). Não bloqueia o QR.
-      if (pairingCodeEnabled()) {
+      // Só com o modal aberto: QR aberto pelo watchdog não manda aviso ao celular.
+      if (pairingCodeEnabled() && isWatching(sessionId)) {
         ensurePairingCode({
           whatsapp: sessionToSend,
           socket: wbot as any,
@@ -2807,6 +2843,8 @@ export const reconcileAllSessionsLiveness = async (): Promise<{
   for (const whatsapp of allWhatsapps) {
     // Aparelhos em status qrcode ou sem chaves não devem ser reiniciados pelo watchdog
     if (whatsapp.status === "qrcode") continue;
+    // item 81: nem no meio de um pareamento (entre o código aceito e a reconexão do 515)
+    if (isPairingInProgress(whatsapp.id)) continue;
 
     // Checar se possui credenciais/chaves salvas
     const hasKeys =

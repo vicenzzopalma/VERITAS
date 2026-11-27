@@ -9,7 +9,13 @@ import {
   normalizePairingNumber,
   pickCrmNumber,
   resolvePairingNumber,
-  setTypedNumber
+  setTypedNumber,
+  isPairingInProgress,
+  isPairingProgressUpdate,
+  markPairingInProgress,
+  clearPairingInProgress,
+  markWatching,
+  isWatching
 } from "../../../helpers/pairingCode";
 
 // CRM inexistente: nada de leitura de arquivo real nos testes.
@@ -161,5 +167,101 @@ describe("ensurePairingCode", () => {
     await ensurePairingCode({ whatsapp: wa, socket: makeSocket(), emit: jest.fn() });
     clearPairingCode(7);
     expect(getPairingPayload(7).code).toBeUndefined();
+  });
+});
+
+describe("fluxo do pareamento por código (item 81, correção do 515)", () => {
+  beforeEach(() => __resetPairingState());
+
+  const wa = { id: 9, name: "Disparo 1234", status: "qrcode" };
+
+  it("companion_finish (registered sem account) ainda não grava o creds.me provisório", () => {
+    const creds: any = {
+      noiseKey: { k: 1 },
+      pairingCode: "ABCD1234",
+      me: { id: "5547999991234@s.whatsapp.net", name: "~" },
+      registered: true,
+      advSecretKey: "segredo"
+    };
+    const out: any = credsParaPersistir(creds);
+    expect(out.me).toBeUndefined();
+    expect(out.pairingCode).toBeUndefined();
+    expect(out.registered).toBe(true);
+    expect(out.advSecretKey).toBe("segredo");
+    expect(out.noiseKey).toEqual({ k: 1 });
+  });
+
+  it("depois do pair-success grava tudo (me definitivo e account) para reconectar no 515", () => {
+    const creds: any = {
+      pairingCode: "ABCD1234",
+      me: { id: "5547999991234:23@s.whatsapp.net", lid: "1@lid" },
+      account: { details: "x" },
+      registered: true,
+      signalIdentities: [{ id: 1 }],
+      platform: "android"
+    };
+    const out: any = credsParaPersistir(creds);
+    expect(out.me).toEqual({ id: "5547999991234:23@s.whatsapp.net", lid: "1@lid" });
+    expect(out.account).toEqual({ details: "x" });
+    expect(out.signalIdentities).toEqual([{ id: 1 }]);
+    expect(out.pairingCode).toBeUndefined();
+  });
+
+  it("detecta o pareamento em andamento pelos creds.update da biblioteca", () => {
+    // requestPairingCode: só me provisório => não é andamento
+    expect(isPairingProgressUpdate({ me: { id: "a" }, pairingCode: "X" }, {}, false)).toBe(false);
+    // companion_finish
+    expect(isPairingProgressUpdate({ registered: true }, {}, false)).toBe(true);
+    // pair-success
+    expect(isPairingProgressUpdate({ me: { id: "a:1" }, account: {} }, {}, false)).toBe(true);
+    // login normal (CB:success) de sessão já pareada
+    expect(isPairingProgressUpdate({ me: { id: "a:1", lid: "l" } }, { account: {} }, false)).toBe(false);
+    expect(isPairingProgressUpdate({ registered: true }, { account: {} }, false)).toBe(false);
+  });
+
+  it("com pareamento em andamento não gera código novo, mesmo com QR girando ou pedido da tela", async () => {
+    setTypedNumber(9, "5547999991234");
+    const socket = makeSocket(["ABCD1234", "ZZZZ9999"]);
+    await ensurePairingCode({ whatsapp: wa, socket, emit: jest.fn() });
+    expect(socket.requestPairingCode).toHaveBeenCalledTimes(1);
+
+    markPairingInProgress(9);
+    expect(isPairingInProgress(9)).toBe(true);
+    await ensurePairingCode({ whatsapp: wa, socket, emit: jest.fn() });
+    await ensurePairingCode({ whatsapp: wa, socket: makeSocket(["Q"]), emit: jest.fn() });
+    await ensurePairingCode({ whatsapp: wa, socket, emit: jest.fn(), force: true });
+    expect(socket.requestPairingCode).toHaveBeenCalledTimes(1);
+
+    // 515 => removeSession limpa o código, mas não o andamento
+    clearPairingCode(9);
+    expect(isPairingInProgress(9)).toBe(true);
+
+    // conexão aberta depois do 515 encerra o andamento
+    clearPairingInProgress(9);
+    expect(isPairingInProgress(9)).toBe(false);
+  });
+
+  it("andamento expira sozinho depois do TTL", () => {
+    const real = Date.now;
+    markPairingInProgress(9);
+    Date.now = () => real() + 4 * 60 * 1000;
+    try {
+      expect(isPairingInProgress(9)).toBe(false);
+    } finally {
+      Date.now = real;
+    }
+  });
+
+  it("código automático só com o modal aberto (watching)", () => {
+    expect(isWatching(9)).toBe(false);
+    markWatching(9);
+    expect(isWatching(9)).toBe(true);
+    const real = Date.now;
+    Date.now = () => real() + 4 * 60 * 1000;
+    try {
+      expect(isWatching(9)).toBe(false);
+    } finally {
+      Date.now = real;
+    }
   });
 });

@@ -75,10 +75,70 @@ export const credsParaPersistir = <T extends Record<string, any>>(creds: T): T =
     return creds;
   }
   const { pairingCode, ...rest } = creds as any;
-  if (!rest.account && !rest.registered) {
+  // Pareamento só está confirmado com creds.account (pair-success). Antes disso o
+  // creds.me é o provisório do requestPairingCode (mesmo depois do companion_finish,
+  // que já marca registered=true) e não pode ir para o banco.
+  if (!rest.account) {
     delete rest.me;
   }
   return rest as T;
+};
+
+// ---------------------------------------------------------------------------
+// Pareamento em andamento: do companion_finish (o celular aceitou o código) até a
+// conexão abrir depois do 515. Nesse intervalo ninguém gera código novo, pede QR
+// novo nem reinicia a sessão (watchdog, botão "Novo QR", renovação do modal).
+const pairingInProgress = new Map<number, number>();
+export const PAIRING_IN_PROGRESS_TTL_MS = 3 * 60 * 1000;
+
+export const markPairingInProgress = (whatsappId: number): void => {
+  pairingInProgress.set(whatsappId, Date.now());
+};
+
+export const isPairingInProgress = (whatsappId: number): boolean => {
+  const at = pairingInProgress.get(whatsappId);
+  if (!at) return false;
+  if (Date.now() - at > PAIRING_IN_PROGRESS_TTL_MS) {
+    pairingInProgress.delete(whatsappId);
+    return false;
+  }
+  return true;
+};
+
+export const clearPairingInProgress = (whatsappId: number): void => {
+  pairingInProgress.delete(whatsappId);
+};
+
+/**
+ * Lê um creds.update e diz se o pareamento entrou em andamento: o celular aceitou o
+ * código (registered=true sem account) ou o pair-success chegou (account) e ainda
+ * falta o 515 com a reconexão.
+ */
+export const isPairingProgressUpdate = (
+  update: any,
+  credsAtuais: any,
+  conectado: boolean
+): boolean => {
+  if (conectado || !update) return false;
+  if (update.registered === true && !credsAtuais?.account) return true;
+  if (update.account) return true;
+  return false;
+};
+
+// ---------------------------------------------------------------------------
+// Só pede código automático com o modal do QR aberto (o modal consulta o estado a
+// cada QR novo). Sem isso, cada reinício de sessão em QR pelo watchdog mandaria
+// uma notificação de pareamento ao celular do chip.
+const watching = new Map<number, number>();
+export const WATCH_TTL_MS = 3 * 60 * 1000;
+
+export const markWatching = (whatsappId: number): void => {
+  watching.set(whatsappId, Date.now());
+};
+
+export const isWatching = (whatsappId: number): boolean => {
+  const at = watching.get(whatsappId);
+  return Boolean(at && Date.now() - at <= WATCH_TTL_MS);
 };
 
 export const setTypedNumber = (whatsappId: number, number: string): void => {
@@ -225,9 +285,14 @@ export const ensurePairingCode = async (opts: EnsureOptions): Promise<PairingPay
     return getPairingPayload(id);
   }
 
-  // Nunca em conexão conectada ou já pareada.
+  // Nunca em conexão conectada, já pareada ou com pareamento em andamento.
   const creds = socket?.authState?.creds;
-  if (whatsapp.status === "CONNECTED" || creds?.registered || creds?.account) {
+  if (
+    whatsapp.status === "CONNECTED" ||
+    creds?.registered ||
+    creds?.account ||
+    isPairingInProgress(id)
+  ) {
     return getPairingPayload(id);
   }
 
@@ -295,6 +360,8 @@ export const ensurePairingCode = async (opts: EnsureOptions): Promise<PairingPay
 export const __resetPairingState = (): void => {
   states.clear();
   inFlights.clear();
+  pairingInProgress.clear();
+  watching.clear();
   typedNumbers.clear();
   crmCache = null;
 };
