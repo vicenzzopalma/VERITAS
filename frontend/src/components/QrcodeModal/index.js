@@ -2,10 +2,11 @@ import React, { useCallback, useEffect, useRef, useState } from "react";
 import QRCode from "qrcode.react";
 import toastError from "../../errors/toastError";
 
-import { Dialog, DialogContent, IconButton, Typography, CircularProgress } from "@material-ui/core";
+import { Dialog, DialogContent, IconButton, Typography, CircularProgress, Tooltip, InputBase } from "@material-ui/core";
 import { makeStyles, alpha } from "@material-ui/core/styles";
 import CloseIcon from "@material-ui/icons/Close";
 import WhatsAppIcon from "@material-ui/icons/WhatsApp";
+import FileCopyOutlinedIcon from "@material-ui/icons/FileCopyOutlined";
 import { i18n } from "../../translate/i18n";
 import api from "../../services/api";
 import openSocket from "../../services/socket-io";
@@ -66,8 +67,8 @@ const useStyles = makeStyles(theme => {
 		// also in dark mode).
 		// QR grande (480px, como antes do redesign); só encolhe se a tela não tiver altura.
 		qrTile: {
-			width: "min(512px, calc(100vh - 140px))",
-			height: "min(512px, calc(100vh - 140px))",
+			width: "min(512px, calc(100vh - 190px))",
+			height: "min(512px, calc(100vh - 190px))",
 			borderRadius: 14,
 			backgroundColor: "#FFFFFF",
 			display: "grid",
@@ -82,6 +83,28 @@ const useStyles = makeStyles(theme => {
 			[theme.breakpoints.down("xs")]: { width: "232px !important", height: "232px !important" },
 		},
 		waiting: { display: "flex", flexDirection: "column", alignItems: "center", gap: 12, color: "#5F6478", fontSize: "0.82rem" },
+		// item 81: código de pareamento, uma linha discreta embaixo do QR.
+		pairing: { marginTop: theme.spacing(1.25), textAlign: "center", fontSize: "0.9rem", color: c.text },
+		pairingLine: { display: "inline-flex", alignItems: "center", gap: 4, minHeight: 28 },
+		pairingCode: { fontFamily: "ui-monospace, SFMono-Regular, Menlo, Consolas, monospace", letterSpacing: "0.06em", fontWeight: 600 },
+		pairingMuted: { color: c.textMuted },
+		pairingHint: { color: c.textMuted, fontSize: "0.74rem", opacity: 0.85, marginTop: 2 },
+		pairingInput: {
+			fontSize: "0.86rem",
+			width: 170,
+			padding: "1px 8px",
+			border: `1px solid ${c.border}`,
+			borderRadius: 8,
+		},
+		pairingBtn: {
+			border: "none",
+			background: "none",
+			color: theme.palette.primary.main,
+			cursor: "pointer",
+			fontSize: "0.84rem",
+			fontWeight: 600,
+			padding: "2px 6px",
+		},
 	};
 });
 
@@ -92,9 +115,91 @@ const STEPS = [
 	"Aponte o celular para esta tela para ler o código",
 ];
 
+const PAIRING_HINT = "WhatsApp > Aparelhos conectados > Conectar com número de telefone";
+
+// item 81: código para conectar sem ler o QR. Singelo: "Código: XXXX-XXXX" + copiar.
+const PairingCodeLine = ({ classes, whatsAppId, pairing, onPairing }) => {
+	const [number, setNumber] = useState("");
+	const [sending, setSending] = useState(false);
+	const [copied, setCopied] = useState(false);
+	const status = pairing?.status;
+
+	const handleCopy = async () => {
+		if (!pairing?.code) return;
+		try {
+			await navigator.clipboard.writeText(pairing.code);
+		} catch (e) {
+			const el = document.createElement("textarea");
+			el.value = pairing.code;
+			document.body.appendChild(el);
+			el.select();
+			document.execCommand("copy");
+			document.body.removeChild(el);
+		}
+		setCopied(true);
+		setTimeout(() => setCopied(false), 1500);
+	};
+
+	const handleRequest = async e => {
+		e.preventDefault();
+		if (!number.trim() || sending) return;
+		setSending(true);
+		try {
+			const { data } = await api.post(`/whatsappsession/${whatsAppId}/pairing-code`, { number });
+			onPairing(data);
+		} catch (err) {
+			toastError(err);
+		} finally {
+			setSending(false);
+		}
+	};
+
+	let line;
+	if (status === "OK" && pairing.code) {
+		line = (
+			<span className={classes.pairingLine}>
+				<span>Código:</span>
+				<span className={classes.pairingCode}>{pairing.code}</span>
+				<Tooltip title={copied ? "Copiado" : "Copiar"}>
+					<IconButton size="small" onClick={handleCopy} aria-label="copiar código">
+						<FileCopyOutlinedIcon style={{ fontSize: 15 }} />
+					</IconButton>
+				</Tooltip>
+			</span>
+		);
+	} else if (status === "GERANDO" || sending) {
+		line = <span className={`${classes.pairingLine} ${classes.pairingMuted}`}>Código: gerando...</span>;
+	} else {
+		line = (
+			<form className={classes.pairingLine} onSubmit={handleRequest}>
+				<InputBase
+					className={classes.pairingInput}
+					placeholder="Número do chip p/ código"
+					value={number}
+					onChange={e => setNumber(e.target.value)}
+					inputProps={{ inputMode: "tel", "aria-label": "número do chip" }}
+				/>
+				<button type="submit" className={classes.pairingBtn}>
+					Gerar código
+				</button>
+			</form>
+		);
+	}
+
+	return (
+		<div className={classes.pairing}>
+			{line}
+			<div className={classes.pairingHint}>
+				{status === "ERRO" ? pairing.error || "Não foi possível gerar o código agora." : PAIRING_HINT}
+			</div>
+		</div>
+	);
+};
+
 const QrcodeModal = ({ open, onClose, whatsAppId }) => {
 	const classes = useStyles();
 	const [qrCode, setQrCode] = useState("");
+	const [pairing, setPairing] = useState(null);
 	const lastRenewRef = useRef(0);
 
 	// Renova o QR automaticamente enquanto o modal está aberto. O WhatsApp entrega poucos QRs
@@ -123,6 +228,7 @@ const QrcodeModal = ({ open, onClose, whatsAppId }) => {
 			} else if (session.status === "DISCONNECTED") {
 				// QR expirou e a sessão foi encerrada: gerar outro
 				setQrCode("");
+				setPairing(null);
 				renewQr();
 			}
 		},
@@ -156,10 +262,35 @@ const QrcodeModal = ({ open, onClose, whatsAppId }) => {
 			if (data.action === "update") handleSessionUpdate(data.whatsapp);
 		});
 
+		socket.on("whatsappPairingCode", data => {
+			if (data.action === "update" && data.pairing?.whatsappId === whatsAppId) {
+				setPairing(data.pairing);
+			}
+		});
+
 		return () => {
 			socket.disconnect();
 		};
 	}, [whatsAppId, handleSessionUpdate]);
+
+	// O modal pode abrir depois do evento do código: busca o estado atual a cada QR novo.
+	useEffect(() => {
+		setPairing(null);
+	}, [whatsAppId]);
+
+	useEffect(() => {
+		if (!open || !whatsAppId || !qrCode) return;
+		let alive = true;
+		api
+			.get(`/whatsappsession/${whatsAppId}/pairing-code`)
+			.then(({ data }) => {
+				if (alive && data) setPairing(prev => (prev?.status === "OK" && data.status !== "OK" ? prev : data));
+			})
+			.catch(() => {});
+		return () => {
+			alive = false;
+		};
+	}, [open, whatsAppId, qrCode]);
 
 	// Rede de segurança: se ficar sem QR por 30s com o modal aberto, pede um novo.
 	useEffect(() => {
@@ -214,6 +345,14 @@ const QrcodeModal = ({ open, onClose, whatsAppId }) => {
 							</div>
 						)}
 					</div>
+					{qrCode && (
+						<PairingCodeLine
+							classes={classes}
+							whatsAppId={whatsAppId}
+							pairing={pairing}
+							onPairing={setPairing}
+						/>
+					)}
 				</div>
 			</DialogContent>
 		</Dialog>
