@@ -9,16 +9,26 @@ import { getIO } from "../libs/socket";
 import { canAccessWhatsapp } from "../services/WhatsappService/WhatsappAccessPolicy";
 import {
   getPairingPayload,
+  isPairingInProgress,
+  markWatching,
   normalizePairingNumber,
   setTypedNumber
 } from "../helpers/pairingCode";
-import { requestPairingCodeForSession } from "../providers/WhatsApp/Implementations/whaileys";
+import {
+  ensurePairingCodeForSession,
+  requestPairingCodeForSession
+} from "../providers/WhatsApp/Implementations/whaileys";
 
 const store = async (req: Request, res: Response): Promise<Response> => {
   const { whatsappId } = req.params;
   const whatsapp = await ShowWhatsAppService(whatsappId);
   if (!canAccessWhatsapp(req.user, whatsapp)) {
     return res.status(403).json({ error: "ERR_NO_PERMISSION" });
+  }
+
+  // item 81: pareamento por código em andamento: não reinicia a sessão no meio.
+  if (isPairingInProgress(whatsapp.id)) {
+    return res.status(409).json({ error: "ERR_PAIRING_IN_PROGRESS" });
   }
 
   // Se o aparelho não possui credenciais ou está iniciando pareamento, limpa QR code anterior
@@ -37,6 +47,12 @@ const update = async (req: Request, res: Response): Promise<Response> => {
   const currentWhatsapp = await ShowWhatsAppService(whatsappId);
   if (!canAccessWhatsapp(req.user, currentWhatsapp)) {
     return res.status(403).json({ error: "ERR_NO_PERMISSION" });
+  }
+
+  // item 81: "Novo QR" (ou a renovação automática do modal) não apaga um pareamento
+  // por código que o celular já aceitou e que espera o 515 para reconectar.
+  if (isPairingInProgress(idNumber)) {
+    return res.status(409).json({ error: "ERR_PAIRING_IN_PROGRESS" });
   }
 
   // Remove sessao ativa em memoria e limpa qualquer listener
@@ -71,6 +87,9 @@ const showPairingCode = async (req: Request, res: Response): Promise<Response> =
   if (whatsapp.status === "CONNECTED") {
     return res.status(200).json({ whatsappId: whatsapp.id, status: "SEM_NUMERO" });
   }
+  // Modal aberto: libera o código automático e tenta gerar já (resultado vem pelo socket).
+  markWatching(whatsapp.id);
+  ensurePairingCodeForSession(whatsapp);
   return res.status(200).json(getPairingPayload(whatsapp.id));
 };
 
@@ -88,6 +107,10 @@ const requestPairingCode = async (req: Request, res: Response): Promise<Response
   if (whatsapp.status === "CONNECTED") {
     return res.status(409).json({ error: "ERR_PAIRING_ALREADY_CONNECTED" });
   }
+  if (isPairingInProgress(whatsapp.id)) {
+    return res.status(409).json({ error: "ERR_PAIRING_IN_PROGRESS" });
+  }
+  markWatching(whatsapp.id);
   setTypedNumber(whatsapp.id, number);
   const payload = await requestPairingCodeForSession(whatsapp, number);
   return res.status(200).json(payload);
