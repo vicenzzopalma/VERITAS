@@ -40,6 +40,14 @@ import Ticket from "../../../models/Ticket";
 import { Op } from "sequelize";
 import CreateOrUpdateContactService from "../../../services/ContactServices/CreateOrUpdateContactService";
 import { getIO } from "../../../libs/socket";
+import {
+  clearPairingCode,
+  credsParaPersistir,
+  ensurePairingCode,
+  nameEnd4,
+  pairingCodeEnabled,
+  PairingPayload
+} from "../../../helpers/pairingCode"; // item 81: código embaixo do QR
 import { logger } from "../../../utils/logger";
 import AppError from "../../../errors/AppError";
 import StoreWppSessionKeys, { StoreWppSessionKeysBatch, StoreKeyRequest } from "../../../services/WppKeyServices/StoreWppSessionKeys";
@@ -276,13 +284,15 @@ const saveSessionCredsImmediate = async (
   creds: AuthenticationCreds
 ) => {
   try {
+    // item 81: sem pairingCode e sem o creds.me provisório do pedido de código.
+    const persist = credsParaPersistir(creds);
     const updateData: Partial<Whatsapp> = {
-      session: JSON.stringify(creds, BufferJSON.replacer)
+      session: JSON.stringify(persist, BufferJSON.replacer)
     };
 
-    if (creds?.me?.id) {
+    if (persist?.me?.id) {
       updateData.qrcode = "";
-      const rawNumber = creds.me.id.split(":")[0].replace(/\D/g, "");
+      const rawNumber = persist.me.id.split(":")[0].replace(/\D/g, "");
       if (rawNumber) {
         updateData.number = rawNumber;
       }
@@ -309,14 +319,16 @@ const saveSessionCreds = async (
   creds: AuthenticationCreds
 ) => {
   try {
+    // item 81: sem pairingCode e sem o creds.me provisório do pedido de código.
+    const persist = credsParaPersistir(creds);
     const updateData: Partial<Whatsapp> = {
-      session: JSON.stringify(creds, BufferJSON.replacer)
+      session: JSON.stringify(persist, BufferJSON.replacer)
     };
 
     // Apenas se a sessão tiver sido autenticada pelo WhatsApp (creds.me.id existe)
-    if (creds?.me?.id) {
+    if (persist?.me?.id) {
       updateData.qrcode = "";
-      const rawNumber = creds.me.id.split(":")[0].replace(/\D/g, "");
+      const rawNumber = persist.me.id.split(":")[0].replace(/\D/g, "");
       if (rawNumber) {
         updateData.number = rawNumber;
       }
@@ -1078,6 +1090,45 @@ export const historyHelpers = {
   hasMedia
 };
 
+// item 81: o estado do código vai num evento próprio, para o payload do QR seguir igual.
+const emitPairingCode = (pairing: PairingPayload): void => {
+  try {
+    getIO().emit("whatsappPairingCode", { action: "update", pairing });
+  } catch {}
+};
+
+const countConnectionsEndingWith = async (end4: string): Promise<number> => {
+  const all = await Whatsapp.findAll({ attributes: ["id", "name"] });
+  return all.filter(w => nameEnd4(w.name) === end4).length;
+};
+
+/**
+ * Pedido da tela: número digitado (já normalizado) para a conexão em QR.
+ * Recusa conexão conectada ou sem socket aguardando QR.
+ */
+export const requestPairingCodeForSession = async (
+  whatsapp: Whatsapp,
+  number: string
+): Promise<PairingPayload> => {
+  const wbot = sessions.get(whatsapp.id) as any;
+  if (!wbot || whatsapp.status === "CONNECTED" || whatsapp.status !== "qrcode") {
+    throw new AppError("ERR_PAIRING_NOT_WAITING_QR", 409);
+  }
+  return ensurePairingCode({
+    whatsapp,
+    socket: wbot,
+    number,
+    force: true,
+    emit: emitPairingCode,
+    onError: err =>
+      logger.warn({
+        info: "Pairing code request failed",
+        sessionId: whatsapp.id,
+        err: (err as Error)?.message
+      })
+  });
+};
+
 export const getWbot = (sessionId: number): Session => {
   const wbot = sessions.get(sessionId);
 
@@ -1096,6 +1147,7 @@ const removeSession = async (whatsappId: number): Promise<void> => {
   }
 
   await flushPendingCredsSave(whatsappId);
+  clearPairingCode(whatsappId);
 
   const wbot = sessions.get(whatsappId);
   if (wbot) {
@@ -1843,6 +1895,7 @@ const initializeSession = async (whatsapp: Whatsapp): Promise<void> => {
 
     if (connection === "open") {
       await flushPendingCredsSave(sessionId);
+      clearPairingCode(sessionId);
 
       // Fase 0a do negociador: liga (uma vez) o ciclo de sincronização das arquivadas.
       if (retornoIaArquivoAtivo(sessionId)) {
@@ -1992,6 +2045,22 @@ const initializeSession = async (whatsapp: Whatsapp): Promise<void> => {
       });
 
       logger.info({ info: "QR Code generated", sessionId });
+
+      // item 81: código de pareamento junto do QR (nunca em log). Não bloqueia o QR.
+      if (pairingCodeEnabled()) {
+        ensurePairingCode({
+          whatsapp: sessionToSend,
+          socket: wbot as any,
+          emit: emitPairingCode,
+          countSameEnd: countConnectionsEndingWith,
+          onError: err =>
+            logger.warn({
+              info: "Pairing code request failed",
+              sessionId,
+              err: (err as Error)?.message
+            })
+        }).catch(() => {});
+      }
     }
   });
 
