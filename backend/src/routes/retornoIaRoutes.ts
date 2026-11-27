@@ -11,4 +11,24 @@ retornoIaRoutes.post(
   RetornoIaController.send
 );
 
+// Fase 0a do negociador: fonte de arquivadas por conexão (só leitura), mesmo token e IPs.
+retornoIaRoutes.get(
+  "/internal/retorno-ia/arquivadas",
+  RetornoIaController.autorizar,
+  RetornoIaController.arquivadas
+);
+
+// Fase 0a do negociador (FMEA): LID → telefone e estado da sessão, só leitura.
+retornoIaRoutes.get(
+  "/internal/retorno-ia/lids",
+  RetornoIaController.autorizar,
+  RetornoIaController.lids
+);
+
+retornoIaRoutes.get(
+  "/internal/retorno-ia/sessoes",
+  RetornoIaController.autorizar,
+  RetornoIaController.sessoes
+);
+
 export default retornoIaRoutes;

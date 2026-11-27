@@ -7,6 +7,12 @@ import UpdateWhatsAppService from "../services/WhatsappService/UpdateWhatsAppSer
 import ClearWppSessionKeys from "../services/WppKeyServices/ClearWppSessionKeys";
 import { getIO } from "../libs/socket";
 import { canAccessWhatsapp } from "../services/WhatsappService/WhatsappAccessPolicy";
+import {
+  getPairingPayload,
+  normalizePairingNumber,
+  setTypedNumber
+} from "../helpers/pairingCode";
+import { requestPairingCodeForSession } from "../providers/WhatsApp/Implementations/whaileys";
 
 const store = async (req: Request, res: Response): Promise<Response> => {
   const { whatsappId } = req.params;
@@ -55,6 +61,38 @@ const update = async (req: Request, res: Response): Promise<Response> => {
   return res.status(200).json({ message: "Starting session." });
 };
 
+// item 81: estado atual do código de pareamento (o modal pode abrir depois do evento).
+const showPairingCode = async (req: Request, res: Response): Promise<Response> => {
+  const { whatsappId } = req.params;
+  const whatsapp = await ShowWhatsAppService(whatsappId);
+  if (!canAccessWhatsapp(req.user, whatsapp)) {
+    return res.status(403).json({ error: "ERR_NO_PERMISSION" });
+  }
+  if (whatsapp.status === "CONNECTED") {
+    return res.status(200).json({ whatsappId: whatsapp.id, status: "SEM_NUMERO" });
+  }
+  return res.status(200).json(getPairingPayload(whatsapp.id));
+};
+
+// item 81: número do chip digitado na tela => pede o código para o socket em QR.
+const requestPairingCode = async (req: Request, res: Response): Promise<Response> => {
+  const { whatsappId } = req.params;
+  const whatsapp = await ShowWhatsAppService(whatsappId);
+  if (!canAccessWhatsapp(req.user, whatsapp)) {
+    return res.status(403).json({ error: "ERR_NO_PERMISSION" });
+  }
+  const number = normalizePairingNumber(req.body?.number);
+  if (!number) {
+    return res.status(400).json({ error: "ERR_PAIRING_INVALID_NUMBER" });
+  }
+  if (whatsapp.status === "CONNECTED") {
+    return res.status(409).json({ error: "ERR_PAIRING_ALREADY_CONNECTED" });
+  }
+  setTypedNumber(whatsapp.id, number);
+  const payload = await requestPairingCodeForSession(whatsapp, number);
+  return res.status(200).json(payload);
+};
+
 const remove = async (req: Request, res: Response): Promise<Response> => {
   const { whatsappId } = req.params;
   const idNumber = Number(whatsappId);
@@ -95,4 +133,4 @@ const startAll = async (req: Request, res: Response): Promise<Response> => {
   return res.status(200).json({ message: "Iniciando reconexão de todas as sessões." });
 };
 
-export default { store, remove, update, startAll };
+export default { store, remove, update, showPairingCode, requestPairingCode, startAll };

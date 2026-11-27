@@ -17,6 +17,18 @@ whatsappSessionRoutes.post(
   WhatsAppSessionController.startAll
 );
 
+whatsappSessionRoutes.get(
+  "/whatsappsession/:whatsappId/pairing-code",
+  isAuth,
+  WhatsAppSessionController.showPairingCode
+);
+
+whatsappSessionRoutes.post(
+  "/whatsappsession/:whatsappId/pairing-code",
+  isAuth,
+  WhatsAppSessionController.requestPairingCode
+);
+
 whatsappSessionRoutes.post(
   "/whatsappsession/:whatsappId",
   isAuth,
